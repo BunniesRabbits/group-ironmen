@@ -20,7 +20,7 @@ git clone https://github.com/BunniesRabbits/group-ironmen
 Copy `.env.example`, renaming it to `.env`. Docker-compose will load these as environment variables while building and running. The main fields of interest are `HOST_PROTOCOL` and `HOST_URL`, which define the URL that gets constructed for requesting to the backend from the frontend.
 
 ### Example `.env`
-When hosting the servers locally for testing, assuming host port `AAAA` is being forwarded to the container:
+When hosting the servers locally for testing, assuming host port `AAAA` is being forwarded to the backend container:
 ```
 HOST_PROTOCOL=http
 HOST_URL=host.docker.internal:AAAA
@@ -59,3 +59,12 @@ ports:
     BBBB:XXXX
 ... snipped ...
 ```
+
+## Backups
+
+Prerequisites
+
+* docker
+* pg_dump from PostgreSQL utilities
+
+See `backup/backup.bash` for a script that can be run to backup the PostgreSQL database. The defaults in that script match the defaults in `.env.example`. The script is meant to be run on the host that is running the docker containers.
