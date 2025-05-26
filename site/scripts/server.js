@@ -14,7 +14,8 @@ function getArgValue(arg) {
   return args[i + 1];
 }
 
-const backend = `https://${getArgValue("--backend") === undefined ? process.env.HOST_URL : getArgValue("--backend")}`;
+const protocolPrefix = getArgValue("--protocol") === undefined ? process.env.HOST_PROTOCOL : getArgValue("--protocol");
+const backend = `${protocolPrefix}://${getArgValue("--backend") === undefined ? process.env.HOST_URL : getArgValue("--backend")}`;
 
 console.log(process.argv);
 
@@ -27,7 +28,7 @@ app.use(
     expressFormat: false,
     colorize: true,
     metaField: null,
-  })
+  }),
 );
 app.use(compression());
 app.use(express.static("public"));
@@ -36,7 +37,7 @@ app.use(express.static("."));
 if (backend) {
   console.log(`Backend for api calls: ${backend}`);
   app.use(express.json());
-  app.use("/api/*any", (req, res, next) => {
+  app.use("/api{*any}", (req, res, next) => {
     const forwardUrl = backend + req.originalUrl;
     console.log(`Calling backend ${forwardUrl}`);
     const headers = Object.assign({}, req.headers);

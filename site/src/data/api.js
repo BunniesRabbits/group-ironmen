@@ -5,6 +5,8 @@ import { exampleData } from "./example-data";
 
 class Api {
   constructor() {
+    // This is overwritten in docker-entrypoint.sh.
+    // The "/api" string is substituted with HOST_PROTOCOL + HOST_URL to construct the deployed URL
     this.baseUrl = "/api";
     this.createGroupUrl = `${this.baseUrl}/create-group`;
     this.exampleDataEnabled = false;

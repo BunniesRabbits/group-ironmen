@@ -1,18 +1,21 @@
-version: "3.8"
 services:
   group-ironmen-tracker-frontend:
-    image: chrisleeeee/group-ironmen-tracker-frontend
+    build:
+      context: ./site
+      dockerfile: Dockerfile
+    image: ellarbee/group-ironmen-tracker-frontend
     environment:
+      - HOST_PROTOCOL=${HOST_PROTOCOL}
       - HOST_URL=${HOST_URL}
     restart: always
     container_name: group-ironmen-tracker-frontend
     ports:
       - 4000:4000 # replace this if using a docker-compatible reverse proxy like traefik
   group-ironmen-tracker-backend:
-    # build:
-      # context: ./server
-      # dockerfile: Dockerfile
-    image: chrisleeeee/group-ironmen-tracker-backend
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: ellarbee/group-ironmen-tracker-backend
     environment:
       - PG_USER=${PG_USER}
       - PG_PASSWORD=${PG_PASSWORD}
