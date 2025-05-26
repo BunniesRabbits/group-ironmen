@@ -1,66 +1,61 @@
 # Group Ironmen Tracker Frontend and Backend
-Website: [groupiron.men](https://groupiron.men)
 
-Source for plugin: [https://github.com/christoabrown/group-ironmen-tracker](https://github.com/christoabrown/group-ironmen-tracker)
+Forked from a repo at: [https://github.com/christoabrown/group-ironmen](https://github.com/christoabrown/group-ironmen)
 
-This repo is for the frontend website and backend of the above plugin.
+The original repo is not being updated beyond maintenance, and there are features I wish to add, so I created this fork.
 
-This plugin tracks information about your group ironman player and sends it to a server where you and your other group members can view it. Currently it tracks:
-
-* Inventory, equipment, bank, rune pouch, and shared bank
-* Skill XP
-* World position, viewable in an interactive map
-* HP, prayer, energy, and world as well as showing inactivity
-* Quest state - completed, finished, in progress
-
-# Self-hosting
-
-It is possible to self-host the frontend and backend rather than use [groupiron.men](https://groupiron.men).
-
-In the plugin settings, put the URL that you are hosting the website on. Leaving it blank will default to https://groupiron.men.
-
-![](https://i.imgur.com/0JFD7D5.png)
-
-
-## With Docker
+## Usage
 
 Prerequisites
 
 * Docker
 * docker-compose
 
-### With docker-compose
+First, clone the repo. There are no prebuilt images hosted on DockerHub, as this repo is intended for self building and hosting, so you need the source code.
 
-Copy the `docker-compose.yml`, `.env.example`, and `schema.sql` (exists in `server/src/sql`) files onto your server.
-
-Copy the contents of `.env.example` into a new file named `.env` in the same directory and fill it with your secrets.
-
-The `.env` file explains what should go into each secret.
-
-The `docker-compose.yml` has a line that takes the path to the `schema.sql`. Make sure to update this to the relative or absolute path of the file on your server.
-
-After you have set up the `.env` file and `schema.sql` path, you can run `docker-compose up -d` and this will spin up both the frontend and backend. The backend should be available on port 5000 and the frontend on port 4000, although these can be changed in the docker-compose file.
-
-### Without docker-compose (untested)
-
-If you are not using the docker-compose, then you will have to set up the Postgres database and pass secrets in using Docker environment variables. See below in the [Without Docker](#without-docker) section for how to set up the database.
-
-You can then run the following to run the image for the frontend, adding the values of the environment variables:
-
-```sh
-docker run -d -e HOST_URL= chrisleeeee/group-ironmen-tracker-frontend
+```
+git clone https://github.com/BunniesRabbits/group-ironmen
 ```
 
-Same thing for the backend:
+Copy `.env.example`, renaming it to `.env`. Docker-compose will load these as environment variables while building and running. The main fields of interest are `HOST_PROTOCOL` and `HOST_URL`, which define the URL that gets constructed for requesting to the backend from the frontend.
 
-```sh
-docker run -d -e PG_USER= -e PG_PASSWORD= -e PG_HOST= -e PG_PORT=  -e PG_DB= -e BACKEND_SECRET= chrisleeeee/group-ironmen-tracker-backend
+### Example `.env`
+When hosting the servers locally for testing, assuming host port `AAAA` is being forwarded to the container:
+```
+HOST_PROTOCOL=http
+HOST_URL=host.docker.internal:AAAA
+... snipped ...
+```
+When deploying to a server, assuming you have a registered public domain forwarding to the required port on your server:
+```
+HOST_PROTOCOL=https
+HOST_URL=your.domain.here
+... snipped ...
 ```
 
-Check `.env.example` for an explanation on what the value of each environment variable should be.
+### Building and Running
+Run docker-compose in the repo root:
+```
+cd /path/to/repo/group-ironmen
+docker-compose up # optionally pass -d for detached mode
+```
 
-Once it's running, the backend should be available on port 8080 and the frontend on port 4000.
+The containers should successfully be running. The frontend is served on port `4000` by default.
 
-## Without Docker
+### Notes on Ports 
+Within their respective containers, the frontend listens for port `4000`, and the backend listens for port `8080`. `docker-compose.yml` is configured to set up a network that forwards `4000 -> 4000` and `5000 -> 8080`, so the host will be listening on `4000` and `5000`.
 
-To be filled...
+To change the host port being forwarded to each container from `AAAA` to `BBBB`, change these lines in `docker-compose.yml`:
+```
+... snipped ...
+ports:
+    AAAA:XXXX
+... snipped ...
+```
+to
+```
+... snipped ...
+ports:
+    BBBB:XXXX
+... snipped ...
+```
