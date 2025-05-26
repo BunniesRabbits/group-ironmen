@@ -18,7 +18,7 @@ export class PlayerPanel extends BaseElement {
     this.eventListener(
       this.querySelector(".player-panel__collection-log"),
       "click",
-      this.handleCollectionLogClick.bind(this)
+      this.handleCollectionLogClick.bind(this),
     );
   }
 
@@ -39,7 +39,7 @@ export class PlayerPanel extends BaseElement {
 
       if (this.activeComponent) {
         this.querySelector(`button[data-component="${this.activeComponent}"]`).classList.remove(
-          "player-panel__tab-active"
+          "player-panel__tab-active",
         );
       }
       this.querySelector(`button[data-component="${component}"]`).classList.add("player-panel__tab-active");
@@ -48,7 +48,7 @@ export class PlayerPanel extends BaseElement {
     } else if (this.activeComponent && this.activeComponent === component) {
       this.contentArea.innerHTML = "";
       this.querySelector(`button[data-component="${this.activeComponent}"]`).classList.remove(
-        "player-panel__tab-active"
+        "player-panel__tab-active",
       );
       this.activeComponent = null;
       this.classList.remove("expanded");

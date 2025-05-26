@@ -189,7 +189,7 @@ export class SkillGraph extends BaseElement {
       const [totalXpData, changeData, cumulativeChangeData] = this.dataForPlayer(
         playerSkillData,
         this.dates,
-        skillName
+        skillName,
       );
       const color = this.currentGroupData.members.get(playerSkillData.name).color;
 

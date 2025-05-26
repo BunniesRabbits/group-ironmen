@@ -243,7 +243,7 @@ export class CanvasMap extends BaseElement {
       if (!zooming && this.followingPlayer.name) {
         const [x, y] = this.gamePositionToCameraCenter(
           this.followingPlayer.coordinates.x,
-          this.followingPlayer.coordinates.y
+          this.followingPlayer.coordinates.y,
         );
         if (this.camera.x.target !== x) {
           this.camera.x.goTo(x, 100);
@@ -271,7 +271,7 @@ export class CanvasMap extends BaseElement {
         0, // horizontal skewing
         this.camera.zoom.current, // vertical scaling
         Math.round(-this.camera.x.current),
-        Math.round(this.camera.y.current)
+        Math.round(this.camera.y.current),
       );
 
       // Don't try to load tiles if we are panning a large distance
@@ -434,7 +434,7 @@ export class CanvasMap extends BaseElement {
               Math.round(x - shift),
               Math.round(y - shift),
               destinationSize,
-              destinationSize
+              destinationSize,
             );
           }
         }
@@ -552,7 +552,7 @@ export class CanvasMap extends BaseElement {
           detail: {
             plane,
           },
-        })
+        }),
       );
 
       this.requestUpdate();
@@ -695,14 +695,14 @@ export class CanvasMap extends BaseElement {
     this.cursor.y = y - this.canvas.offsetLeft;
     this.cursor.tileX = Math.floor((this.cursor.x + this.camera.x.current) / this.tileSize / this.camera.zoom.current);
     this.cursor.tileY = Math.floor(
-      (this.camera.y.current - this.cursor.y + this.tileSize) / this.tileSize / this.camera.zoom.current
+      (this.camera.y.current - this.cursor.y + this.tileSize) / this.tileSize / this.camera.zoom.current,
     );
     this.cursor.worldX = Math.floor(
-      (this.cursor.x + this.camera.x.current) / this.pixelsPerGameTile / this.camera.zoom.current
+      (this.cursor.x + this.camera.x.current) / this.pixelsPerGameTile / this.camera.zoom.current,
     );
     this.cursor.worldY = Math.floor(
       (this.camera.y.current - this.cursor.y) / this.pixelsPerGameTile / this.camera.zoom.current +
-        this.tileSize / this.pixelsPerGameTile
+        this.tileSize / this.pixelsPerGameTile,
     );
     this.cursor.canvasX = this.cursor.worldX * this.pixelsPerGameTile;
     this.cursor.canvasY = -this.cursor.worldY * this.pixelsPerGameTile + this.tileSize - this.pixelsPerGameTile;

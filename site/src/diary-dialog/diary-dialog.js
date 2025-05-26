@@ -86,7 +86,7 @@ export class DiaryDialog extends BaseElement {
           for (const quest of questRequirements) {
             const questComplete = player.hasQuestComplete(quest);
             requirementsHtml.push(
-              `<span class="${questComplete ? "diary-dialog__requirement-met" : ""}">${quest}</span>`
+              `<span class="${questComplete ? "diary-dialog__requirement-met" : ""}">${quest}</span>`,
             );
           }
         }

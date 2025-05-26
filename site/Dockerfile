@@ -1,7 +1,7 @@
 ###############################################
 # Frontend Image
 ###############################################
-FROM node:16.10.0-alpine as production-frontend
+FROM node:24-alpine3.21 AS production-frontend
 
 WORKDIR /app
 
