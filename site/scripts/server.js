@@ -14,6 +14,7 @@ function getArgValue(arg) {
   return args[i + 1];
 }
 
+// These need to be split up because concurrently can't parse :// correctly.
 const protocolPrefix = getArgValue("--protocol") === undefined ? process.env.HOST_PROTOCOL : getArgValue("--protocol");
 const backend = `${protocolPrefix}://${getArgValue("--backend") === undefined ? process.env.HOST_URL : getArgValue("--backend")}`;
 
