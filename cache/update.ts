@@ -359,7 +359,7 @@ async function buildItemDataJson(): Promise<Set<number>> {
         name: item.name,
         highalch: Math.floor(item.cost * 0.6),
       };
-      const stackedList = [];
+      const stackedList: number[][] = [];
       if (
         item.countCo &&
         item.countObj &&
@@ -415,7 +415,8 @@ async function buildItemDataJson(): Promise<Set<number>> {
   console.log(`${itemsMadeNonAlchable} items were updated to be non-alchable`);
   fs.writeFileSync(
     `${outputDirectoryPath}/item_data.json`,
-    JSON.stringify(includedItems)
+    JSON.stringify(includedItems),
+    "utf8"
   );
 
   return allIncludedItemIds;
