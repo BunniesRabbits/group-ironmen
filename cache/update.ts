@@ -15,18 +15,24 @@ sharp.cache(false);
 const xmlParser = new xml2js.Parser();
 const xmlBuilder = new xml2js.Builder();
 
-const runelitePath = "./runelite";
+const outputDirectoryPath = "./out";
+
+const runelitePath = `${outputDirectoryPath}/runelite`;
 const cacheProjectPath = `${runelitePath}/cache`;
 const cachePomPath = `${cacheProjectPath}/pom.xml`;
 const cacheJarOutputDir = `${cacheProjectPath}/target`;
-const osrsCacheDirectory = "./cache/cache";
-const siteItemDataPath = "../site/public/data/item_data.json";
-const siteMapIconMetaPath = "../site/public/data/map_icons.json";
-const siteMapLabelMetaPath = "../site/public/data/map_labels.json";
-const siteItemImagesPath = "../site/public/icons/items";
-const siteMapImagesPath = "../site/public/map";
-const siteMapLabelsPath = "../site/public/map/labels";
-const siteMapIconPath = "../site/public/map/icons/map_icons.webp";
+const osrsCacheDirectory = `${outputDirectoryPath}/cache/cache`;
+
+const sitePublicPath = "../site/public";
+
+const siteItemDataPath = `${sitePublicPath}/data/item_data.json`;
+const siteMapIconMetaPath = `${sitePublicPath}/data/map_icons.json`;
+const siteMapLabelMetaPath = `${sitePublicPath}/data/map_labels.json`;
+const siteItemImagesPath = `${sitePublicPath}/icons/items`;
+const siteMapImagesPath = `${sitePublicPath}/map`;
+const siteMapLabelsPath = `${sitePublicPath}/map/labels`;
+const siteMapIconPath = `${sitePublicPath}/map/icons/map_icons.webp`;
+
 const tileSize = 256;
 
 function exec(command: string, options?: child_process.ExecSyncOptions): void {
@@ -205,7 +211,7 @@ type ItemData = z.infer<typeof ItemData>;
 
 async function readAllItemFiles(): Promise<Record<number, ItemData>> {
   console.log("\nReading all items from item-data...");
-  const itemFiles = glob.sync(`./item-data/*.json`);
+  const itemFiles = glob.sync(`${outputDirectoryPath}/item-data/*.json`);
   const result: Record<number, ItemData> = {};
 
   const MAX_CONCURRENT_OPEN_FILES = 50;
@@ -266,7 +272,9 @@ function buildCacheProject(): void {
 function setupRunelite(): void {
   console.log("\nSetting up runelite...");
   if (!fs.existsSync(runelitePath)) {
-    exec(`git clone "git@github.com:runelite/runelite.git"`);
+    exec(`git clone "https://github.com/runelite/runelite.git"`, {
+      cwd: outputDirectoryPath,
+    });
   }
   exec(`git fetch origin master`, { cwd: runelitePath });
   exec(`git reset --hard origin/master`, { cwd: runelitePath });
@@ -276,7 +284,9 @@ async function dumpItemData(): Promise<void> {
   console.log("\nStep: Unpacking item data from cache...");
   await setMainClassInCachePom("net.runelite.cache.Cache");
   buildCacheProject();
-  execRuneliteCache(`-c ${osrsCacheDirectory} -items ./item-data`);
+  execRuneliteCache(
+    `-c ${osrsCacheDirectory} -items ${outputDirectoryPath}/item-data`
+  );
 }
 
 const GetNonAlchableItemNamesResponse = z.object({
@@ -403,7 +413,10 @@ async function buildItemDataJson(): Promise<Set<number>> {
     }
   }
   console.log(`${itemsMadeNonAlchable} items were updated to be non-alchable`);
-  fs.writeFileSync("./item_data.json", JSON.stringify(includedItems));
+  fs.writeFileSync(
+    `${outputDirectoryPath}/item_data.json`,
+    JSON.stringify(includedItems)
+  );
 
   return allIncludedItemIds;
 }
@@ -413,7 +426,7 @@ async function dumpItemImages(allIncludedItemIds: Set<number>): Promise<void> {
 
   console.log(`Generating images for ${allIncludedItemIds.size} items`);
   fs.writeFileSync(
-    "items_need_images.csv",
+    `${outputDirectoryPath}/items_need_images.csv`,
     Array.from(allIncludedItemIds.values()).join(",")
   );
   const imageDumperDriver = fs.readFileSync("./Cache.java", "utf8");
@@ -428,10 +441,10 @@ async function dumpItemImages(allIncludedItemIds: Set<number>): Promise<void> {
   );
   buildCacheProject();
   execRuneliteCache(
-    `-c ${osrsCacheDirectory} -ids ./items_need_images.csv -output ./item-images`
+    `-c ${osrsCacheDirectory} -ids ${outputDirectoryPath}/items_need_images.csv -output ${outputDirectoryPath}/item-images`
   );
 
-  const itemImages = glob.sync(`./item-images/*.png`);
+  const itemImages = glob.sync(`${outputDirectoryPath}/item-images/*.png`);
 
   await Promise.all(
     itemImages.map(async (itemImage) => {
@@ -492,7 +505,7 @@ async function dumpMapData(xteasLocation: string): Promise<void> {
   await setMainClassInCachePom("net.runelite.cache.MapImageDumper");
   buildCacheProject();
   execRuneliteCache(
-    `--cachedir ${osrsCacheDirectory} --xteapath ${xteasLocation} --outputdir ./map-data`
+    `--cachedir ${osrsCacheDirectory} --xteapath ${xteasLocation} --outputdir ${outputDirectoryPath}/map-data`
   );
 }
 
@@ -506,10 +519,10 @@ async function dumpMapLabels(): Promise<void> {
   await setMainClassInCachePom("net.runelite.cache.MapLabelDumper");
   buildCacheProject();
   execRuneliteCache(
-    `--cachedir ${osrsCacheDirectory} --outputdir ./map-data/labels`
+    `--cachedir ${osrsCacheDirectory} --outputdir ${outputDirectoryPath}/map-data/labels`
   );
 
-  const mapLabels = glob.sync("./map-data/labels/*.png");
+  const mapLabels = glob.sync(`${outputDirectoryPath}/map-data/labels/*.png`);
 
   await Promise.all(
     mapLabels.map(async (mapLabel) => {
@@ -543,10 +556,14 @@ async function dumpCollectionLog(): Promise<void> {
 
 async function tilePlane(plane: number): Promise<void> {
   await retry(
-    () => fs.rmSync("./output_files", { recursive: true, force: true }),
+    () =>
+      fs.rmSync(`${outputDirectoryPath}/output_files`, {
+        recursive: true,
+        force: true,
+      }),
     false
   );
-  const planeImage = sharp(`./map-data/img-${plane}.png`, {
+  const planeImage = sharp(`${outputDirectoryPath}/map-data/img-${plane}.png`, {
     limitInputPixels: false,
   }).flip();
   await planeImage
@@ -557,7 +574,7 @@ async function tilePlane(plane: number): Promise<void> {
       background: { r: 0, g: 0, b: 0, alpha: 0 },
       skipBlanks: 0,
     })
-    .toFile("output.dz");
+    .toFile(`${outputDirectoryPath}/output.dz`);
 }
 
 function outputTileImage(
@@ -569,14 +586,14 @@ function outputTileImage(
   return sharpInstance
     .flatten({ background: "#000000" })
     .webp({ lossless: true, alphaQuality: 0, effort: 6 })
-    .toFile(`./map-data/tiles/${plane}_${x}_${y}.webp`);
+    .toFile(`${outputDirectoryPath}/map-data/tiles/${plane}_${x}_${y}.webp`);
 }
 
 async function finalizePlaneTiles(
   plane: number,
   previousTiles: Set<string>
 ): Promise<void> {
-  const tileImages = glob.sync("./output_files/0/*.webp");
+  const tileImages = glob.sync(`${outputDirectoryPath}/output_files/0/*.webp`);
 
   for (const tileImage of tileImages) {
     const filename = path.basename(tileImage, ".webp");
@@ -590,7 +607,7 @@ async function finalizePlaneTiles(
 
     let s;
     if (plane > 0) {
-      const backgroundPath = `./map-data/tiles/${
+      const backgroundPath = `${outputDirectoryPath}/map-data/tiles/${
         plane - 1
       }_${finalX}_${finalY}.webp`;
       const backgroundExists = fs.existsSync(backgroundPath);
@@ -626,12 +643,14 @@ async function finalizePlaneTiles(
       const [_belowPlane, x, y] = belowTile.split("_");
       const lookup = `${plane}_${x}_${y}`;
       if (!previousTiles.has(lookup)) {
-        const outputPath = `./map-data/tiles/${plane}_${x}_${y}.webp`;
+        const outputPath = `${outputDirectoryPath}/map-data/tiles/${plane}_${x}_${y}.webp`;
         if (fs.existsSync(outputPath) === true) {
           throw new Error(`Filling tile ${outputPath} but it already exists!`);
         }
 
-        const s = sharp(`./map-data/tiles/${belowTile}.webp`).linear(0.5);
+        const s = sharp(
+          `${outputDirectoryPath}/map-data/tiles/${belowTile}.webp`
+        ).linear(0.5);
         previousTiles.add(lookup);
         await outputTileImage(s, plane, x, y);
       }
@@ -641,8 +660,11 @@ async function finalizePlaneTiles(
 
 async function generateMapTiles(): Promise<void> {
   console.log("\nGenerating map tiles...");
-  fs.rmSync("./map-data/tiles", { recursive: true, force: true });
-  fs.mkdirSync("./map-data/tiles");
+  fs.rmSync(`${outputDirectoryPath}/map-data/tiles`, {
+    recursive: true,
+    force: true,
+  });
+  fs.mkdirSync(`${outputDirectoryPath}/map-data/tiles`);
 
   const previousTiles = new Set<string>();
   const planes = 4;
@@ -688,16 +710,29 @@ type MapLabelsMetadata = z.infer<typeof MapLabelsMetadata>;
 async function moveResults(): Promise<void> {
   console.log("\nMoving results to site...");
   await retry(
-    () => fs.copyFileSync("./item_data.json", siteItemDataPath),
+    () =>
+      fs.copyFileSync(
+        `${outputDirectoryPath}/item_data.json`,
+        siteItemDataPath
+      ),
     true
   );
 
-  await moveFiles("./item-images/*.webp", siteItemImagesPath);
-  await moveFiles("./map-data/tiles/*.webp", siteMapImagesPath);
-  await moveFiles("./map-data/labels/*.webp", siteMapLabelsPath);
+  await moveFiles(
+    `${outputDirectoryPath}/item-images/*.webp`,
+    siteItemImagesPath
+  );
+  await moveFiles(
+    `${outputDirectoryPath}/map-data/tiles/*.webp`,
+    siteMapImagesPath
+  );
+  await moveFiles(
+    `${outputDirectoryPath}/map-data/labels/*.webp`,
+    siteMapLabelsPath
+  );
 
   // Create a tile sheet of the map icons
-  const mapIcons = glob.sync("./map-data/icons/*.png");
+  const mapIcons = glob.sync(`${outputDirectoryPath}/map-data/icons/*.png`);
   const mapIconsCompositeOpts = [];
   const iconIdToSpriteMapIndex: Record<string, number> = {};
   for (let i = 0; i < mapIcons.length; ++i) {
@@ -725,7 +760,12 @@ async function moveResults(): Promise<void> {
   // that they are in. This is done so that the canvas map component can quickly lookup
   // all of the icons in each of the regions that are being shown.
   const mapIconsMeta = MapIconsMetadata.safeParse(
-    JSON.parse(fs.readFileSync("./map-data/icons/map-icons.json", "utf8"))
+    JSON.parse(
+      fs.readFileSync(
+        `${outputDirectoryPath}/map-data/icons/map-icons.json`,
+        "utf8"
+      )
+    )
   );
   if (!mapIconsMeta.success) {
     throw new Error("Failed to parse map-icons.json", {
@@ -767,7 +807,12 @@ async function moveResults(): Promise<void> {
 
   // Do the same for map labels
   const mapLabelsMeta = MapLabelsMetadata.safeParse(
-    JSON.parse(fs.readFileSync("./map-data/labels/map-labels.json", "utf8"))
+    JSON.parse(
+      fs.readFileSync(
+        `${outputDirectoryPath}/map-data/labels/map-labels.json`,
+        "utf8"
+      )
+    )
   );
   if (!mapLabelsMeta.success) {
     throw new Error("Failed to parse map-labels.json", {
@@ -813,8 +858,8 @@ const OSRSCache = z.object({
 type OSRSCache = z.infer<typeof OSRSCache>;
 
 async function getLatestGameCache(): Promise<void> {
-  if (!fs.existsSync("./cache")) {
-    fs.mkdirSync("./cache");
+  if (!fs.existsSync(`${outputDirectoryPath}/cache`)) {
+    fs.mkdirSync(`${outputDirectoryPath}/cache`, { recursive: true });
   }
 
   console.log("\nDownloading caches from openrs2...\n");
@@ -866,7 +911,7 @@ async function getLatestGameCache(): Promise<void> {
     }
   );
   const cacheFiles = await unzipper.Open.buffer(cacheFilesResponse.data);
-  await cacheFiles.extract({ path: "./cache" });
+  await cacheFiles.extract({ path: `${outputDirectoryPath}/cache` });
 
   console.log("Getting keys.json...");
   const xteas = (
@@ -874,7 +919,10 @@ async function getLatestGameCache(): Promise<void> {
       `https://archive.openrs2.org/caches/${latestOSRSCache.scope}/${latestOSRSCache.id}/keys.json`
     )
   ).data;
-  fs.writeFileSync("./cache/xteas.json", JSON.stringify(xteas));
+  fs.writeFileSync(
+    `${outputDirectoryPath}/cache/xteas.json`,
+    JSON.stringify(xteas)
+  );
   console.log("Done downloading caches.");
 }
 
