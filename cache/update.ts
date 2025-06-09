@@ -929,6 +929,14 @@ async function getLatestGameCache(): Promise<void> {
 
 ((): void => {
   Promise.resolve()
+    .then(() => {
+      console.log(`Delete out directory '${outputDirectoryPath}'...`);
+      fs.rmSync(outputDirectoryPath, {
+        recursive: true,
+        force: true,
+      });
+      console.log(`Deleted.`);
+    })
     .then(() => getLatestGameCache())
     .then(() => setupRunelite())
     .then(() => dumpItemData())
