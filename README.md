@@ -17,25 +17,7 @@ First, clone the repo. There are no prebuilt images hosted on DockerHub, as this
 git clone https://github.com/BunniesRabbits/group-ironmen
 ```
 
-Copy `.env.example`, renaming it to `.env`. Docker-compose will load these as environment variables while building and running. The main fields of interest are `HOST_PROTOCOL` and `HOST_URL`, which define the URL that gets constructed for requesting to the backend from the frontend.
-
-### Example `.env`
-
-When hosting the servers locally for testing, assuming host port `AAAA` is being forwarded to the backend container:
-
-```text
-HOST_PROTOCOL=http
-HOST_URL=host.docker.internal:AAAA
-... snipped ...
-```
-
-When deploying to a server, assuming you have a registered public domain forwarding to the required port on your server:
-
-```text
-HOST_PROTOCOL=https
-HOST_URL=your.domain.here
-... snipped ...
-```
+Copy `.env.example`, renaming it to `.env`. Docker-compose will load these as environment variables while building and running. The main fields of interest that need to be changed are `HOST_PROTOCOL`, `HOST_URL`, and `FRONTEND_HOST` which control requests to and from the frontend and backend. See `.env.example` for comments on each.
 
 ### Building and Running
 
