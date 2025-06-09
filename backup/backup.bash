@@ -77,7 +77,9 @@ output_file="$out_dir/backup_$now.gz"
 
 docker exec "$container" pg_dump -U "$pg_user" --compress=6 "$db_name" > "$output_file"
 
-if [ $? -eq 0 ]; then
-    echo "Successfully made backup at '$output_file'"
+if [ $? -ne 0 ]; then
+    echo "Failed to make backup at '$output_file'. Terminating..."
     exit 1
 fi
+
+echo "Successfully made backup at '$output_file'"
