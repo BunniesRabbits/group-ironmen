@@ -1,5 +1,7 @@
 .#*
 .env
 
+.vscode
+
 # Ignore postgres data for when running in-source
 pg-data

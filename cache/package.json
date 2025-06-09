@@ -2,18 +2,33 @@
   "name": "osrs-cache",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "update.js",
+  "type": "module",
   "scripts": {
-    "update": "node update.js"
+    "update": "tsx update.ts",
+    "lint": "eslint update.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "async": "^3.2.3",
-    "axios": "^0.26.1",
+    "axios": "^1.9.0",
     "glob": "^8.0.1",
     "sharp": "^0.31.1",
     "unzipper": "^0.12.3",
-    "xml2js": "^0.4.23"
+    "xml2js": "^0.4.23",
+    "zod": "^3.25.56"
+  },
+  "devDependencies": {
+    "@types/async": "^3.2.24",
+    "@types/glob": "^8.1.0",
+    "@types/node": "^22.15.30",
+    "@types/sharp": "^0.31.1",
+    "@types/unzipper": "^0.10.11",
+    "@types/xml2js": "^0.4.14",
+    "eslint": "^9.28.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.1"
   }
 }
