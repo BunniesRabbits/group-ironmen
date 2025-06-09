@@ -1,21 +1,25 @@
 services:
-  group-ironmen-tracker-frontend:
+  frontend:
+    image: ellarbee/group-ironmen-tracker-frontend
     build:
       context: ./site
       dockerfile: Dockerfile
-    image: ellarbee/group-ironmen-tracker-frontend
+    container_name: gimp-frontend
+    restart: always
     environment:
       - HOST_PROTOCOL=${HOST_PROTOCOL}
       - HOST_URL=${HOST_URL}
-    restart: always
-    container_name: group-ironmen-tracker-frontend
     ports:
-      - 4000:4000 # replace this if using a docker-compatible reverse proxy like traefik
-  group-ironmen-tracker-backend:
+      - 4000:4000 # Needs to be changed if using a reverse proxy, nonstandard ports for frontend/backend, or forwarding a different port on the host.
+  backend:
+    image: ellarbee/group-ironmen-tracker-backend
     build:
       context: ./server
       dockerfile: Dockerfile
-    image: ellarbee/group-ironmen-tracker-backend
+    depends_on:
+      - "postgres"
+    container_name: gimp-backend
+    restart: always
     environment:
       - PG_USER=${PG_USER}
       - PG_PASSWORD=${PG_PASSWORD}
@@ -23,27 +27,24 @@ services:
       - PG_PORT=${PG_PORT}
       - PG_DB=${PG_DB}
       - BACKEND_SECRET=${BACKEND_SECRET}
-    restart: always
-    depends_on:
-      - "postgres"
-    container_name: group-ironmen-tracker-backend
-  # Uncomment this if you don't want/need to use a reverse-proxy, and need docker to map the ports.
-  # ports:
-  #   - 5000:8080 # Needs to be changed if using a reverse proxy, nonstandard ports for frontend/backend, or forwarding a different port on the host.
+    # Uncomment this if you don't want/need to use a reverse-proxy, and need docker to map the ports.
+    # ports:
+    #   - 5000:8080 # Needs to be changed if using a reverse proxy, nonstandard ports for frontend/backend, or forwarding a different port on the host.
   postgres:
     image: postgres
+    container_name: gimp-postgres
     restart: always
-    container_name: group-ironmen-tracker-postgres
     environment:
       POSTGRES_USER: ${PG_USER}
       POSTGRES_PASSWORD: ${PG_PASSWORD}
       POSTGRES_DB: ${PG_DB}
     volumes:
-      - ./pg-data:/var/lib/postgresql/data # change the left-hand side of : to the path you prefer the DB to store the data in
-      - ./server/src/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql # change the left-hand side of the : to the path that contains the schema.sql
+      # Maps the container's postgres data folder to a host-side folder. Change the left hand side to where you prefer postgres to save data to.
+      - ./pg-data:/var/lib/postgresql/data
+      - ./server/src/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
   nginx:
     image: nginx:1.27
-    container_name: group-ironmen-tracker-nginx
+    container_name: gimp-nginx
     restart: always
     environment:
       - FRONTEND_HOST=${FRONTEND_HOST}
