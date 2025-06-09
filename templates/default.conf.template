@@ -1,0 +1,19 @@
+server {
+    listen 3333;
+
+    location / {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin ${FRONTEND_HOST};
+            add_header Access-Control-Allow-Methods 'GET';
+            add_header Access-Control-Allow-Headers authorization;
+            add_header Content-Type text/plain;
+            add_header Content-Length 0;
+            return 204;
+        }
+        proxy_pass http://group-ironmen-tracker-backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
