@@ -1,2 +1,5 @@
 .#*
 .env
+
+# Ignore postgres data for when running in-source
+pg-data
