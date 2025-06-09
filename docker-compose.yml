@@ -17,7 +17,9 @@ services:
       context: ./server
       dockerfile: Dockerfile
     depends_on:
-      - "postgres"
+      postgres:
+        condition: service_healthy
+        restart: true
     container_name: gimp-backend
     restart: always
     environment:
@@ -33,6 +35,12 @@ services:
   postgres:
     image: postgres
     container_name: gimp-postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
     restart: always
     environment:
       POSTGRES_USER: ${PG_USER}
