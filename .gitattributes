@@ -1,8 +1,6 @@
-# Set the default behavior, in case people don't have core.autocrlf set.
 * text=auto
 
-# Explicitly declare text files you want to always be normalized and converted
-# to native line endings on checkout.
+# Adjust line endings for files that can be loaded on multiple platforms, e.g. Linux in Docker or Windows/Linux spun up on the host.
 *.json text
 *.js text
 *.sh text
