@@ -32,7 +32,7 @@ The containers should successfully be running. The frontend is served on port `4
 
 ### Network Diagram
 
-![Alt text](./network_diagram.drawio.svg)
+![Alt text](./network_diagram.svg)
 
 This is the default configuration. All outward facing ports are configurable across `./templates/default.conf.template`, `.env`, and `docker-compose.yml`.
 
