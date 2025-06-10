@@ -18,7 +18,7 @@ options:
 pg_user="postgres"
 container="group-ironmen-tracker-postgres"
 db_name="groupironman_db"
-out_dir="~/backups/$container"
+out_dir=""
 
 while true; do
 	case "$1" in
@@ -57,6 +57,11 @@ while true; do
         ;;
     esac
 done
+
+if [[ -z "$out_dir" ]]; then
+    out_dir="~/backups/$container"
+    echo "Using out-dir '$out_dir'."
+fi
 
 now=$(date +"%m_%d_%Y_%H_%M_%S")
 
