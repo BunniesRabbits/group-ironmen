@@ -30,27 +30,11 @@ docker-compose up # optionally pass -d for detached mode
 
 The containers should successfully be running. The frontend is served on port `4000` by default.
 
-### Notes on Ports
+### Network Diagram
 
-Within their respective containers, the frontend listens for port `4000`, and the backend listens for port `8080`. `docker-compose.yml` is configured to set up a network that forwards `4000 -> 4000` and `5000 -> 8080`, so the host will be listening on `4000` and `5000`.
+![Alt text](./network_diagram.drawio.svg)
 
-To change the host port being forwarded to each container from `AAAA` to `BBBB`, change these lines in `docker-compose.yml`:
-
-```text
-... snipped ...
-ports:
-    AAAA:XXXX
-... snipped ...
-```
-
-to
-
-```text
-... snipped ...
-ports:
-    BBBB:XXXX
-... snipped ...
-```
+This is the default configuration. All outward facing ports are configurable across `./templates/default.conf.template`, `.env`, and `docker-compose.yml`.
 
 ## Maintenance
 
@@ -79,4 +63,4 @@ The backend and frontend rely on assets that are pulled from a third-party archi
 - Uses Runelite to dump the assets into friendly JSON/images
 - Copies these assets to their required positions in `./server` and `./site`
 
-Once this is done and the source tree is repopulated, you may start up the servers and they will load the new assets.
+Once this is done and the source tree is repopulated, you must then recreate the docker images and they will use the new assets.
