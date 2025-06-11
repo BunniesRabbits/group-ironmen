@@ -1,81 +1,37 @@
-import { defineConfig } from "eslint/config";
-import globals from "globals";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import tseslint from "typescript-eslint";
+import globals from "globals";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all,
-});
-
-export default defineConfig([
+export default tseslint.config(
+  { ignores: ["node_modules, dist"] },
   {
-    extends: compat.extends("eslint:recommended"),
-
+    name: "Typescript",
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommendedTypeChecked,
+      ...tseslint.configs.stylisticTypeChecked,
+    ],
+    files: ["**/*.{ts,tsx}"],
     languageOptions: {
-      globals: {
-        ...globals.browser,
-      },
-
-      ecmaVersion: 2020,
-      sourceType: "module",
-
+      ecmaVersion: 2022,
+      globals: globals.browser,
       parserOptions: {
-        ecmaFeatures: {},
+        project: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
-
     rules: {
-      "padding-line-between-statements": [
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "@typescript-eslint/no-unused-vars": [
         "error",
         {
-          blankLine: "always",
-          prev: "function",
-          next: "function",
-        },
-        {
-          blankLine: "always",
-          prev: "*",
-          next: "class",
-        },
-        {
-          blankLine: "always",
-          prev: "*",
-          next: "export",
-        },
-        {
-          blankLine: "always",
-          prev: "import",
-          next: "function",
-        },
-        {
-          blankLine: "always",
-          prev: "import",
-          next: "const",
-        },
-        {
-          blankLine: "always",
-          prev: "import",
-          next: "let",
+          // Ignore just one underscore
+          // https://stackoverflow.com/a/78734642
+          argsIgnorePattern: "^_[^_].*$|^_$",
+          varsIgnorePattern: "^_[^_].*$|^_$",
+          caughtErrorsIgnorePattern: "^_[^_].*$|^_$",
         },
       ],
-
-      "lines-between-class-members": ["error", "always"],
-      "no-unused-vars": "error",
-
-      "no-console": [
-        "error",
-        {
-          allow: ["warn", "error"],
-        },
-      ],
-
-      "no-empty": "off",
     },
   },
-]);
+);

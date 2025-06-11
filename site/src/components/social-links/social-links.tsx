@@ -1,0 +1,18 @@
+import type { ReactElement } from "react";
+import "./social-links.css";
+
+export const SocialLinks = (): ReactElement => {
+  return (
+    <>
+      <a href="https://ko-fi.com/gimplugin" title="Support me on Ko-fi" target="_blank">
+        <img alt="kofi logo" loading="lazy" src="/images/kofi_p_logo_nolabel.webp" height="20" />
+      </a>
+      <a href="https://github.com/christoabrown/group-ironmen-tracker" title="Github" target="_blank">
+        <img alt="github logo" loading="lazy" src="/images/github-light.webp" width="20" height="20" />
+      </a>
+      <a href="https://discord.gg/XmAPkvqVpP" title="Discord" target="_blank">
+        <img alt="discord logo" loading="lazy" src="/images/discord-light.webp" width="18" height="20" />
+      </a>
+    </>
+  );
+};

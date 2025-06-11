@@ -27,3 +27,6 @@ public/*.js
 public/*.html
 public/*.map
 nocommit
+
+# Vite bundle directory
+dist/
