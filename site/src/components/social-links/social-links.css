@@ -1,13 +1,25 @@
-social-links {
-  display: flex;
-  align-items: center;
+ul.social-links {
+  list-style-type: none;
 }
 
-social-links a {
+ul.social-links > li {
   display: flex;
-  align-items: center;
 }
 
-social-links a + a {
-  margin-left: 0.5em;
+ul.social-links > li > a > div {
+  display: flex;
+  width: 35px;
+  align-content: center;
+  justify-content: center;
+}
+
+.social-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.social-links a {
+  display: flex;
+  align-items: center;
 }

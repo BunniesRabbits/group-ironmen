@@ -8,7 +8,7 @@ export interface MenLinkProps {
 }
 export const MenLink = (props: MenLinkProps): ReactElement => {
   return (
-    <Link className="men-button" to={props.href}>
+    <Link className="men-link men-button" to={props.href}>
       {props.label}
     </Link>
   );

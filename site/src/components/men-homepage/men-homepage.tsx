@@ -12,7 +12,7 @@ export const MenHomepage = (): ReactElement => {
   const loginLink = <MenLink label="Login" href="/login" />;
 
   return (
-    <>
+    <div className="men-homepage">
       <SocialLinks />
       <div className="men-homepage__container">
         <h1>GroupIron.men</h1>
@@ -22,6 +22,6 @@ export const MenHomepage = (): ReactElement => {
           {hasLogin ? groupLink : loginLink}
         </div>
       </div>
-    </>
+    </div>
   );
 };
