@@ -3,25 +3,29 @@ import "./canvas-map.css";
 import Animation from "./animation";
 
 interface CanvasMapCamera {
+  // Positions of camera with capability for smooth lerping.
   x: Animation;
   y: Animation;
   // zoom: Animation;
   // maxZoom: number;
   // minZoom: number;
-  isDragging: boolean;
 }
 interface CanvasMapCursor {
-  // GUESS: current position
+  // Current Position.
   x: number;
   y: number;
 
-  // GUESS: last update's position
+  // Last update call's positions.
   previousX: number;
   previousY: number;
 
-  // GUESS: position history over multiple onprocessed frames
+  // Stores samples of the cursors movement across frames, so the camera coasts with no accidental "flicking".
   rateSamplesX: number[];
   rateSamplesY: number[];
+
+  // When the user lets go of the camera, it coasts for a bit. This tracks the decay of that speed.
+  dragDecay: number;
+  isDragging: boolean;
 }
 
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
@@ -132,7 +136,6 @@ class CanvasMapRenderer {
     this.camera = {
       x: new Animation({ startPosition: INITIAL_X, endPosition: INITIAL_X, endTime: 1 }).cancelAnimation(),
       y: new Animation({ startPosition: INITIAL_Y, endPosition: INITIAL_Y, endTime: 1 }).cancelAnimation(),
-      isDragging: false,
     };
     this.cursor = {
       x: 0,
@@ -141,45 +144,41 @@ class CanvasMapRenderer {
       previousY: 0,
       rateSamplesX: [0],
       rateSamplesY: [0],
+      dragDecay: 1,
+      isDragging: false,
     };
     this.lastUpdateTime = performance.now();
   }
 
   handlePointerDown(): void {
-    this.camera.isDragging = true;
-  }
-  handlePointerUp(): void {
-    if (!this.camera.isDragging) return;
+    if (this.cursor.isDragging) return;
 
-    // If the pointer is EVER released, we want to clear accumulated state.
-    // So if the user clicks between animation frames, the map does not keep dragging.
+    // We reset the samples here, since if the cursor is down, the map should
+    // snap to the cursor. When it snaps, the momentum needs to be cancelled.
 
     this.cursor.rateSamplesX = [];
     this.cursor.rateSamplesY = [];
 
-    this.camera.isDragging = false;
+    this.cursor.isDragging = true;
+  }
+  handlePointerUp(): void {
+    if (!this.cursor.isDragging) return;
+
+    this.cursor.isDragging = false;
   }
   handlePointerMove({ x, y }: { x: number; y: number }): void {
     this.cursor.x = x;
     this.cursor.y = y;
   }
   handlePointerLeave(): void {
-    if (!this.camera.isDragging) return;
-
-    // If the pointer is EVER released, we want to clear accumulated state.
-    // So if the user clicks between animation frames, the map does not keep dragging.
-
-    this.cursor.rateSamplesX = [];
-    this.cursor.rateSamplesY = [];
-
-    this.camera.isDragging = false;
+    this.cursor.isDragging = false;
   }
 
   private updateCursorAndCamera(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
-    if (this.camera.isDragging) {
+    if (this.cursor.isDragging) {
       const EVENTS_TO_KEEP = 10;
       this.cursor.rateSamplesX.push(cursorDeltaX / elapsed);
       if (this.cursor.rateSamplesX.length > EVENTS_TO_KEEP) {
@@ -189,23 +188,28 @@ class CanvasMapRenderer {
       if (this.cursor.rateSamplesY.length > EVENTS_TO_KEEP) {
         this.cursor.rateSamplesY = this.cursor.rateSamplesY.slice(this.cursor.rateSamplesY.length - EVENTS_TO_KEEP);
       }
+
+      this.cursor.dragDecay = 1;
+
+      this.camera.x.goTo({ endPosition: this.camera.x.end() - cursorDeltaX, endTime: 1 }).cancelAnimation();
+      this.camera.y.goTo({ endPosition: this.camera.y.end() - cursorDeltaY, endTime: 1 }).cancelAnimation();
+    } else {
+      this.cursor.dragDecay *= elapsed * 0.002 + 1;
+
+      const SPEED_THRESHOLD = 0.05;
+      const dx = average(this.cursor.rateSamplesX) / this.cursor.dragDecay;
+      const dy = average(this.cursor.rateSamplesY) / this.cursor.dragDecay;
+      const speedSquared = dx * dx + dy * dy;
+      if (speedSquared > SPEED_THRESHOLD) {
+        // Drag the camera with some inertia.
+        // We achieve this by just tweaking the endPosition, so the camera "chases".
+        this.camera.x.goTo({ endPosition: this.camera.x.end() - dx, endTime: 1 });
+        this.camera.y.goTo({ endPosition: this.camera.y.end() - dy, endTime: 1 });
+      }
     }
 
     this.cursor.previousX = this.cursor.x;
     this.cursor.previousY = this.cursor.y;
-
-    if (this.camera.isDragging) {
-      this.camera.x.goTo({ endPosition: this.camera.x.end() - cursorDeltaX, endTime: 1 }).cancelAnimation();
-      this.camera.y.goTo({ endPosition: this.camera.y.end() - cursorDeltaY, endTime: 1 }).cancelAnimation();
-    } else {
-      const dx = average(this.cursor.rateSamplesX);
-      const dy = average(this.cursor.rateSamplesY);
-
-      // Drag the camera with some inertia.
-      // We achieve this by just tweaking the endPosition, so the camera "chases".
-      this.camera.x.goTo({ endPosition: this.camera.x.end() - dx, endTime: 1 });
-      this.camera.y.goTo({ endPosition: this.camera.y.end() - dy, endTime: 1 });
-    }
 
     this.camera.x.animate(elapsed);
     this.camera.y.animate(elapsed);
@@ -336,7 +340,6 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    console.log(animationFrameHandleRef.current);
     if (animationFrameHandleRef.current) {
       window.cancelAnimationFrame(animationFrameHandleRef.current);
     }
