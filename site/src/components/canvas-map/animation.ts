@@ -33,8 +33,8 @@ export default class Animation {
     this.elapsedTime = 0;
   }
 
-  static makeInactive({ position }: { position: number }): Animation {
-    return new Animation({ startPosition: position, endPosition: position, endTime: 1 }).cancelAnimation();
+  static createInactive({ position }: { position: number }): Animation {
+    return new Animation({ startPosition: position, endPosition: position, endTime: 1 }).skipToEnd();
   }
 
   // Values 0 to 1 return the animation at that time.
@@ -53,10 +53,11 @@ export default class Animation {
     return this.endPosition;
   }
 
-  adjustEnd({ endPosition, endTime }: { endPosition: number; endTime: number }): Animation {
-    this.endPosition = endPosition;
-    this.endTime = endTime;
-    this.elapsedTime = 0;
+  setToStatic({ position }: { position: number }): Animation {
+    this.startPosition = position;
+    this.endPosition = position;
+    this.endTime = 1;
+    this.elapsedTime = 1;
 
     return this;
   }
@@ -64,8 +65,17 @@ export default class Animation {
   // Start a new animation, with a new target.
   // The current end position is used as the new start,
   // so this can be used to chain animations.
-  jumpTo({ endPosition, endTime }: { endPosition: number; endTime: number }): Animation {
-    this.startPosition = this.endPosition;
+  setNewEnd({
+    endPosition,
+    endTime,
+    resetStart,
+  }: {
+    endPosition: number;
+    endTime: number;
+    resetStart: boolean;
+  }): Animation {
+    if (resetStart) this.startPosition = this.endPosition;
+
     this.endPosition = endPosition;
     this.endTime = endTime;
     this.elapsedTime = 0;
@@ -73,9 +83,19 @@ export default class Animation {
     return this;
   }
 
+  // Finish the animation, and snap to the endPosition.
+  // animate will become idempotent e.g. return false.
+  // Returns self for chaining
+  skipToEnd(): Animation {
+    this.elapsedTime = 1.0;
+    this.endTime = 1.0;
+
+    return this;
+  }
+
   // Tick the animation, by some delta interval.
   // Returns whether or not the animation is ongoing, e.g. FALSE means this function is idempotent.
-  animate(elapsed: number): boolean {
+  update(elapsed: number): boolean {
     if (this.elapsedTime >= this.endTime) {
       return false;
     }
@@ -83,15 +103,5 @@ export default class Animation {
     this.elapsedTime += elapsed;
 
     return true;
-  }
-
-  // Finish the animation, and snap to the endPosition.
-  // animate will become idempotent e.g. return false.
-  // Returns self for chaining
-  cancelAnimation(): Animation {
-    this.elapsedTime = 1.0;
-    this.endTime = 1.0;
-
-    return this;
   }
 }

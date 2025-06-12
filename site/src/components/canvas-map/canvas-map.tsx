@@ -25,11 +25,12 @@ interface CanvasMapCursor {
   rateSamplesX: number[];
   rateSamplesY: number[];
 
-  // When the user lets go of the camera, it coasts for a bit. This tracks the decay of that speed.
-  dragDecay: number;
+  // Tracks the linear deceleration due to friction when the map is let go.
+  accumulatedFrictionMS: number;
   isDragging: boolean;
 
-  zoomDeltaSinceLastUpdate: number;
+  // Multiple scroll events may occur in a frame, so we add them all up.
+  accumulatedScroll: number;
 }
 
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
@@ -78,6 +79,7 @@ const average = (arr: number[]): number => {
 
 // Figuring out when to apply scaling is hard, so this wrapper handles
 // that by implementing a subset of Context2D rendering commands.
+// Acts as a view + projection matrix, converting to physical pixels (which is what the canvas uses).
 class Context2DScaledWrapper {
   // Canvas pixel ratio, shouldn't be changed unless canvas is.
   // Higher means more pixels per input unit, so rendered objects get smaller.
@@ -104,7 +106,8 @@ class Context2DScaledWrapper {
     return this.context.canvas.height / this.screenPixelsPerWorldUnit();
   }
 
-  // Sets context for transformation. The parameters should match your camera.
+  // Sets context for transformation.
+  // The parameters should match your camera, do not pass inverted parameters.
   setTransform({ x, y, scale }: { x: number; y: number; scale: number }): void {
     // Ratio of world units to physical pixels
     this.scale = scale;
@@ -160,9 +163,9 @@ class CanvasMapRenderer {
 
     this.tiles = new Map();
     this.camera = {
-      x: Animation.makeInactive({ position: INITIAL_X }),
-      y: Animation.makeInactive({ position: INITIAL_Y }),
-      zoom: Animation.makeInactive({ position: INITIAL_ZOOM }),
+      x: Animation.createInactive({ position: INITIAL_X }),
+      y: Animation.createInactive({ position: INITIAL_Y }),
+      zoom: Animation.createInactive({ position: INITIAL_ZOOM }),
       minZoom: 1 / 10,
       maxZoom: 2,
     };
@@ -173,9 +176,9 @@ class CanvasMapRenderer {
       previousY: 0,
       rateSamplesX: [0],
       rateSamplesY: [0],
-      dragDecay: 1,
+      accumulatedFrictionMS: 0,
       isDragging: false,
-      zoomDeltaSinceLastUpdate: 0,
+      accumulatedScroll: 0,
     };
     this.lastUpdateTime = performance.now();
   }
@@ -204,7 +207,7 @@ class CanvasMapRenderer {
     this.cursor.isDragging = false;
   }
   handleScroll(amount: number): void {
-    this.cursor.zoomDeltaSinceLastUpdate += amount;
+    this.cursor.accumulatedScroll += amount;
   }
 
   private updateCursorAndCamera(elapsed: number): void {
@@ -223,49 +226,61 @@ class CanvasMapRenderer {
         this.cursor.rateSamplesY = this.cursor.rateSamplesY.slice(this.cursor.rateSamplesY.length - EVENTS_TO_KEEP);
       }
 
-      this.cursor.dragDecay = 1;
+      this.cursor.accumulatedFrictionMS = 0;
 
-      this.camera.x
-        .jumpTo({ endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * cursorDeltaX, endTime: 1 })
-        .cancelAnimation();
-      this.camera.y
-        .jumpTo({ endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * cursorDeltaY, endTime: 1 })
-        .cancelAnimation();
+      this.camera.x.setToStatic({ position: this.camera.x.end() - worldUnitsPerCursorUnit * cursorDeltaX });
+      this.camera.y.setToStatic({ position: this.camera.y.end() - worldUnitsPerCursorUnit * cursorDeltaY });
     } else {
-      this.cursor.dragDecay *= elapsed * 0.001 + 1;
-
       const SPEED_THRESHOLD = 0.05;
-      const dx = average(this.cursor.rateSamplesX) / this.cursor.dragDecay;
-      const dy = average(this.cursor.rateSamplesY) / this.cursor.dragDecay;
-      const speedSquared = dx * dx + dy * dy;
-      if (speedSquared > SPEED_THRESHOLD) {
+      const FRICTION_PER_MS = 0.004;
+
+      this.cursor.accumulatedFrictionMS += elapsed;
+
+      const velocityAverageX = average(this.cursor.rateSamplesX);
+      const velocityAverageY = average(this.cursor.rateSamplesY);
+
+      const speed = Math.sqrt(velocityAverageX * velocityAverageX + velocityAverageY * velocityAverageY);
+      const speedAfterFriction = speed - FRICTION_PER_MS * this.cursor.accumulatedFrictionMS;
+      if (speedAfterFriction > SPEED_THRESHOLD) {
+        const directionX = velocityAverageX / speed;
+        const directionY = velocityAverageY / speed;
+
         // Drag the camera with some inertia.
         // We achieve this by just tweaking the endPosition, so the camera "chases".
-        this.camera.x.jumpTo({ endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * dx, endTime: 1 });
-        this.camera.y.jumpTo({ endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * dy, endTime: 1 });
+        this.camera.x.setNewEnd({
+          endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * speedAfterFriction * directionX,
+          endTime: elapsed,
+          resetStart: false,
+        });
+        this.camera.y.setNewEnd({
+          endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * speedAfterFriction * directionY,
+          endTime: elapsed,
+          resetStart: false,
+        });
       }
     }
 
     const ZOOM_SENSITIVITY = 1 / 1000;
-    if (this.cursor.zoomDeltaSinceLastUpdate !== 0) {
-      this.camera.zoom.adjustEnd({
-        endPosition: this.camera.zoom.end() + ZOOM_SENSITIVITY * this.cursor.zoomDeltaSinceLastUpdate,
-        endTime: 1.5,
+    if (this.cursor.accumulatedScroll !== 0) {
+      this.camera.zoom.setNewEnd({
+        endPosition: this.camera.zoom.end() + ZOOM_SENSITIVITY * this.cursor.accumulatedScroll,
+        endTime: elapsed,
+        resetStart: false,
       });
     }
 
-    this.cursor.zoomDeltaSinceLastUpdate = 0;
+    this.cursor.accumulatedScroll = 0;
 
     this.cursor.previousX = this.cursor.x;
     this.cursor.previousY = this.cursor.y;
 
-    this.camera.x.animate(elapsed);
-    this.camera.y.animate(elapsed);
-    this.camera.zoom.animate(elapsed);
+    this.camera.x.update(elapsed);
+    this.camera.y.update(elapsed);
+    this.camera.zoom.update(elapsed);
     if (this.camera.zoom.current() > this.camera.maxZoom) {
-      this.camera.zoom.jumpTo({ endPosition: this.camera.maxZoom, endTime: 1 }).cancelAnimation();
+      this.camera.zoom.setToStatic({ position: this.camera.maxZoom });
     } else if (this.camera.zoom.current() < this.camera.minZoom) {
-      this.camera.zoom.jumpTo({ endPosition: this.camera.minZoom, endTime: 1 }).cancelAnimation();
+      this.camera.zoom.setToStatic({ position: this.camera.minZoom });
     }
   }
 
@@ -339,7 +354,6 @@ class CanvasMapRenderer {
       y: this.camera.y.current(),
       scale: zoom,
     });
-
     this.drawVisibleTiles(context);
   }
 }
