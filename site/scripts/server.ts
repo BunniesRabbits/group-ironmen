@@ -26,3 +26,4 @@ ViteExpress.config({ mode });
 ViteExpress.listen(app, port, () => {
   console.log(`Server is listening on '${port}'...`);
 });
+console.log("Listening stopped, exiting...");
