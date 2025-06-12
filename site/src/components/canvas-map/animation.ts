@@ -33,6 +33,10 @@ export default class Animation {
     this.elapsedTime = 0;
   }
 
+  static makeInactive({ position }: { position: number }): Animation {
+    return new Animation({ startPosition: position, endPosition: position, endTime: 1 }).cancelAnimation();
+  }
+
   // Values 0 to 1 return the animation at that time.
   // Out of bounds values will be clamped to [0,1].
   at(fraction: number): number {
@@ -49,10 +53,18 @@ export default class Animation {
     return this.endPosition;
   }
 
+  adjustEnd({ endPosition, endTime }: { endPosition: number; endTime: number }): Animation {
+    this.endPosition = endPosition;
+    this.endTime = endTime;
+    this.elapsedTime = 0;
+
+    return this;
+  }
+
   // Start a new animation, with a new target.
   // The current end position is used as the new start,
   // so this can be used to chain animations.
-  goTo({ endPosition, endTime }: { endPosition: number; endTime: number }): Animation {
+  jumpTo({ endPosition, endTime }: { endPosition: number; endTime: number }): Animation {
     this.startPosition = this.endPosition;
     this.endPosition = endPosition;
     this.endTime = endTime;

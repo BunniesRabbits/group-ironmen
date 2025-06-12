@@ -6,9 +6,11 @@ interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
   x: Animation;
   y: Animation;
-  // zoom: Animation;
-  // maxZoom: number;
-  // minZoom: number;
+
+  // Zoom of camera with smoothing
+  zoom: Animation;
+  minZoom: number;
+  maxZoom: number;
 }
 interface CanvasMapCursor {
   // Current Position.
@@ -26,6 +28,8 @@ interface CanvasMapCursor {
   // When the user lets go of the camera, it coasts for a bit. This tracks the decay of that speed.
   dragDecay: number;
   isDragging: boolean;
+
+  zoomDeltaSinceLastUpdate: number;
 }
 
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
@@ -75,49 +79,81 @@ const average = (arr: number[]): number => {
 // Figuring out when to apply scaling is hard, so this wrapper handles
 // that by implementing a subset of Context2D rendering commands.
 class Context2DScaledWrapper {
+  // Canvas pixel ratio, shouldn't be changed unless canvas is.
+  // Higher means more pixels per input unit, so rendered objects get smaller.
   private pixelRatio: number;
+
   private context: CanvasRenderingContext2D;
+  private scale: number;
 
   constructor({ pixelRatio, context }: { pixelRatio: number; context: CanvasRenderingContext2D }) {
     this.pixelRatio = pixelRatio;
     this.context = context;
+    this.scale = 1;
     context.imageSmoothingEnabled = false;
   }
 
-  width(): number {
-    return this.context.canvas.width / this.pixelRatio;
-  }
-  height(): number {
-    return this.context.canvas.height / this.pixelRatio;
+  private screenPixelsPerWorldUnit(): number {
+    return this.pixelRatio / this.scale;
   }
 
-  // Sets context for transformation
-  setTransform({ offsetX, offsetY }: { offsetX: number; offsetY: number }): void {
-    this.context.setTransform(1, 0, 0, 1, this.pixelRatio * offsetX, this.pixelRatio * offsetY);
+  width(): number {
+    return this.context.canvas.width / this.screenPixelsPerWorldUnit();
   }
+  height(): number {
+    return this.context.canvas.height / this.screenPixelsPerWorldUnit();
+  }
+
+  // Sets context for transformation. The parameters should match your camera.
+  setTransform({ x, y, scale }: { x: number; y: number; scale: number }): void {
+    // Ratio of world units to physical pixels
+    this.scale = scale;
+    const ratio = this.screenPixelsPerWorldUnit();
+    // This is two transformation matrices multiplied together
+    // World -- Translate + Scale -> View -- Translate -> Screen
+    this.context.setTransform(
+      ratio,
+      0,
+      0,
+      ratio,
+      -ratio * x + this.context.canvas.width / 2,
+      -ratio * y + this.context.canvas.height / 2,
+    );
+  }
+
   // Sets context for further fill commands
   setFillStyle(fillStyle: string | CanvasGradient | CanvasPattern): void {
     this.context.fillStyle = fillStyle;
   }
 
   // Draws a filled rectangle
-  fillRect({ x, y, width, height }: { x: number; y: number; width: number; height: number }): void {
-    this.context.fillRect(x * this.pixelRatio, y * this.pixelRatio, width * this.pixelRatio, height * this.pixelRatio);
+  fillRect({
+    worldPosX,
+    worldPosY,
+    width,
+    height,
+  }: {
+    worldPosX: number;
+    worldPosY: number;
+    width: number;
+    height: number;
+  }): void {
+    this.context.fillRect(worldPosX, worldPosY, width, height);
   }
 
   // Draws an image
-  drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number }): void {
-    // TODO: is this width/height the actual height on the image? It might be better to use another image type
+  drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number; worldUnitsPerImagePixel: number }): void {
+    const pixelScale = this.pixelRatio * 0.5;
     this.context.drawImage(
       image,
       0,
       0,
       image.width,
       image.height,
-      x * this.pixelRatio,
-      y * this.pixelRatio,
-      image.width * this.pixelRatio,
-      image.height * this.pixelRatio,
+      x,
+      y,
+      image.width * pixelScale,
+      image.height * pixelScale,
     );
   }
 }
@@ -131,11 +167,15 @@ class CanvasMapRenderer {
   constructor() {
     const INITIAL_X = 9088;
     const INITIAL_Y = -13184;
+    const INITIAL_ZOOM = 1;
 
     this.tiles = new Map();
     this.camera = {
-      x: new Animation({ startPosition: INITIAL_X, endPosition: INITIAL_X, endTime: 1 }).cancelAnimation(),
-      y: new Animation({ startPosition: INITIAL_Y, endPosition: INITIAL_Y, endTime: 1 }).cancelAnimation(),
+      x: Animation.makeInactive({ position: INITIAL_X }),
+      y: Animation.makeInactive({ position: INITIAL_Y }),
+      zoom: Animation.makeInactive({ position: INITIAL_ZOOM }),
+      minZoom: 1 / 10,
+      maxZoom: 2,
     };
     this.cursor = {
       x: 0,
@@ -146,6 +186,7 @@ class CanvasMapRenderer {
       rateSamplesY: [0],
       dragDecay: 1,
       isDragging: false,
+      zoomDeltaSinceLastUpdate: 0,
     };
     this.lastUpdateTime = performance.now();
   }
@@ -173,11 +214,15 @@ class CanvasMapRenderer {
   handlePointerLeave(): void {
     this.cursor.isDragging = false;
   }
+  handleScroll(amount: number): void {
+    this.cursor.zoomDeltaSinceLastUpdate += amount;
+  }
 
   private updateCursorAndCamera(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
+    const worldUnitsPerCursorUnit = this.camera.zoom.current();
     if (this.cursor.isDragging) {
       const EVENTS_TO_KEEP = 10;
       this.cursor.rateSamplesX.push(cursorDeltaX / elapsed);
@@ -191,10 +236,14 @@ class CanvasMapRenderer {
 
       this.cursor.dragDecay = 1;
 
-      this.camera.x.goTo({ endPosition: this.camera.x.end() - cursorDeltaX, endTime: 1 }).cancelAnimation();
-      this.camera.y.goTo({ endPosition: this.camera.y.end() - cursorDeltaY, endTime: 1 }).cancelAnimation();
+      this.camera.x
+        .jumpTo({ endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * cursorDeltaX, endTime: 1 })
+        .cancelAnimation();
+      this.camera.y
+        .jumpTo({ endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * cursorDeltaY, endTime: 1 })
+        .cancelAnimation();
     } else {
-      this.cursor.dragDecay *= elapsed * 0.002 + 1;
+      this.cursor.dragDecay *= elapsed * 0.001 + 1;
 
       const SPEED_THRESHOLD = 0.05;
       const dx = average(this.cursor.rateSamplesX) / this.cursor.dragDecay;
@@ -203,16 +252,29 @@ class CanvasMapRenderer {
       if (speedSquared > SPEED_THRESHOLD) {
         // Drag the camera with some inertia.
         // We achieve this by just tweaking the endPosition, so the camera "chases".
-        this.camera.x.goTo({ endPosition: this.camera.x.end() - dx, endTime: 1 });
-        this.camera.y.goTo({ endPosition: this.camera.y.end() - dy, endTime: 1 });
+        this.camera.x.jumpTo({ endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * dx, endTime: 1 });
+        this.camera.y.jumpTo({ endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * dy, endTime: 1 });
       }
     }
+
+    this.camera.zoom.adjustEnd({
+      endPosition: this.camera.zoom.end() + this.cursor.zoomDeltaSinceLastUpdate,
+      endTime: 0.1,
+    });
+
+    this.cursor.zoomDeltaSinceLastUpdate = 0;
 
     this.cursor.previousX = this.cursor.x;
     this.cursor.previousY = this.cursor.y;
 
     this.camera.x.animate(elapsed);
     this.camera.y.animate(elapsed);
+    this.camera.zoom.animate(elapsed);
+    if (this.camera.zoom.current() > this.camera.maxZoom) {
+      this.camera.zoom.jumpTo({ endPosition: this.camera.maxZoom, endTime: 1 }).cancelAnimation();
+    } else if (this.camera.zoom.current() < this.camera.maxZoom) {
+      this.camera.zoom.jumpTo({ endPosition: this.camera.minZoom, endTime: 1 }).cancelAnimation();
+    }
   }
 
   update(): void {
@@ -239,11 +301,11 @@ class CanvasMapRenderer {
     const x = this.camera.x.current();
     const y = this.camera.y.current();
 
-    const tileXMin = Math.floor(x / PIXELS_PER_TILE);
-    const tileXMax = Math.ceil((x + context.width()) / PIXELS_PER_TILE);
+    const tileXMin = Math.floor((x - 0.5 * context.width()) / PIXELS_PER_TILE);
+    const tileXMax = Math.ceil((x + 0.5 * context.width()) / PIXELS_PER_TILE);
 
-    const tileYMin = Math.floor(-(y + context.height()) / PIXELS_PER_TILE);
-    const tileYMax = Math.ceil(-y / PIXELS_PER_TILE);
+    const tileYMin = Math.floor(-(y + 0.5 * context.height()) / PIXELS_PER_TILE);
+    const tileYMax = Math.ceil(-(y - 0.5 * context.height()) / PIXELS_PER_TILE);
 
     context.setFillStyle("black");
 
@@ -265,21 +327,26 @@ class CanvasMapRenderer {
         const tile = this.tiles.get(gridIndex)!;
 
         if (!tile.image.complete) {
-          context.fillRect({ x: pixelX, y: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
+          context.fillRect({ worldPosX: pixelX, worldPosY: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
           continue;
         }
 
         try {
-          context.drawImage({ image: tile.image, x: pixelX, y: pixelY });
+          context.drawImage({ image: tile.image, x: pixelX, y: pixelY, worldUnitsPerImagePixel: 1 / PIXELS_PER_TILE });
         } catch {
-          context.fillRect({ x: pixelX, y: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
+          context.fillRect({ worldPosX: pixelX, worldPosY: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
         }
       }
     }
   }
 
   drawAll(context: Context2DScaledWrapper): void {
-    context.setTransform({ offsetX: -this.camera.x.current(), offsetY: -this.camera.y.current() });
+    const zoom = Math.max(Math.min(this.camera.zoom.current(), this.camera.maxZoom), this.camera.minZoom);
+    context.setTransform({
+      x: this.camera.x.current(),
+      y: this.camera.y.current(),
+      scale: zoom,
+    });
 
     this.drawVisibleTiles(context);
   }
@@ -363,6 +430,12 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
   const handlePointerLeave = useCallback(() => {
     rendererRef.current?.handlePointerLeave();
   }, [rendererRef]);
+  const handleScroll = useCallback(
+    ({ deltaY }: { deltaY: number }) => {
+      rendererRef.current?.handleScroll(deltaY);
+    },
+    [rendererRef],
+  );
 
   return (
     <div className="canvas-map">
@@ -371,6 +444,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onWheel={handleScroll}
         id="background-worldmap"
         ref={canvasRef}
       />
