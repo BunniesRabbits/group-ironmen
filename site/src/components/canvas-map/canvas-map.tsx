@@ -257,10 +257,13 @@ class CanvasMapRenderer {
       }
     }
 
-    this.camera.zoom.adjustEnd({
-      endPosition: this.camera.zoom.end() + this.cursor.zoomDeltaSinceLastUpdate,
-      endTime: 0.1,
-    });
+    const ZOOM_SENSITIVITY = 1 / 1000;
+    if (this.cursor.zoomDeltaSinceLastUpdate !== 0) {
+      this.camera.zoom.adjustEnd({
+        endPosition: this.camera.zoom.end() + ZOOM_SENSITIVITY * this.cursor.zoomDeltaSinceLastUpdate,
+        endTime: 1.5,
+      });
+    }
 
     this.cursor.zoomDeltaSinceLastUpdate = 0;
 
@@ -272,7 +275,7 @@ class CanvasMapRenderer {
     this.camera.zoom.animate(elapsed);
     if (this.camera.zoom.current() > this.camera.maxZoom) {
       this.camera.zoom.jumpTo({ endPosition: this.camera.maxZoom, endTime: 1 }).cancelAnimation();
-    } else if (this.camera.zoom.current() < this.camera.maxZoom) {
+    } else if (this.camera.zoom.current() < this.camera.minZoom) {
       this.camera.zoom.jumpTo({ endPosition: this.camera.minZoom, endTime: 1 }).cancelAnimation();
     }
   }
