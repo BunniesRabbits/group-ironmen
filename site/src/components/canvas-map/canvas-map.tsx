@@ -143,18 +143,7 @@ class Context2DScaledWrapper {
 
   // Draws an image
   drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number; worldUnitsPerImagePixel: number }): void {
-    const pixelScale = this.pixelRatio * 0.5;
-    this.context.drawImage(
-      image,
-      0,
-      0,
-      image.width,
-      image.height,
-      x,
-      y,
-      image.width * pixelScale,
-      image.height * pixelScale,
-    );
+    this.context.drawImage(image, 0, 0, image.width, image.height, x, y, image.width, image.height);
   }
 }
 
