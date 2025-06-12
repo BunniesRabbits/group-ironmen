@@ -68,12 +68,61 @@ const average = (arr: number[]): number => {
   return arr.reduce((previous, current) => previous + current, 0) / arr.length;
 };
 
+// Figuring out when to apply scaling is hard, so this wrapper handles
+// that by implementing a subset of Context2D rendering commands.
+class Context2DScaledWrapper {
+  private pixelRatio: number;
+  private context: CanvasRenderingContext2D;
+
+  constructor({ pixelRatio, context }: { pixelRatio: number; context: CanvasRenderingContext2D }) {
+    this.pixelRatio = pixelRatio;
+    this.context = context;
+    context.imageSmoothingEnabled = false;
+  }
+
+  width(): number {
+    return this.context.canvas.width / this.pixelRatio;
+  }
+  height(): number {
+    return this.context.canvas.height / this.pixelRatio;
+  }
+
+  // Sets context for transformation
+  setTransform({ offsetX, offsetY }: { offsetX: number; offsetY: number }): void {
+    this.context.setTransform(1, 0, 0, 1, this.pixelRatio * offsetX, this.pixelRatio * offsetY);
+  }
+  // Sets context for further fill commands
+  setFillStyle(fillStyle: string | CanvasGradient | CanvasPattern): void {
+    this.context.fillStyle = fillStyle;
+  }
+
+  // Draws a filled rectangle
+  fillRect({ x, y, width, height }: { x: number; y: number; width: number; height: number }): void {
+    this.context.fillRect(x * this.pixelRatio, y * this.pixelRatio, width * this.pixelRatio, height * this.pixelRatio);
+  }
+
+  // Draws an image
+  drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number }): void {
+    // TODO: is this width/height the actual height on the image? It might be better to use another image type
+    this.context.drawImage(
+      image,
+      0,
+      0,
+      image.width,
+      image.height,
+      x * this.pixelRatio,
+      y * this.pixelRatio,
+      image.width * this.pixelRatio,
+      image.height * this.pixelRatio,
+    );
+  }
+}
+
 class CanvasMapRenderer {
   private tiles: MapTileGrid;
   private camera: CanvasMapCamera;
   private cursor: CanvasMapCursor;
   private lastUpdateTime: DOMHighResTimeStamp;
-  private pixelRatio: number;
 
   constructor() {
     const INITIAL_X = 9088;
@@ -93,12 +142,7 @@ class CanvasMapRenderer {
       rateSamplesX: [0],
       rateSamplesY: [0],
     };
-    this.pixelRatio = 1;
     this.lastUpdateTime = performance.now();
-  }
-
-  setPixelRatio(ratio: number): void {
-    this.pixelRatio = ratio;
   }
 
   handlePointerDown(): void {
@@ -178,15 +222,7 @@ class CanvasMapRenderer {
     this.lastUpdateTime = currentUpdateTime;
   }
 
-  drawVisibleTiles({
-    width,
-    height,
-    context,
-  }: {
-    width: number;
-    height: number;
-    context: CanvasRenderingContext2D;
-  }): void {
+  private drawVisibleTiles(context: Context2DScaledWrapper): void {
     // WARNING:
     // Tile coordinates are FLIPPED from Canvas coordinates.
     // Tile 0,0 is the bottom left of the world (south-west in game).
@@ -200,21 +236,18 @@ class CanvasMapRenderer {
     const y = this.camera.y.current();
 
     const tileXMin = Math.floor(x / PIXELS_PER_TILE);
-    const tileXMax = Math.ceil((x + width) / PIXELS_PER_TILE);
+    const tileXMax = Math.ceil((x + context.width()) / PIXELS_PER_TILE);
 
-    const tileYMin = Math.floor(-(y + height) / PIXELS_PER_TILE);
+    const tileYMin = Math.floor(-(y + context.height()) / PIXELS_PER_TILE);
     const tileYMax = Math.ceil(-y / PIXELS_PER_TILE);
 
-    context.setTransform(1, 0, 0, 1, -x, -y);
-    context.fillStyle = "green";
+    context.setFillStyle("black");
 
     for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
       for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
         const gridIndex = mapTileIndex(tileX, tileY);
-        const screenX = tileX * PIXELS_PER_TILE;
-        const screenY = -(tileY * PIXELS_PER_TILE);
-
-        context.fillRect(x, y, PIXELS_PER_TILE, PIXELS_PER_TILE);
+        const pixelX = tileX * PIXELS_PER_TILE;
+        const pixelY = -tileY * PIXELS_PER_TILE;
 
         if (!this.tiles.has(gridIndex)) {
           const tile: MapTile = {
@@ -228,16 +261,23 @@ class CanvasMapRenderer {
         const tile = this.tiles.get(gridIndex)!;
 
         if (!tile.image.complete) {
-          context.fillRect(screenX, screenY, PIXELS_PER_TILE, PIXELS_PER_TILE);
+          context.fillRect({ x: pixelX, y: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
+          continue;
         }
 
         try {
-          context.drawImage(tile.image, screenX, screenY);
-        } catch (e) {
-          context.fillRect(screenX, screenY, PIXELS_PER_TILE, PIXELS_PER_TILE);
+          context.drawImage({ image: tile.image, x: pixelX, y: pixelY });
+        } catch {
+          context.fillRect({ x: pixelX, y: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
         }
       }
     }
+  }
+
+  drawAll(context: Context2DScaledWrapper): void {
+    context.setTransform({ offsetX: -this.camera.x.current(), offsetY: -this.camera.y.current() });
+
+    this.drawVisibleTiles(context);
   }
 }
 
@@ -276,13 +316,13 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
       return;
     }
 
-    const width = canvasRef.current.width;
-    const height = canvasRef.current.height;
-    const context = canvasRef.current.getContext("2d")!;
+    const context = new Context2DScaledWrapper({
+      pixelRatio: pixelRatioRef.current,
+      context: canvasRef.current.getContext("2d")!,
+    });
 
-    rendererRef.current?.setPixelRatio(devicePixelRatio);
     rendererRef.current?.update();
-    rendererRef.current?.drawVisibleTiles({ width, height, context });
+    rendererRef.current?.drawAll(context);
     animationFrameHandleRef.current = window.requestAnimationFrame(() => {
       render();
     });
