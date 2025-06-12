@@ -34,4 +34,20 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Catch console.log used for debugging, but allow deliberate logging
+    name: "no console.log in browser",
+    files: ["src/**/*.{ts,tsx}"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+      parserOptions: {
+        project: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "no-console": ["error", { allow: ["warn", "error", "info"] }],
+    },
+  },
 );

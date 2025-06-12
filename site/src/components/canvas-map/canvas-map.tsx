@@ -403,7 +403,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
   }, [animationFrameHandleRef, canvasRef]);
 
   useEffect(() => {
-    console.log("Rebuilding renderer.");
+    console.info("Rebuilding renderer.");
     rendererRef.current = new CanvasMapRenderer();
   });
 
@@ -413,7 +413,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
     if (animationFrameHandleRef.current) {
       window.cancelAnimationFrame(animationFrameHandleRef.current);
     }
-    console.log("Kicking off new render.");
+    console.info("Kicking off new render.");
 
     render();
   }, [render]);
