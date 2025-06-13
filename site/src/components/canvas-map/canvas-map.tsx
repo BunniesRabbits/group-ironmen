@@ -434,7 +434,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
     animationFrameHandleRef.current = window.requestAnimationFrame(() => {
       render();
     });
-  }, [animationFrameHandleRef, canvasRef]);
+  }, []);
 
   useEffect(() => {
     console.info("Rebuilding renderer.");
@@ -462,27 +462,21 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
     render();
   }, [render]);
 
-  const handlePointerMove = useCallback(
-    ({ clientX, clientY }: { clientX: number; clientY: number }) => {
-      rendererRef.current?.handlePointerMove({ x: clientX, y: clientY });
-    },
-    [rendererRef],
-  );
+  const handlePointerMove = useCallback(({ clientX, clientY }: { clientX: number; clientY: number }) => {
+    rendererRef.current?.handlePointerMove({ x: clientX, y: clientY });
+  }, []);
   const handlePointerUp = useCallback(() => {
     rendererRef.current?.handlePointerUp();
-  }, [rendererRef]);
+  }, []);
   const handlePointerDown = useCallback(() => {
     rendererRef.current?.handlePointerDown();
-  }, [rendererRef]);
+  }, []);
   const handlePointerLeave = useCallback(() => {
     rendererRef.current?.handlePointerLeave();
-  }, [rendererRef]);
-  const handleScroll = useCallback(
-    ({ deltaY }: { deltaY: number }) => {
-      rendererRef.current?.handleScroll(deltaY);
-    },
-    [rendererRef],
-  );
+  }, []);
+  const handleScroll = useCallback(({ deltaY }: { deltaY: number }) => {
+    rendererRef.current?.handleScroll(deltaY);
+  }, []);
 
   const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
 
