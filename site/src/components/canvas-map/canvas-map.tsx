@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import "./canvas-map.css";
 import Animation from "./animation";
 
@@ -46,7 +46,7 @@ type MapTileIndex = Distinct<number, "MapTileIndex">;
 
 type MapTileGrid = Map<MapTileIndex, MapTile>;
 const PIXELS_PER_TILE = 256;
-// const PIXELS_PER_POSITION = 4;
+const WORLD_UNITS_PER_RS_SQUARE = 4;
 
 /*
 type MapImageCache = Map<MapTileIndex, HTMLImageElement>;
@@ -150,6 +150,11 @@ class Context2DScaledWrapper {
   }
 }
 
+interface CoordinatePair {
+  x: number;
+  y: number;
+}
+
 class CanvasMapRenderer {
   private tiles: MapTileGrid;
   private camera: CanvasMapCamera;
@@ -209,6 +214,26 @@ class CanvasMapRenderer {
   handleScroll(amount: number): void {
     this.cursor.accumulatedScroll += amount;
   }
+
+  // Converts the cursor coords (which are relative to the window) to world space.
+  private cursorCoordsAsWorldCoordinates(): CoordinatePair {
+    const worldUnitsPerCursorUnit = this.camera.zoom.current();
+
+    const x = (this.camera.x.current() + worldUnitsPerCursorUnit * this.cursor.x) / WORLD_UNITS_PER_RS_SQUARE;
+    const y = -(this.camera.y.current() + worldUnitsPerCursorUnit * this.cursor.y) / WORLD_UNITS_PER_RS_SQUARE;
+
+    // I don't want to worry too much about coordinates until I add more features related to them
+    // So I just looked up a coordinate, assume our coordinates are off by a linear shift, and slap that on
+    const OURS_TO_WIKI_CONVERSION_FACTOR_X = -134;
+    const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 67;
+
+    return {
+      x: Math.floor(x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
+      y: Math.floor(y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
+    };
+  }
+
+  public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
 
   private updateCursorAndCamera(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
@@ -271,6 +296,11 @@ class CanvasMapRenderer {
 
     this.cursor.accumulatedScroll = 0;
 
+    const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
+    if (cursorHasMoved) {
+      const coords = this.cursorCoordsAsWorldCoordinates();
+      this.onCursorCoordinatesUpdate?.(coords);
+    }
     this.cursor.previousX = this.cursor.x;
     this.cursor.previousY = this.cursor.y;
 
@@ -365,6 +395,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
   const rendererRef = useRef<CanvasMapRenderer>(new CanvasMapRenderer());
+  const [coordinates, setCoordinates] = useState<CoordinatePair>();
   const animationFrameHandleRef = useRef<number>(undefined);
 
   const resizeCanvas = useCallback(() => {
@@ -408,7 +439,17 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
   useEffect(() => {
     console.info("Rebuilding renderer.");
     rendererRef.current = new CanvasMapRenderer();
-  });
+  }, []);
+
+  useEffect(() => {
+    if (rendererRef.current === undefined) return;
+
+    rendererRef.current.onCursorCoordinatesUpdate = setCoordinates;
+
+    return (): void => {
+      rendererRef.current.onCursorCoordinatesUpdate = undefined;
+    };
+  }, [setCoordinates]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -443,6 +484,8 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
     [rendererRef],
   );
 
+  const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
+
   return (
     <div className="canvas-map">
       <canvas
@@ -454,7 +497,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
         id="background-worldmap"
         ref={canvasRef}
       />
-      <div className="canvas-map__coordinates"></div>
+      <div className="canvas-map__coordinates">{coordinatesView}</div>
     </div>
   );
 };
