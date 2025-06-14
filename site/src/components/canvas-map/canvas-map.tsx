@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import "./canvas-map.css";
 import Animation from "./animation";
+import { MapMetadata } from "../../data/map-data";
+
+const ICON_IMAGE_SIZE = 15;
 
 interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
@@ -48,27 +51,21 @@ type MapTileGrid = Map<MapTileIndex, MapTile>;
 const PIXELS_PER_TILE = 256;
 const WORLD_UNITS_PER_RS_SQUARE = 4;
 
+type MapTileCoordinateHash = Distinct<string, "MapTileCoordinateHash">;
+// Fractional coordinates get rounded
+const hashMapTileCoordinates = ({ x, y }: CoordinatePair): MapTileCoordinateHash => {
+  return `${Math.round(x)}_${Math.round(y)}` as MapTileCoordinateHash;
+};
+// An icon is those round indicators in runescape, e.g. the blue star for quests.
+
+interface MapIcon {
+  spriteIndex: number;
+  worldPosition: CoordinatePair;
+}
+type MapIconGrid = Map<MapTileCoordinateHash, MapIcon[]>;
+
 /*
 type MapImageCache = Map<MapTileIndex, HTMLImageElement>;
-const PIXELS_PER_GAME_TILE = 4;
-
-const fetchMapJSON = (): Promise<MapMetadata> =>
-  import("../../../public/data/map.json").then((data) => MapMetadata.parseAsync(data));
-
-const clearTilesIntersectingView = (view: CanvasMapView, context: CanvasRenderingContext2D) => {
-  const imageSize = TILE_SIZE;
-
-  // TODO: investigate if it is worth it to only clear when tile alpha is < 1
-  // Could pass in visible tiles, then use their alpha to discriminate
-
-  for (let tileX = view.left; tileX < view.right; ++tileX) {
-    for (let tileY = view.top; tileY > view.bottom; --tileY) {
-      const tileWorldX = tileX * imageSize;
-      const tileWorldY = tileY * imageSize;
-      context.clearRect(tileWorldX, -tileWorldY, imageSize, imageSize);
-    }
-  }
-};
 */
 
 // Returns 0 for empty array
@@ -148,24 +145,62 @@ class Context2DScaledWrapper {
   drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number; worldUnitsPerImagePixel: number }): void {
     this.context.drawImage(image, 0, 0, image.width, image.height, x, y, image.width, image.height);
   }
+  drawImageSlice({
+    image,
+    imageOffset,
+    worldPosition,
+    sliceExtent,
+  }: {
+    image: HTMLImageElement;
+    imageOffset: CoordinatePair;
+    worldPosition: CoordinatePair;
+    sliceExtent: ExtentPair;
+  }): void {
+    this.context.drawImage(
+      image,
+      imageOffset.x,
+      imageOffset.y,
+      sliceExtent.width,
+      sliceExtent.height,
+      worldPosition.x,
+      worldPosition.y,
+      sliceExtent.width,
+      sliceExtent.height,
+    );
+  }
 }
 
 interface CoordinatePair {
   x: number;
   y: number;
 }
+interface ExtentPair {
+  width: number;
+  height: number;
+}
+
+const OURS_TO_WIKI_CONVERSION_FACTOR_X = -134;
+const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 67;
+
+const fetchMapJSON = (): Promise<MapMetadata> =>
+  import("/src/assets/map.json").then((data) => {
+    return MapMetadata.parseAsync(data);
+  });
 
 class CanvasMapRenderer {
   private tiles: MapTileGrid;
   private camera: CanvasMapCamera;
   private cursor: CanvasMapCursor;
   private lastUpdateTime: DOMHighResTimeStamp;
+  private iconsAtlas: HTMLImageElement;
+  private iconsByTile: MapIconGrid;
 
-  constructor() {
+  constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
     const INITIAL_X = 9088;
     const INITIAL_Y = -13184;
     const INITIAL_ZOOM = 1;
 
+    this.iconsAtlas = iconsAtlas;
     this.tiles = new Map();
     this.camera = {
       x: Animation.createInactive({ position: INITIAL_X }),
@@ -186,6 +221,32 @@ class CanvasMapRenderer {
       accumulatedScroll: 0,
     };
     this.lastUpdateTime = performance.now();
+
+    this.iconsByTile = new Map();
+    for (const tileRegionX of Object.keys(mapData.icons)) {
+      const x = parseInt(tileRegionX);
+      for (const tileRegionY of Object.keys(mapData.icons[tileRegionX])) {
+        const y = parseInt(tileRegionY);
+
+        const icons: MapIcon[] = Object.entries(mapData.icons[tileRegionX][tileRegionY])
+          .map(([spriteIndex, coordinatesFlat]) => {
+            return coordinatesFlat
+              .reduce<[number, number][]>((pairs, _, index, coordinates) => {
+                if (index % 2 === 0) {
+                  pairs.push([coordinates[index], coordinates[index + 1]]);
+                }
+                return pairs;
+              }, [])
+              .map((worldPosition) => ({
+                spriteIndex: parseInt(spriteIndex),
+                worldPosition: { x: worldPosition[0], y: worldPosition[1] },
+              }));
+          })
+          .flat();
+
+        this.iconsByTile.set(hashMapTileCoordinates({ x, y }), icons);
+      }
+    }
   }
 
   handlePointerDown(): void {
@@ -198,11 +259,13 @@ class CanvasMapRenderer {
     this.cursor.rateSamplesY = [];
 
     this.cursor.isDragging = true;
+    this.onDraggingUpdate?.(this.cursor.isDragging);
   }
   handlePointerUp(): void {
     if (!this.cursor.isDragging) return;
 
     this.cursor.isDragging = false;
+    this.onDraggingUpdate?.(this.cursor.isDragging);
   }
   handlePointerMove({ x, y }: { x: number; y: number }): void {
     this.cursor.x = x;
@@ -210,6 +273,7 @@ class CanvasMapRenderer {
   }
   handlePointerLeave(): void {
     this.cursor.isDragging = false;
+    this.onDraggingUpdate?.(this.cursor.isDragging);
   }
   handleScroll(amount: number): void {
     this.cursor.accumulatedScroll += amount;
@@ -224,8 +288,6 @@ class CanvasMapRenderer {
 
     // I don't want to worry too much about coordinates until I add more features related to them
     // So I just looked up a coordinate, assume our coordinates are off by a linear shift, and slap that on
-    const OURS_TO_WIKI_CONVERSION_FACTOR_X = -134;
-    const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 67;
 
     return {
       x: Math.floor(x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
@@ -233,7 +295,20 @@ class CanvasMapRenderer {
     };
   }
 
+  // Converts runescape game world position to a position in canvas.
+  // TODO: There is inconsistant usage of the term "world" that should be cleaned up.
+  private worldCoordinatesAsCanvasPosition(position: CoordinatePair): CoordinatePair {
+    const x = position.x;
+    const y = position.y - 64;
+
+    return {
+      x: WORLD_UNITS_PER_RS_SQUARE * x,
+      y: -WORLD_UNITS_PER_RS_SQUARE * y,
+    };
+  }
+
   public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
+  public onDraggingUpdate?: (dragging: boolean) => void;
 
   private updateCursorAndCamera(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
@@ -325,6 +400,42 @@ class CanvasMapRenderer {
     this.lastUpdateTime = currentUpdateTime;
   }
 
+  private drawVisibleIcons(context: Context2DScaledWrapper): void {
+    const imageSizeHalf = ICON_IMAGE_SIZE / 2;
+    // Scale the location icons down with zoom down up to a maximum. Larger number here means a smaller icon.
+    const scale = Math.min(this.camera.zoom.current(), 3);
+    const shift = imageSizeHalf / scale;
+    // const destinationSize = ICON_IMAGE_SIZE / scale;
+
+    const x = this.camera.x.current();
+    const y = this.camera.y.current();
+
+    const tileXMin = Math.floor((x - 0.5 * context.width()) / PIXELS_PER_TILE);
+    const tileXMax = Math.ceil((x + 0.5 * context.width()) / PIXELS_PER_TILE);
+
+    const tileYMin = Math.floor(-(y + 0.5 * context.height()) / PIXELS_PER_TILE);
+    const tileYMax = Math.ceil(-(y - 0.5 * context.height()) / PIXELS_PER_TILE);
+
+    for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
+      for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
+        const mapIcons = this.iconsByTile.get(hashMapTileCoordinates({ x: tileX, y: tileY }));
+        if (mapIcons === undefined) continue;
+
+        mapIcons.forEach(({ spriteIndex: _spriteIndex, worldPosition: worldCoordinates }) => {
+          const { x, y } = this.worldCoordinatesAsCanvasPosition(worldCoordinates);
+          // context.setFillStyle("yellow");
+          // console.log(`${x} ${y} ${this.camera.x.current()} ${this.camera.y.current()}`);
+          context.drawImageSlice({
+            image: this.iconsAtlas,
+            imageOffset: { x: _spriteIndex * ICON_IMAGE_SIZE, y: 0 },
+            sliceExtent: { width: ICON_IMAGE_SIZE, height: ICON_IMAGE_SIZE },
+            worldPosition: { x: x - shift * scale, y: y - shift * scale },
+          });
+        });
+      }
+    }
+  }
+
   private drawVisibleTiles(context: Context2DScaledWrapper): void {
     // WARNING:
     // Tile coordinates are FLIPPED from Canvas coordinates.
@@ -385,16 +496,18 @@ class CanvasMapRenderer {
       scale: zoom,
     });
     this.drawVisibleTiles(context);
+    this.drawVisibleIcons(context);
   }
 }
 
 interface CanvasMapProps {
   interactive: boolean;
 }
-export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactElement => {
+export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
-  const rendererRef = useRef<CanvasMapRenderer>(new CanvasMapRenderer());
+  const [renderer, setRenderer] = useState<CanvasMapRenderer>();
+  const [dragging, setDragging] = useState<boolean>();
   const [coordinates, setCoordinates] = useState<CoordinatePair>();
   const animationFrameHandleRef = useRef<number>(undefined);
 
@@ -424,32 +537,53 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
       return;
     }
 
+    if (renderer === undefined) return;
+
     const context = new Context2DScaledWrapper({
       pixelRatio: pixelRatioRef.current,
       context: canvasRef.current.getContext("2d")!,
     });
 
-    rendererRef.current?.update();
-    rendererRef.current?.drawAll(context);
+    renderer.update();
+    renderer.drawAll(context);
     animationFrameHandleRef.current = window.requestAnimationFrame(() => {
       render();
     });
-  }, []);
+  }, [renderer]);
 
   useEffect(() => {
     console.info("Rebuilding renderer.");
-    rendererRef.current = new CanvasMapRenderer();
-  }, []);
+
+    fetchMapJSON()
+      .then((mapData) => {
+        const ICONS_IN_ATLAS = 123;
+        const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_SIZE, ICON_IMAGE_SIZE);
+        iconAtlas.src = "/map/icons/map_icons.webp";
+        setRenderer(new CanvasMapRenderer(mapData, iconAtlas));
+      })
+      .catch((reason) => {
+        console.error("Failed to build renderer:", reason);
+      });
+  }, [setRenderer]);
 
   useEffect(() => {
-    if (rendererRef.current === undefined) return;
+    if (renderer === undefined) return;
 
-    rendererRef.current.onCursorCoordinatesUpdate = setCoordinates;
+    renderer.onCursorCoordinatesUpdate = setCoordinates;
 
     return (): void => {
-      rendererRef.current.onCursorCoordinatesUpdate = undefined;
+      renderer.onCursorCoordinatesUpdate = undefined;
     };
-  }, [setCoordinates]);
+  }, [setCoordinates, renderer]);
+  useEffect(() => {
+    if (renderer === undefined) return;
+
+    renderer.onDraggingUpdate = setDragging;
+
+    return (): void => {
+      renderer.onDraggingUpdate = undefined;
+    };
+  }, [setDragging, renderer]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -462,23 +596,31 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
     render();
   }, [render]);
 
-  const handlePointerMove = useCallback(({ clientX, clientY }: { clientX: number; clientY: number }) => {
-    rendererRef.current?.handlePointerMove({ x: clientX, y: clientY });
-  }, []);
+  const handlePointerMove = useCallback(
+    ({ clientX, clientY }: { clientX: number; clientY: number }) => {
+      renderer?.handlePointerMove({ x: clientX, y: clientY });
+    },
+    [renderer],
+  );
   const handlePointerUp = useCallback(() => {
-    rendererRef.current?.handlePointerUp();
-  }, []);
+    renderer?.handlePointerUp();
+  }, [renderer]);
   const handlePointerDown = useCallback(() => {
-    rendererRef.current?.handlePointerDown();
-  }, []);
+    renderer?.handlePointerDown();
+  }, [renderer]);
   const handlePointerLeave = useCallback(() => {
-    rendererRef.current?.handlePointerLeave();
-  }, []);
-  const handleScroll = useCallback(({ deltaY }: { deltaY: number }) => {
-    rendererRef.current?.handleScroll(deltaY);
-  }, []);
+    renderer?.handlePointerLeave();
+  }, [renderer]);
+  const handleScroll = useCallback(
+    ({ deltaY }: { deltaY: number }) => {
+      renderer?.handleScroll(deltaY);
+    },
+    [renderer],
+  );
 
   const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
+  const draggingClass = dragging ? "dragging" : undefined;
+  const interactiveClass = interactive ? "interactive" : undefined;
 
   return (
     <div className="canvas-map">
@@ -489,6 +631,7 @@ export const CanvasMap = ({ interactive: _interactive }: CanvasMapProps): ReactE
         onPointerLeave={handlePointerLeave}
         onWheel={handleScroll}
         id="background-worldmap"
+        className={`${draggingClass} ${interactiveClass}`}
         ref={canvasRef}
       />
       <div className="canvas-map__coordinates">{coordinatesView}</div>

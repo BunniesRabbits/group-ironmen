@@ -2,30 +2,7 @@ import { defineConfig, type PluginOption } from "vite";
 import fs from "fs";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { z } from "zod/v4";
-
-const MapIconsMetadata = z.record(
-  z.string(),
-  z.record(
-    z.string(),
-    z.record(
-      z.string(),
-      z.array(z.int()).refine((coords) => coords.length % 2 === 0),
-    ),
-  ),
-);
-type MapIconsMetadata = z.infer<typeof MapIconsMetadata>;
-const MapLabelsMetadata = z.record(
-  z.string(),
-  z.record(
-    z.string(),
-    z.record(
-      z.string(),
-      z.array(z.int()).refine((coords) => coords.length % 3 === 0),
-    ),
-  ),
-);
-type MapLabelsMetadata = z.infer<typeof MapLabelsMetadata>;
+import { MapMetadata } from "./src/data/map-data";
 
 const mapJsonPlugin = (): PluginOption => ({
   name: "mapTilesJson",
@@ -41,23 +18,19 @@ const mapJsonPlugin = (): PluginOption => ({
       tiles[plane].push(((x + y) * (x + y + 1)) / 2 + y);
     }
 
-    const icons = MapIconsMetadata.safeParse(JSON.parse(fs.readFileSync("public/data/map_icons.json", "utf8")));
-    const labels = MapLabelsMetadata.safeParse(JSON.parse(fs.readFileSync("public/data/map_labels.json", "utf8")));
+    const map = MapMetadata.safeParse({
+      icons: JSON.parse(fs.readFileSync("public/data/map_icons.json", "utf8")),
+      labels: JSON.parse(fs.readFileSync("public/data/map_labels.json", "utf8")),
+      tiles: tiles,
+    });
 
-    if (!icons.success || !labels.success) {
+    if (!map.success) {
       console.error("Failed to generate 'maps.json'.");
-      console.error(icons.error ?? "Icons good.");
-      console.error(labels.error ?? "Labels good.");
+      console.error(map.error);
       return;
     }
 
-    const result = {
-      tiles,
-      icons: icons.data,
-      labels: labels.data,
-    };
-
-    fs.writeFileSync("public/data/map.json", JSON.stringify(result));
+    fs.writeFileSync("public/data/map.json", JSON.stringify(map.data));
   },
 });
 

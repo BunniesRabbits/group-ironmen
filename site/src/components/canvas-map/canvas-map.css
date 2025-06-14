@@ -4,7 +4,7 @@
   cursor: grab;
 }
 
-.canvas-map.dragging {
+.canvas-map .dragging {
   cursor: grabbing;
 }
 
@@ -14,7 +14,7 @@
   left: 8px;
 }
 
-.canvas-map.interactive {
+.canvas-map .interactive {
   filter: none !important;
 }
 
@@ -27,8 +27,4 @@
   height: 100%;
   overflow: hidden;
   transition: filter 0.5s;
-}
-
-.canvas-map.interactive {
-  filter: none !important;
 }
