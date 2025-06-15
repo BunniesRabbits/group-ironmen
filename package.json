@@ -1,0 +1,18 @@
+{
+  "name": "group-ironmen-monorepo",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "lint": "eslint .",
+    "precommit": "npm run format:check && npm run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "author": "Estelle Booher",
+  "devDependencies": {
+    "eslint": "^9.29.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.5.3"
+  }
+}
