@@ -30,3 +30,13 @@
   overflow: hidden;
   transition: filter 0.5s;
 }
+
+.canvas-map-plane-select-container {
+  position: absolute;
+  top: 0;
+  margin: 0.4em;
+}
+
+.canvas-map-plane-select {
+  padding: 0.4em;
+}

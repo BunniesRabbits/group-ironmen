@@ -47,16 +47,23 @@ interface MapRegion {
   image: HTMLImageElement;
 }
 
-const mapRegionIndex = (x: number, y: number): MapRegionIndex => (((x + y) * (x + y + 1)) / 2 + y) as MapRegionIndex;
-
-type MapRegionIndex = Distinct<number, "MapRegionIndex">;
-type MapRegionGrid = Map<MapRegionIndex, MapRegion>;
 type MapRegionCoordinate2DHash = Distinct<string, "MapRegionCoordinate2DHash">;
+type MapRegionCoordinate3DHash = Distinct<string, "MapRegionCoordinate3DHash">;
+type RegionGrid = Map<MapRegionCoordinate3DHash, MapRegion>;
 // type MapRegionCoordinate3DHash = Distinct<string, "MapRegionCoordinate3DHash">;
 
 // Fractional coordinates get rounded
 const hashMapRegionCoordinate2Ds = ({ x, y }: CoordinatePair): MapRegionCoordinate2DHash => {
   return `${Math.round(x)}_${Math.round(y)}` as MapRegionCoordinate2DHash;
+};
+const hashMapRegionCoordinate3Ds = ({
+  position,
+  plane,
+}: {
+  position: CoordinatePair;
+  plane: number;
+}): MapRegionCoordinate3DHash => {
+  return `${Math.round(plane)}_${Math.round(position.x)}_${Math.round(position.y)}` as MapRegionCoordinate3DHash;
 };
 // An icon is those round indicators in runescape, e.g. the blue star for quests.
 
@@ -285,7 +292,7 @@ const fetchMapJSON = (): Promise<MapMetadata> =>
   });
 
 class CanvasMapRenderer {
-  private regions: MapRegionGrid;
+  private regions: RegionGrid;
   private camera: CanvasMapCamera;
   private cursor: CanvasMapCursor;
   private lastUpdateTime: DOMHighResTimeStamp;
@@ -293,10 +300,19 @@ class CanvasMapRenderer {
   private iconsByRegion: MapIconGrid;
   private labelsByRegion: MapLabelGrid;
 
+  /**
+   * This stores which plane of the runescape world to render.
+   * Only 4 of them (index 0 to 3) have valid images.
+   * The region image assets have all 3 planes visibly composited, so we only need to render
+   * one image per region.
+   */
+  private plane: number;
+
   constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
     const INITIAL_X = 3360;
     const INITIAL_Y = -3150;
     const INITIAL_ZOOM = 1 / 4;
+    const INITIAL_PLANE = 0;
 
     this.iconsAtlas = iconsAtlas;
     this.regions = new Map();
@@ -319,6 +335,7 @@ class CanvasMapRenderer {
       accumulatedScroll: 0,
     };
     this.lastUpdateTime = performance.now();
+    this.plane = INITIAL_PLANE;
 
     this.iconsByRegion = new Map();
     for (const regionXString of Object.keys(mapData.icons)) {
@@ -403,6 +420,11 @@ class CanvasMapRenderer {
   }
   handleScroll(amount: number): void {
     this.cursor.accumulatedScroll += amount;
+  }
+  handlePlaneSelect(plane: number): void {
+    if (plane !== 0 && plane !== 1 && plane !== 2 && plane !== 3) return;
+
+    this.plane = plane;
   }
 
   // Converts the cursor coords (which are relative to the window) to world space.
@@ -586,7 +608,7 @@ class CanvasMapRenderer {
 
     for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
       for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
-        const gridIndex = mapRegionIndex(regionX, regionY);
+        const coordinateHash = hashMapRegionCoordinate3Ds({ position: { x: regionX, y: regionY }, plane: this.plane });
 
         const worldPosition: CoordinatePair = {
           x: regionX * WORLD_UNITS_PER_REGION,
@@ -597,19 +619,19 @@ class CanvasMapRenderer {
           height: WORLD_UNITS_PER_REGION,
         };
 
-        if (!this.regions.has(gridIndex)) {
+        if (!this.regions.has(coordinateHash)) {
           const region: MapRegion = {
             loaded: false,
             image: new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE),
           };
-          const regionFileBaseName = `${0}_${regionX}_${regionY}`;
+          const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
           region.image.src = `/map/${regionFileBaseName}.webp`;
           region.image.onload = (): void => {
             region.loaded = true;
           };
-          this.regions.set(gridIndex, region);
+          this.regions.set(coordinateHash, region);
         }
-        const region = this.regions.get(gridIndex)!;
+        const region = this.regions.get(coordinateHash)!;
 
         if (!region.loaded) {
           context.fillRect({
@@ -656,6 +678,8 @@ class CanvasMapRenderer {
 
         labels.forEach((label) => {
           const { labelID, worldPosition, plane } = label;
+          if (plane !== this.plane) return;
+
           if (label.image === undefined) {
             label.image = new Image();
             label.image.src = `/map/labels/${labelID}.webp`;
@@ -820,6 +844,12 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
     },
     [renderer],
   );
+  const handleSelectPlane = useCallback(
+    (plane: number) => {
+      renderer?.handlePlaneSelect(plane);
+    },
+    [renderer],
+  );
 
   const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
   const draggingClass = dragging ? "dragging" : undefined;
@@ -837,6 +867,19 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
         className={`${draggingClass} ${interactiveClass}`}
         ref={canvasRef}
       />
+      <div className="canvas-map-plane-select-container rsborder-tiny rsbackground">
+        <select
+          className="canvas-map-plane-select"
+          onChange={(e) => {
+            handleSelectPlane(e.target.selectedIndex);
+          }}
+        >
+          <option value="1">Plane: 1</option>
+          <option value="2">Plane: 2</option>
+          <option value="3">Plane: 3</option>
+          <option value="4">Plane: 4</option>
+        </select>
+      </div>
       <div className="canvas-map__coordinates">{coordinatesView}</div>
     </div>
   );
