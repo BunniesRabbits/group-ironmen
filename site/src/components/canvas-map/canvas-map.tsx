@@ -3,7 +3,11 @@ import "./canvas-map.css";
 import Animation from "./animation";
 import { MapMetadata } from "../../data/map-data";
 
-const ICON_IMAGE_SIZE = 15;
+const ICON_IMAGE_PIXEL_SIZE = 15;
+
+const TILE_IMAGE_PIXEL_SIZE = 256;
+const RS_SQUARE_PIXEL_SIZE = 4;
+const WORLD_UNITS_PER_TILE = TILE_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
 
 interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
@@ -46,12 +50,9 @@ interface MapTile {
 const mapTileIndex = (x: number, y: number): MapTileIndex => (((x + y) * (x + y + 1)) / 2 + y) as MapTileIndex;
 
 type MapTileIndex = Distinct<number, "MapTileIndex">;
-
 type MapTileGrid = Map<MapTileIndex, MapTile>;
-const PIXELS_PER_TILE = 256;
-const WORLD_UNITS_PER_RS_SQUARE = 4;
-
 type MapTileCoordinateHash = Distinct<string, "MapTileCoordinateHash">;
+
 // Fractional coordinates get rounded
 const hashMapTileCoordinates = ({ x, y }: CoordinatePair): MapTileCoordinateHash => {
   return `${Math.round(x)}_${Math.round(y)}` as MapTileCoordinateHash;
@@ -64,10 +65,6 @@ interface MapIcon {
 }
 type MapIconGrid = Map<MapTileCoordinateHash, MapIcon[]>;
 
-/*
-type MapImageCache = Map<MapTileIndex, HTMLImageElement>;
-*/
-
 // Returns 0 for empty array
 const average = (arr: number[]): number => {
   if (arr.length < 1) return 0;
@@ -76,18 +73,22 @@ const average = (arr: number[]): number => {
 
 // Figuring out when to apply scaling is hard, so this wrapper handles
 // that by implementing a subset of Context2D rendering commands.
-// Acts as a view + projection matrix, converting to physical pixels (which is what the canvas uses).
 class Context2DScaledWrapper {
   // Canvas pixel ratio, shouldn't be changed unless canvas is.
-  // Higher means more pixels per input unit, so rendered objects get smaller.
+  // This ratio is the number of physical canvas pixels per logical CSS pixel.
+  // We care about this because we want higher pixel-density screens to not be unviewable.
   private pixelRatio: number;
 
   private context: CanvasRenderingContext2D;
+
+  // Transform of the view/camera, in world units
+  private translation: CoordinatePair;
   private scale: number;
 
   constructor({ pixelRatio, context }: { pixelRatio: number; context: CanvasRenderingContext2D }) {
     this.pixelRatio = pixelRatio;
     this.context = context;
+    this.translation = { x: 0, y: 0 };
     this.scale = 1;
     context.imageSmoothingEnabled = false;
   }
@@ -96,28 +97,56 @@ class Context2DScaledWrapper {
     return this.pixelRatio / this.scale;
   }
 
-  width(): number {
-    return this.context.canvas.width / this.screenPixelsPerWorldUnit();
+  /**
+   * The cursor's position is in canvas/screen space, which is physical pixels.
+   * Thus the world position the cursor points to is relative to the canvas and view parameters, and this method handles the conversion.
+   */
+  cursorPositionToWorldPosition(cursorPosition: CoordinatePair): CoordinatePair {
+    // screen space -> view space -> world space
+
+    const viewPosition: CoordinatePair = {
+      x: (2.0 * (cursorPosition.x - 0.5 * this.context.canvas.width)) / this.pixelRatio,
+      y: (2.0 * (cursorPosition.y - 0.5 * this.context.canvas.height)) / this.pixelRatio,
+    };
+    // Negative since OSRS y axis is flipped from canvas
+    const worldPosition: CoordinatePair = {
+      x: this.scale * viewPosition.x + this.translation.x,
+      y: -(this.scale * viewPosition.y + this.translation.y),
+    };
+
+    return worldPosition;
   }
-  height(): number {
-    return this.context.canvas.height / this.screenPixelsPerWorldUnit();
+
+  // Returns the width/height of the camera, in world coordinates (NOT view coordinates. Mind the scaling.)
+  viewPlaneWorldExtent(): ExtentPair {
+    return {
+      width: this.context.canvas.width / this.screenPixelsPerWorldUnit(),
+      height: this.context.canvas.height / this.screenPixelsPerWorldUnit(),
+    };
+  }
+  viewPlaneWorldOffset(): CoordinatePair {
+    return {
+      x: this.translation.x,
+      y: this.translation.y,
+    };
   }
 
   // Sets context for transformation.
   // The parameters should match your camera, do not pass inverted parameters.
-  setTransform({ x, y, scale }: { x: number; y: number; scale: number }): void {
+  setTransform({ translation, scale }: { translation: CoordinatePair; scale: number }): void {
     // Ratio of world units to physical pixels
+    this.translation = translation;
     this.scale = scale;
-    const ratio = this.screenPixelsPerWorldUnit();
-    // This is two transformation matrices multiplied together
-    // World -- Translate + Scale -> View -- Translate -> Screen
+    // The rectangular canvas is the view plane of the camera.
+    // So view space (0,0) is visible at the center of the canvas.
+    // Thus, we offset by half the canvas pixels since (0,0) is in the corner of the canvas.
     this.context.setTransform(
-      ratio,
+      this.pixelRatio,
       0,
       0,
-      ratio,
-      -ratio * x + this.context.canvas.width / 2,
-      -ratio * y + this.context.canvas.height / 2,
+      this.pixelRatio,
+      this.context.canvas.width / 2,
+      this.context.canvas.height / 2,
     );
   }
 
@@ -126,46 +155,58 @@ class Context2DScaledWrapper {
     this.context.fillStyle = fillStyle;
   }
 
-  // Draws a filled rectangle
-  fillRect({
-    worldPosX,
-    worldPosY,
-    width,
-    height,
-  }: {
-    worldPosX: number;
-    worldPosY: number;
-    width: number;
-    height: number;
-  }): void {
-    this.context.fillRect(worldPosX, worldPosY, width, height);
+  private convertWorldPositionToView(position: CoordinatePair): CoordinatePair {
+    return {
+      x: (position.x - this.translation.x) / this.scale,
+      y: (position.y - this.translation.y) / this.scale,
+    };
+  }
+  private convertWorldExtentToView(extent: ExtentPair): ExtentPair {
+    return {
+      width: extent.width / this.scale,
+      height: extent.height / this.scale,
+    };
   }
 
-  // Draws an image
-  drawImage({ image, x, y }: { image: HTMLImageElement; x: number; y: number; worldUnitsPerImagePixel: number }): void {
-    this.context.drawImage(image, 0, 0, image.width, image.height, x, y, image.width, image.height);
+  /**
+   * Draws a filled rectangle
+   */
+  fillRect({ worldPosition, worldExtent }: { worldPosition: CoordinatePair; worldExtent: ExtentPair }): void {
+    const position = this.convertWorldPositionToView(worldPosition);
+    const extent = this.convertWorldExtentToView(worldExtent);
+    this.context.fillRect(position.x, position.y, extent.width, extent.height);
   }
-  drawImageSlice({
+
+  /**
+   * Draws an image.
+   * Be careful of the image offset/extent, you need to have knowledge of the underlying image.
+   */
+  drawImage({
     image,
-    imageOffset,
+    imageOffsetInPixels,
+    imageExtentInPixels,
     worldPosition,
-    sliceExtent,
+    worldExtent,
   }: {
     image: HTMLImageElement;
-    imageOffset: CoordinatePair;
+    imageOffsetInPixels: CoordinatePair;
+    imageExtentInPixels: ExtentPair;
     worldPosition: CoordinatePair;
-    sliceExtent: ExtentPair;
+    worldExtent: ExtentPair;
   }): void {
+    const position = this.convertWorldPositionToView(worldPosition);
+    const extent = this.convertWorldExtentToView(worldExtent);
+
     this.context.drawImage(
       image,
-      imageOffset.x,
-      imageOffset.y,
-      sliceExtent.width,
-      sliceExtent.height,
-      worldPosition.x,
-      worldPosition.y,
-      sliceExtent.width,
-      sliceExtent.height,
+      imageOffsetInPixels.x,
+      imageOffsetInPixels.y,
+      imageExtentInPixels.width,
+      imageExtentInPixels.height,
+      position.x,
+      position.y,
+      extent.width,
+      extent.height,
     );
   }
 }
@@ -179,8 +220,8 @@ interface ExtentPair {
   height: number;
 }
 
-const OURS_TO_WIKI_CONVERSION_FACTOR_X = -134;
-const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 67;
+const OURS_TO_WIKI_CONVERSION_FACTOR_X = -113;
+const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 50;
 
 const fetchMapJSON = (): Promise<MapMetadata> =>
   import("/src/assets/map.json").then((data) => {
@@ -196,9 +237,9 @@ class CanvasMapRenderer {
   private iconsByTile: MapIconGrid;
 
   constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
-    const INITIAL_X = 9088;
-    const INITIAL_Y = -13184;
-    const INITIAL_ZOOM = 1;
+    const INITIAL_X = 3360;
+    const INITIAL_Y = -3150;
+    const INITIAL_ZOOM = 1 / 4;
 
     this.iconsAtlas = iconsAtlas;
     this.tiles = new Map();
@@ -206,7 +247,7 @@ class CanvasMapRenderer {
       x: Animation.createInactive({ position: INITIAL_X }),
       y: Animation.createInactive({ position: INITIAL_Y }),
       zoom: Animation.createInactive({ position: INITIAL_ZOOM }),
-      minZoom: 1 / 10,
+      minZoom: 1 / 32,
       maxZoom: 2,
     };
     this.cursor = {
@@ -280,30 +321,14 @@ class CanvasMapRenderer {
   }
 
   // Converts the cursor coords (which are relative to the window) to world space.
-  private cursorCoordsAsWorldCoordinates(): CoordinatePair {
-    const worldUnitsPerCursorUnit = this.camera.zoom.current();
+  private cursorCoordsAsWorldCoordinates(context: Context2DScaledWrapper): CoordinatePair {
+    const cursorCoordinates = context.cursorPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
 
-    const x = (this.camera.x.current() + worldUnitsPerCursorUnit * this.cursor.x) / WORLD_UNITS_PER_RS_SQUARE;
-    const y = -(this.camera.y.current() + worldUnitsPerCursorUnit * this.cursor.y) / WORLD_UNITS_PER_RS_SQUARE;
-
-    // I don't want to worry too much about coordinates until I add more features related to them
-    // So I just looked up a coordinate, assume our coordinates are off by a linear shift, and slap that on
-
+    // This conversion factor is a little weird, but for whatever reason the coordinates the wiki uses are shifted from what we end up with.
+    // I have not investigated, and I assume it is due to how the tile images are saved and everything.
     return {
-      x: Math.floor(x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
-      y: Math.floor(y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
-    };
-  }
-
-  // Converts runescape game world position to a position in canvas.
-  // TODO: There is inconsistant usage of the term "world" that should be cleaned up.
-  private worldCoordinatesAsCanvasPosition(position: CoordinatePair): CoordinatePair {
-    const x = position.x;
-    const y = position.y - 64;
-
-    return {
-      x: WORLD_UNITS_PER_RS_SQUARE * x,
-      y: -WORLD_UNITS_PER_RS_SQUARE * y,
+      x: Math.floor(cursorCoordinates.x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
+      y: Math.floor(cursorCoordinates.y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
     };
   }
 
@@ -371,14 +396,6 @@ class CanvasMapRenderer {
 
     this.cursor.accumulatedScroll = 0;
 
-    const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
-    if (cursorHasMoved) {
-      const coords = this.cursorCoordsAsWorldCoordinates();
-      this.onCursorCoordinatesUpdate?.(coords);
-    }
-    this.cursor.previousX = this.cursor.x;
-    this.cursor.previousY = this.cursor.y;
-
     this.camera.x.update(elapsed);
     this.camera.y.update(elapsed);
     this.camera.zoom.update(elapsed);
@@ -389,7 +406,7 @@ class CanvasMapRenderer {
     }
   }
 
-  update(): void {
+  update(context: Context2DScaledWrapper): void {
     const currentUpdateTime = performance.now();
     const elapsed = currentUpdateTime - this.lastUpdateTime;
 
@@ -397,39 +414,50 @@ class CanvasMapRenderer {
 
     this.updateCursorAndCamera(elapsed);
 
+    this.drawAll(context);
+
+    const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
+    if (cursorHasMoved) {
+      const coords = this.cursorCoordsAsWorldCoordinates(context);
+      this.onCursorCoordinatesUpdate?.(coords);
+    }
+
+    this.cursor.previousX = this.cursor.x;
+    this.cursor.previousY = this.cursor.y;
     this.lastUpdateTime = currentUpdateTime;
   }
 
   private drawVisibleIcons(context: Context2DScaledWrapper): void {
-    const imageSizeHalf = ICON_IMAGE_SIZE / 2;
-    // Scale the location icons down with zoom down up to a maximum. Larger number here means a smaller icon.
-    const scale = Math.min(this.camera.zoom.current(), 3);
-    const shift = imageSizeHalf / scale;
-    // const destinationSize = ICON_IMAGE_SIZE / scale;
+    // When zooming out, we want icons to get bigger since they would become unreadable otherwise.
+    const iconScale = 16 * Math.max(this.camera.zoom.current(), 1 / 8);
 
-    const x = this.camera.x.current();
-    const y = this.camera.y.current();
+    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
+    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
 
-    const tileXMin = Math.floor((x - 0.5 * context.width()) / PIXELS_PER_TILE);
-    const tileXMax = Math.ceil((x + 0.5 * context.width()) / PIXELS_PER_TILE);
+    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
 
-    const tileYMin = Math.floor(-(y + 0.5 * context.height()) / PIXELS_PER_TILE);
-    const tileYMax = Math.ceil(-(y - 0.5 * context.height()) / PIXELS_PER_TILE);
+    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
 
     for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
       for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
         const mapIcons = this.iconsByTile.get(hashMapTileCoordinates({ x: tileX, y: tileY }));
         if (mapIcons === undefined) continue;
 
-        mapIcons.forEach(({ spriteIndex: _spriteIndex, worldPosition: worldCoordinates }) => {
-          const { x, y } = this.worldCoordinatesAsCanvasPosition(worldCoordinates);
-          // context.setFillStyle("yellow");
-          // console.log(`${x} ${y} ${this.camera.x.current()} ${this.camera.y.current()}`);
-          context.drawImageSlice({
+        // The 1 centers the icons, the 64 is to get it to be visually correct.
+        // I'm not too sure where the 64 comes from, but it exists since our tiles/images/coordinates are not quite synced up.
+
+        const offsetX = -iconScale / 2;
+        const offsetY = -iconScale / 2 + 64;
+
+        mapIcons.forEach(({ spriteIndex, worldPosition }) => {
+          context.drawImage({
             image: this.iconsAtlas,
-            imageOffset: { x: _spriteIndex * ICON_IMAGE_SIZE, y: 0 },
-            sliceExtent: { width: ICON_IMAGE_SIZE, height: ICON_IMAGE_SIZE },
-            worldPosition: { x: x - shift * scale, y: y - shift * scale },
+            imageOffsetInPixels: { x: spriteIndex * ICON_IMAGE_PIXEL_SIZE, y: 0 },
+            imageExtentInPixels: { width: ICON_IMAGE_PIXEL_SIZE, height: ICON_IMAGE_PIXEL_SIZE },
+            worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
+            worldExtent: { width: iconScale, height: iconScale },
           });
         });
       }
@@ -437,36 +465,48 @@ class CanvasMapRenderer {
   }
 
   private drawVisibleTiles(context: Context2DScaledWrapper): void {
-    // WARNING:
-    // Tile coordinates are FLIPPED from Canvas coordinates.
-    // Tile 0,0 is the bottom left of the world (south-west in game).
-    // Canvas x axis is the same, but y is flipped.
-    // So our tiles "exist" only in negative canvas y.
+    /*
+     * WARNING:
+     * Tile coordinates are FLIPPED from Canvas coordinates.
+     * Tile 0,0 is the bottom left of the world (south-west in game).
+     * Canvas x axis is the same, but y is flipped.
+     * So our tiles "exist" only in negative canvas y.
+     * This requires some annoying sign flips for the y coordinates below.
+     * We only do this when converting between world and RS coordinates,
+     * since the canvas2D API is really hard to work with flips.
+     *
+     * For reference, the world tiles surrounded by the ocean run from
+     * (18, 39) to (53, 64)
+     */
 
-    // The world titles surrounding by the ocean run from
-    // (18, 39) to (53, 64)
+    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
+    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
 
-    const x = this.camera.x.current();
-    const y = this.camera.y.current();
+    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
 
-    const tileXMin = Math.floor((x - 0.5 * context.width()) / PIXELS_PER_TILE);
-    const tileXMax = Math.ceil((x + 0.5 * context.width()) / PIXELS_PER_TILE);
-
-    const tileYMin = Math.floor(-(y + 0.5 * context.height()) / PIXELS_PER_TILE);
-    const tileYMax = Math.ceil(-(y - 0.5 * context.height()) / PIXELS_PER_TILE);
+    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
 
     context.setFillStyle("black");
 
     for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
       for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
         const gridIndex = mapTileIndex(tileX, tileY);
-        const pixelX = tileX * PIXELS_PER_TILE;
-        const pixelY = -tileY * PIXELS_PER_TILE;
+
+        const worldPosition: CoordinatePair = {
+          x: tileX * WORLD_UNITS_PER_TILE,
+          y: -tileY * WORLD_UNITS_PER_TILE,
+        };
+        const worldExtent: ExtentPair = {
+          width: WORLD_UNITS_PER_TILE,
+          height: WORLD_UNITS_PER_TILE,
+        };
 
         if (!this.tiles.has(gridIndex)) {
           const tile: MapTile = {
             loaded: false,
-            image: new Image(PIXELS_PER_TILE, PIXELS_PER_TILE),
+            image: new Image(TILE_IMAGE_PIXEL_SIZE, TILE_IMAGE_PIXEL_SIZE),
           };
           const tileFileBaseName = `${0}_${tileX}_${tileY}`;
           tile.image.src = `/map/${tileFileBaseName}.webp`;
@@ -475,24 +515,41 @@ class CanvasMapRenderer {
         const tile = this.tiles.get(gridIndex)!;
 
         if (!tile.image.complete) {
-          context.fillRect({ worldPosX: pixelX, worldPosY: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
+          context.fillRect({
+            worldPosition,
+            worldExtent,
+          });
           continue;
         }
 
         try {
-          context.drawImage({ image: tile.image, x: pixelX, y: pixelY, worldUnitsPerImagePixel: 1 / PIXELS_PER_TILE });
+          context.drawImage({
+            image: tile.image,
+            imageOffsetInPixels: { x: 0, y: 0 },
+            imageExtentInPixels: { width: tile.image.width, height: tile.image.height },
+            worldPosition,
+            worldExtent,
+          });
         } catch {
-          context.fillRect({ worldPosX: pixelX, worldPosY: pixelY, width: PIXELS_PER_TILE, height: PIXELS_PER_TILE });
+          context.fillRect({
+            worldPosition,
+            worldExtent,
+          });
         }
       }
     }
   }
 
-  drawAll(context: Context2DScaledWrapper): void {
+  private drawAll(context: Context2DScaledWrapper): void {
     const zoom = Math.max(Math.min(this.camera.zoom.current(), this.camera.maxZoom), this.camera.minZoom);
-    context.setTransform({
+
+    const cameraWorldPosition = {
       x: this.camera.x.current(),
       y: this.camera.y.current(),
+    };
+
+    context.setTransform({
+      translation: cameraWorldPosition,
       scale: zoom,
     });
     this.drawVisibleTiles(context);
@@ -544,8 +601,7 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
       context: canvasRef.current.getContext("2d")!,
     });
 
-    renderer.update();
-    renderer.drawAll(context);
+    renderer.update(context);
     animationFrameHandleRef.current = window.requestAnimationFrame(() => {
       render();
     });
@@ -557,7 +613,7 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
     fetchMapJSON()
       .then((mapData) => {
         const ICONS_IN_ATLAS = 123;
-        const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_SIZE, ICON_IMAGE_SIZE);
+        const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_PIXEL_SIZE, ICON_IMAGE_PIXEL_SIZE);
         iconAtlas.src = "/map/icons/map_icons.webp";
         setRenderer(new CanvasMapRenderer(mapData, iconAtlas));
       })
