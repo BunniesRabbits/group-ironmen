@@ -51,19 +51,36 @@ const mapTileIndex = (x: number, y: number): MapTileIndex => (((x + y) * (x + y 
 
 type MapTileIndex = Distinct<number, "MapTileIndex">;
 type MapTileGrid = Map<MapTileIndex, MapTile>;
-type MapTileCoordinateHash = Distinct<string, "MapTileCoordinateHash">;
+type MapTileCoordinate2DHash = Distinct<string, "MapTileCoordinate2DHash">;
+// type MapTileCoordinate3DHash = Distinct<string, "MapTileCoordinate3DHash">;
 
 // Fractional coordinates get rounded
-const hashMapTileCoordinates = ({ x, y }: CoordinatePair): MapTileCoordinateHash => {
-  return `${Math.round(x)}_${Math.round(y)}` as MapTileCoordinateHash;
+const hashMapTileCoordinate2Ds = ({ x, y }: CoordinatePair): MapTileCoordinate2DHash => {
+  return `${Math.round(x)}_${Math.round(y)}` as MapTileCoordinate2DHash;
 };
+/*
+const hashMapTileCoordinate3Ds = ({ x, y, plane }: CoordinatePair & {plane: number}): MapTileCoordinate3DHash => {
+  return `${Math.round(plane)}_${Math.round(x)}_${Math.round(y)}` as MapTileCoordinate3DHash;
+};
+*/
 // An icon is those round indicators in runescape, e.g. the blue star for quests.
 
 interface MapIcon {
+  // Index into the icon atlas
   spriteIndex: number;
   worldPosition: CoordinatePair;
 }
-type MapIconGrid = Map<MapTileCoordinateHash, MapIcon[]>;
+type MapIconGrid = Map<MapTileCoordinate2DHash, MapIcon[]>;
+
+interface MapLabel {
+  // labelID.webp is the filename of the label
+  labelID: number;
+  worldPosition: CoordinatePair;
+  plane: number;
+  image?: HTMLImageElement;
+  loaded: boolean;
+}
+type MapLabelGrid = Map<MapTileCoordinate2DHash, MapLabel[]>;
 
 // Returns 0 for empty array
 const average = (arr: number[]): number => {
@@ -193,6 +210,8 @@ class Context2DScaledWrapper {
   /**
    * Draws an image.
    * Be careful of the image offset/extent, you need to have knowledge of the underlying image.
+   *
+   * PixelPerfect: round width/height to nearest pixel. Can mess up aspect ratio if you are non-uniformly scaling.
    */
   drawImage({
     image,
@@ -200,27 +219,56 @@ class Context2DScaledWrapper {
     imageExtentInPixels,
     worldPosition,
     worldExtent,
+    pixelPerfect,
   }: {
     image: HTMLImageElement;
     imageOffsetInPixels: CoordinatePair;
     imageExtentInPixels: ExtentPair;
     worldPosition: CoordinatePair;
     worldExtent: ExtentPair;
+    pixelPerfect?: boolean;
   }): void {
     const position = this.convertWorldPositionToView(worldPosition);
     const extent = this.convertWorldExtentToView(worldExtent);
 
-    this.context.drawImage(
-      image,
-      imageOffsetInPixels.x,
-      imageOffsetInPixels.y,
-      imageExtentInPixels.width,
-      imageExtentInPixels.height,
-      position.x,
-      position.y,
-      extent.width,
-      extent.height,
-    );
+    pixelPerfect = pixelPerfect ?? false;
+
+    if (pixelPerfect) {
+      this.context.setTransform(1, 0, 0, 1, 0, 0);
+
+      this.context.drawImage(
+        image,
+        imageOffsetInPixels.x,
+        imageOffsetInPixels.y,
+        imageExtentInPixels.width,
+        imageExtentInPixels.height,
+        Math.round(this.pixelRatio * position.x + this.context.canvas.width / 2),
+        Math.round(this.pixelRatio * position.y + this.context.canvas.height / 2),
+        Math.round((this.pixelRatio * extent.width) / imageExtentInPixels.width) * imageExtentInPixels.width,
+        Math.round((this.pixelRatio * extent.height) / imageExtentInPixels.height) * imageExtentInPixels.height,
+      );
+
+      this.context.setTransform(
+        this.pixelRatio,
+        0,
+        0,
+        this.pixelRatio,
+        this.context.canvas.width / 2,
+        this.context.canvas.height / 2,
+      );
+    } else {
+      this.context.drawImage(
+        image,
+        imageOffsetInPixels.x,
+        imageOffsetInPixels.y,
+        imageExtentInPixels.width,
+        imageExtentInPixels.height,
+        position.x,
+        position.y,
+        extent.width,
+        extent.height,
+      );
+    }
   }
 }
 
@@ -248,6 +296,7 @@ class CanvasMapRenderer {
   private lastUpdateTime: DOMHighResTimeStamp;
   private iconsAtlas: HTMLImageElement;
   private iconsByTile: MapIconGrid;
+  private labelsByTile: MapLabelGrid;
 
   constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
     const INITIAL_X = 3360;
@@ -298,7 +347,35 @@ class CanvasMapRenderer {
           })
           .flat();
 
-        this.iconsByTile.set(hashMapTileCoordinates({ x, y }), icons);
+        this.iconsByTile.set(hashMapTileCoordinate2Ds({ x, y }), icons);
+      }
+    }
+
+    this.labelsByTile = new Map();
+    for (const tileRegionX of Object.keys(mapData.labels)) {
+      const x = parseInt(tileRegionX);
+      for (const tileRegionY of Object.keys(mapData.labels[tileRegionX])) {
+        const y = parseInt(tileRegionY);
+
+        const labels: MapLabel[] = Object.entries(mapData.labels[tileRegionX][tileRegionY])
+          .map(([planeString, XYLabelIDFlat]) => {
+            const plane = parseInt(planeString);
+
+            return XYLabelIDFlat.reduce<MapLabel[]>((labels, _, index, labelFlat) => {
+              if (index % 3 === 0) {
+                labels.push({
+                  labelID: labelFlat[index + 2],
+                  plane,
+                  worldPosition: { x: labelFlat[index], y: labelFlat[index + 1] },
+                  loaded: false,
+                });
+              }
+              return labels;
+            }, []);
+          })
+          .flat();
+
+        this.labelsByTile.set(hashMapTileCoordinate2Ds({ x, y }), labels);
       }
     }
   }
@@ -455,7 +532,7 @@ class CanvasMapRenderer {
 
     for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
       for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
-        const mapIcons = this.iconsByTile.get(hashMapTileCoordinates({ x: tileX, y: tileY }));
+        const mapIcons = this.iconsByTile.get(hashMapTileCoordinate2Ds({ x: tileX, y: tileY }));
         if (mapIcons === undefined) continue;
 
         // The 1 centers the icons, the 64 is to get it to be visually correct.
@@ -471,6 +548,7 @@ class CanvasMapRenderer {
             imageExtentInPixels: { width: ICON_IMAGE_PIXEL_SIZE, height: ICON_IMAGE_PIXEL_SIZE },
             worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
             worldExtent: { width: iconScale, height: iconScale },
+            pixelPerfect: true,
           });
         });
       }
@@ -523,11 +601,14 @@ class CanvasMapRenderer {
           };
           const tileFileBaseName = `${0}_${tileX}_${tileY}`;
           tile.image.src = `/map/${tileFileBaseName}.webp`;
+          tile.image.onload = (): void => {
+            tile.loaded = true;
+          };
           this.tiles.set(gridIndex, tile);
         }
         const tile = this.tiles.get(gridIndex)!;
 
-        if (!tile.image.complete) {
+        if (!tile.loaded) {
           context.fillRect({
             worldPosition,
             worldExtent,
@@ -535,20 +616,64 @@ class CanvasMapRenderer {
           continue;
         }
 
-        try {
+        context.drawImage({
+          image: tile.image,
+          imageOffsetInPixels: { x: 0, y: 0 },
+          imageExtentInPixels: { width: tile.image.width, height: tile.image.height },
+          worldPosition,
+          worldExtent,
+        });
+      }
+    }
+  }
+
+  /**
+   * A map label is pre-rendered text labelling areas such as "Karamja" and "Mudskipper Point".
+   */
+  private drawVisibleAreaLabels(context: Context2DScaledWrapper): void {
+    const labelScale = 1 * Math.max(context.getScale(), 1 / 12);
+
+    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
+    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+
+    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+
+    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+
+    for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
+      for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
+        const labels = this.labelsByTile.get(hashMapTileCoordinate2Ds({ x: tileX, y: tileY }));
+        if (labels === undefined) continue;
+
+        labels.forEach((label) => {
+          const { labelID, worldPosition, plane } = label;
+          if (label.image === undefined) {
+            label.image = new Image();
+            label.image.src = `/map/labels/${labelID}.webp`;
+            label.image.onload = (): void => {
+              label.loaded = true;
+            };
+          }
+          const image = label.image;
+
+          if (!label.loaded) return;
+
+          if (plane !== 0) return;
+
+          const offsetX = 0;
+          const offsetY = 64;
+
           context.drawImage({
-            image: tile.image,
+            image,
             imageOffsetInPixels: { x: 0, y: 0 },
-            imageExtentInPixels: { width: tile.image.width, height: tile.image.height },
-            worldPosition,
-            worldExtent,
+            imageExtentInPixels: { width: image.width, height: image.height },
+            worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
+            worldExtent: { width: labelScale * image.width, height: labelScale * image.height },
+            pixelPerfect: true,
           });
-        } catch {
-          context.fillRect({
-            worldPosition,
-            worldExtent,
-          });
-        }
+        });
       }
     }
   }
@@ -568,6 +693,7 @@ class CanvasMapRenderer {
     });
     this.drawVisibleTiles(context);
     this.drawVisibleIcons(context);
+    this.drawVisibleAreaLabels(context);
   }
 }
 
