@@ -9,3 +9,6 @@ tramp
 *.html
 public/*
 dist/*
+
+# Assets we need to have in source folder for in-Javascript imports, but shouldn't be linted since they are data 
+src/assets/*
