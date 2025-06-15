@@ -5,9 +5,9 @@ import { MapMetadata } from "../../data/map-data";
 
 const ICON_IMAGE_PIXEL_SIZE = 15;
 
-const TILE_IMAGE_PIXEL_SIZE = 256;
+const REGION_IMAGE_PIXEL_SIZE = 256;
 const RS_SQUARE_PIXEL_SIZE = 4;
-const WORLD_UNITS_PER_TILE = TILE_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
+const WORLD_UNITS_PER_REGION = REGION_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
 
 interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
@@ -42,27 +42,22 @@ interface CanvasMapCursor {
 
 type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
 
-interface MapTile {
+interface MapRegion {
   loaded: boolean;
   image: HTMLImageElement;
 }
 
-const mapTileIndex = (x: number, y: number): MapTileIndex => (((x + y) * (x + y + 1)) / 2 + y) as MapTileIndex;
+const mapRegionIndex = (x: number, y: number): MapRegionIndex => (((x + y) * (x + y + 1)) / 2 + y) as MapRegionIndex;
 
-type MapTileIndex = Distinct<number, "MapTileIndex">;
-type MapTileGrid = Map<MapTileIndex, MapTile>;
-type MapTileCoordinate2DHash = Distinct<string, "MapTileCoordinate2DHash">;
-// type MapTileCoordinate3DHash = Distinct<string, "MapTileCoordinate3DHash">;
+type MapRegionIndex = Distinct<number, "MapRegionIndex">;
+type MapRegionGrid = Map<MapRegionIndex, MapRegion>;
+type MapRegionCoordinate2DHash = Distinct<string, "MapRegionCoordinate2DHash">;
+// type MapRegionCoordinate3DHash = Distinct<string, "MapRegionCoordinate3DHash">;
 
 // Fractional coordinates get rounded
-const hashMapTileCoordinate2Ds = ({ x, y }: CoordinatePair): MapTileCoordinate2DHash => {
-  return `${Math.round(x)}_${Math.round(y)}` as MapTileCoordinate2DHash;
+const hashMapRegionCoordinate2Ds = ({ x, y }: CoordinatePair): MapRegionCoordinate2DHash => {
+  return `${Math.round(x)}_${Math.round(y)}` as MapRegionCoordinate2DHash;
 };
-/*
-const hashMapTileCoordinate3Ds = ({ x, y, plane }: CoordinatePair & {plane: number}): MapTileCoordinate3DHash => {
-  return `${Math.round(plane)}_${Math.round(x)}_${Math.round(y)}` as MapTileCoordinate3DHash;
-};
-*/
 // An icon is those round indicators in runescape, e.g. the blue star for quests.
 
 interface MapIcon {
@@ -70,7 +65,7 @@ interface MapIcon {
   spriteIndex: number;
   worldPosition: CoordinatePair;
 }
-type MapIconGrid = Map<MapTileCoordinate2DHash, MapIcon[]>;
+type MapIconGrid = Map<MapRegionCoordinate2DHash, MapIcon[]>;
 
 interface MapLabel {
   // labelID.webp is the filename of the label
@@ -80,7 +75,7 @@ interface MapLabel {
   image?: HTMLImageElement;
   loaded: boolean;
 }
-type MapLabelGrid = Map<MapTileCoordinate2DHash, MapLabel[]>;
+type MapLabelGrid = Map<MapRegionCoordinate2DHash, MapLabel[]>;
 
 // Returns 0 for empty array
 const average = (arr: number[]): number => {
@@ -290,13 +285,13 @@ const fetchMapJSON = (): Promise<MapMetadata> =>
   });
 
 class CanvasMapRenderer {
-  private tiles: MapTileGrid;
+  private regions: MapRegionGrid;
   private camera: CanvasMapCamera;
   private cursor: CanvasMapCursor;
   private lastUpdateTime: DOMHighResTimeStamp;
   private iconsAtlas: HTMLImageElement;
-  private iconsByTile: MapIconGrid;
-  private labelsByTile: MapLabelGrid;
+  private iconsByRegion: MapIconGrid;
+  private labelsByRegion: MapLabelGrid;
 
   constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
     const INITIAL_X = 3360;
@@ -304,7 +299,7 @@ class CanvasMapRenderer {
     const INITIAL_ZOOM = 1 / 4;
 
     this.iconsAtlas = iconsAtlas;
-    this.tiles = new Map();
+    this.regions = new Map();
     this.camera = {
       x: Animation.createInactive({ position: INITIAL_X }),
       y: Animation.createInactive({ position: INITIAL_Y }),
@@ -325,13 +320,13 @@ class CanvasMapRenderer {
     };
     this.lastUpdateTime = performance.now();
 
-    this.iconsByTile = new Map();
-    for (const tileRegionX of Object.keys(mapData.icons)) {
-      const x = parseInt(tileRegionX);
-      for (const tileRegionY of Object.keys(mapData.icons[tileRegionX])) {
-        const y = parseInt(tileRegionY);
+    this.iconsByRegion = new Map();
+    for (const regionXString of Object.keys(mapData.icons)) {
+      const x = parseInt(regionXString);
+      for (const regionYString of Object.keys(mapData.icons[regionXString])) {
+        const y = parseInt(regionYString);
 
-        const icons: MapIcon[] = Object.entries(mapData.icons[tileRegionX][tileRegionY])
+        const icons: MapIcon[] = Object.entries(mapData.icons[regionXString][regionYString])
           .map(([spriteIndex, coordinatesFlat]) => {
             return coordinatesFlat
               .reduce<[number, number][]>((pairs, _, index, coordinates) => {
@@ -347,17 +342,17 @@ class CanvasMapRenderer {
           })
           .flat();
 
-        this.iconsByTile.set(hashMapTileCoordinate2Ds({ x, y }), icons);
+        this.iconsByRegion.set(hashMapRegionCoordinate2Ds({ x, y }), icons);
       }
     }
 
-    this.labelsByTile = new Map();
-    for (const tileRegionX of Object.keys(mapData.labels)) {
-      const x = parseInt(tileRegionX);
-      for (const tileRegionY of Object.keys(mapData.labels[tileRegionX])) {
-        const y = parseInt(tileRegionY);
+    this.labelsByRegion = new Map();
+    for (const regionXString of Object.keys(mapData.labels)) {
+      const x = parseInt(regionXString);
+      for (const regionYString of Object.keys(mapData.labels[regionXString])) {
+        const y = parseInt(regionYString);
 
-        const labels: MapLabel[] = Object.entries(mapData.labels[tileRegionX][tileRegionY])
+        const labels: MapLabel[] = Object.entries(mapData.labels[regionXString][regionYString])
           .map(([planeString, XYLabelIDFlat]) => {
             const plane = parseInt(planeString);
 
@@ -375,7 +370,7 @@ class CanvasMapRenderer {
           })
           .flat();
 
-        this.labelsByTile.set(hashMapTileCoordinate2Ds({ x, y }), labels);
+        this.labelsByRegion.set(hashMapRegionCoordinate2Ds({ x, y }), labels);
       }
     }
   }
@@ -415,7 +410,7 @@ class CanvasMapRenderer {
     const cursorCoordinates = context.cursorPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
 
     // This conversion factor is a little weird, but for whatever reason the coordinates the wiki uses are shifted from what we end up with.
-    // I have not investigated, and I assume it is due to how the tile images are saved and everything.
+    // I have not investigated, and I assume it is due to how the region images are saved and everything.
     return {
       x: Math.floor(cursorCoordinates.x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
       y: Math.floor(cursorCoordinates.y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
@@ -524,19 +519,23 @@ class CanvasMapRenderer {
     const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
     const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
 
-    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
-    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
 
-    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
-    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const regionYMin = -Math.ceil(
+      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+    const regionYMax = -Math.floor(
+      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
 
-    for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
-      for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
-        const mapIcons = this.iconsByTile.get(hashMapTileCoordinate2Ds({ x: tileX, y: tileY }));
+    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
+      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
+        const mapIcons = this.iconsByRegion.get(hashMapRegionCoordinate2Ds({ x: regionX, y: regionY }));
         if (mapIcons === undefined) continue;
 
         // The 1 centers the icons, the 64 is to get it to be visually correct.
-        // I'm not too sure where the 64 comes from, but it exists since our tiles/images/coordinates are not quite synced up.
+        // I'm not too sure where the 64 comes from, but it exists since our regions/images/coordinates are not quite synced up.
 
         const offsetX = -iconScale / 2;
         const offsetY = -iconScale / 2 + 64;
@@ -555,60 +554,64 @@ class CanvasMapRenderer {
     }
   }
 
-  private drawVisibleTiles(context: Context2DScaledWrapper): void {
+  private drawVisibleRegions(context: Context2DScaledWrapper): void {
     /*
      * WARNING:
-     * Tile coordinates are FLIPPED from Canvas coordinates.
-     * Tile 0,0 is the bottom left of the world (south-west in game).
+     * Region coordinates are FLIPPED from Canvas coordinates.
+     * Region 0,0 is the bottom left of the world (south-west in game).
      * Canvas x axis is the same, but y is flipped.
-     * So our tiles "exist" only in negative canvas y.
+     * So our regions "exist" only in negative canvas y.
      * This requires some annoying sign flips for the y coordinates below.
      * We only do this when converting between world and RS coordinates,
      * since the canvas2D API is really hard to work with flips.
      *
-     * For reference, the world tiles surrounded by the ocean run from
+     * For reference, the world regions surrounded by the ocean run from
      * (18, 39) to (53, 64)
      */
 
     const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
     const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
 
-    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
-    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
 
-    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
-    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const regionYMin = -Math.ceil(
+      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+    const regionYMax = -Math.floor(
+      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
 
     context.setFillStyle("black");
 
-    for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
-      for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
-        const gridIndex = mapTileIndex(tileX, tileY);
+    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
+      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
+        const gridIndex = mapRegionIndex(regionX, regionY);
 
         const worldPosition: CoordinatePair = {
-          x: tileX * WORLD_UNITS_PER_TILE,
-          y: -tileY * WORLD_UNITS_PER_TILE,
+          x: regionX * WORLD_UNITS_PER_REGION,
+          y: -regionY * WORLD_UNITS_PER_REGION,
         };
         const worldExtent: ExtentPair = {
-          width: WORLD_UNITS_PER_TILE,
-          height: WORLD_UNITS_PER_TILE,
+          width: WORLD_UNITS_PER_REGION,
+          height: WORLD_UNITS_PER_REGION,
         };
 
-        if (!this.tiles.has(gridIndex)) {
-          const tile: MapTile = {
+        if (!this.regions.has(gridIndex)) {
+          const region: MapRegion = {
             loaded: false,
-            image: new Image(TILE_IMAGE_PIXEL_SIZE, TILE_IMAGE_PIXEL_SIZE),
+            image: new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE),
           };
-          const tileFileBaseName = `${0}_${tileX}_${tileY}`;
-          tile.image.src = `/map/${tileFileBaseName}.webp`;
-          tile.image.onload = (): void => {
-            tile.loaded = true;
+          const regionFileBaseName = `${0}_${regionX}_${regionY}`;
+          region.image.src = `/map/${regionFileBaseName}.webp`;
+          region.image.onload = (): void => {
+            region.loaded = true;
           };
-          this.tiles.set(gridIndex, tile);
+          this.regions.set(gridIndex, region);
         }
-        const tile = this.tiles.get(gridIndex)!;
+        const region = this.regions.get(gridIndex)!;
 
-        if (!tile.loaded) {
+        if (!region.loaded) {
           context.fillRect({
             worldPosition,
             worldExtent,
@@ -617,9 +620,9 @@ class CanvasMapRenderer {
         }
 
         context.drawImage({
-          image: tile.image,
+          image: region.image,
           imageOffsetInPixels: { x: 0, y: 0 },
-          imageExtentInPixels: { width: tile.image.width, height: tile.image.height },
+          imageExtentInPixels: { width: region.image.width, height: region.image.height },
           worldPosition,
           worldExtent,
         });
@@ -636,15 +639,19 @@ class CanvasMapRenderer {
     const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
     const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
 
-    const tileXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
-    const tileXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_TILE);
+    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
 
-    const tileYMin = -Math.ceil((viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
-    const tileYMax = -Math.floor((viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_TILE);
+    const regionYMin = -Math.ceil(
+      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+    const regionYMax = -Math.floor(
+      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
 
-    for (let tileX = tileXMin - 1; tileX <= tileXMax; tileX++) {
-      for (let tileY = tileYMin - 1; tileY <= tileYMax; tileY++) {
-        const labels = this.labelsByTile.get(hashMapTileCoordinate2Ds({ x: tileX, y: tileY }));
+    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
+      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
+        const labels = this.labelsByRegion.get(hashMapRegionCoordinate2Ds({ x: regionX, y: regionY }));
         if (labels === undefined) continue;
 
         labels.forEach((label) => {
@@ -689,9 +696,9 @@ class CanvasMapRenderer {
     context.setTransform({
       translation: cameraWorldPosition,
       scale: zoom,
-      pixelPerfectDenominator: TILE_IMAGE_PIXEL_SIZE,
+      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
     });
-    this.drawVisibleTiles(context);
+    this.drawVisibleRegions(context);
     this.drawVisibleIcons(context);
     this.drawVisibleAreaLabels(context);
   }
