@@ -133,10 +133,19 @@ class Context2DScaledWrapper {
 
   // Sets context for transformation.
   // The parameters should match your camera, do not pass inverted parameters.
-  setTransform({ translation, scale }: { translation: CoordinatePair; scale: number }): void {
+  setTransform({
+    translation,
+    scale,
+    pixelPerfectDenominator,
+  }: {
+    translation: CoordinatePair;
+    scale: number;
+    pixelPerfectDenominator: number;
+  }): void {
     // Ratio of world units to physical pixels
     this.translation = translation;
-    this.scale = scale;
+    this.scale =
+      Math.floor(pixelPerfectDenominator * scale * this.pixelRatio) / (pixelPerfectDenominator * this.pixelRatio);
     // The rectangular canvas is the view plane of the camera.
     // So view space (0,0) is visible at the center of the canvas.
     // Thus, we offset by half the canvas pixels since (0,0) is in the corner of the canvas.
@@ -148,6 +157,10 @@ class Context2DScaledWrapper {
       this.context.canvas.width / 2,
       this.context.canvas.height / 2,
     );
+  }
+
+  getScale(): number {
+    return this.scale;
   }
 
   // Sets context for further fill commands
@@ -385,7 +398,7 @@ class CanvasMapRenderer {
       }
     }
 
-    const ZOOM_SENSITIVITY = 1 / 1000;
+    const ZOOM_SENSITIVITY = 1 / 3000;
     if (this.cursor.accumulatedScroll !== 0) {
       this.camera.zoom.setNewEnd({
         endPosition: this.camera.zoom.end() + ZOOM_SENSITIVITY * this.cursor.accumulatedScroll,
@@ -429,7 +442,7 @@ class CanvasMapRenderer {
 
   private drawVisibleIcons(context: Context2DScaledWrapper): void {
     // When zooming out, we want icons to get bigger since they would become unreadable otherwise.
-    const iconScale = 16 * Math.max(this.camera.zoom.current(), 1 / 8);
+    const iconScale = 16 * Math.max(context.getScale(), 1 / 8);
 
     const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
     const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
@@ -551,6 +564,7 @@ class CanvasMapRenderer {
     context.setTransform({
       translation: cameraWorldPosition,
       scale: zoom,
+      pixelPerfectDenominator: TILE_IMAGE_PIXEL_SIZE,
     });
     this.drawVisibleTiles(context);
     this.drawVisibleIcons(context);

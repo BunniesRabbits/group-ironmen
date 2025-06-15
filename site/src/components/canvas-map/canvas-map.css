@@ -2,6 +2,8 @@
   display: block;
   touch-action: none;
   cursor: grab;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .canvas-map .dragging {
