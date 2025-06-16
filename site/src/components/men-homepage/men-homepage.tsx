@@ -16,11 +16,7 @@ export const MenHomepage = (): ReactElement => {
       <SocialLinks />
       <div className="men-homepage__container">
         <h1>GroupIron.men</h1>
-        <div className="men-homepage__links">
-          <MenLink label="Get Started" href="/create-group" />
-          <MenLink label="Demo" href="/demo" />
-          {hasLogin ? groupLink : loginLink}
-        </div>
+        <div className="men-homepage__links">{hasLogin ? groupLink : loginLink}</div>
       </div>
     </div>
   );
