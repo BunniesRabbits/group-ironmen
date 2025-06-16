@@ -1,6 +1,6 @@
 #!/bin/sh
 
-API_FILE_PATH=./src/data/api.js
+API_FILE_PATH=./src/data/api.ts
 
 echo "[entrypoint] Replacing the API URL with the given HOST_PROTOCOL and HOST_URL"
 echo "[entrypoint] >>> HOST_URL=$HOST_URL"
