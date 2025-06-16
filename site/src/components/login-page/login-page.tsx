@@ -18,7 +18,7 @@ export const LoginPage = (): ReactElement => {
   }, [navigate]);
 
   const action = useCallback(
-    (formData: FormData) => {
+    async (formData: FormData): Promise<void> => {
       const groupName = formData.get("group-name")?.valueOf();
       const groupToken = formData.get("group-token")?.valueOf();
       if (typeof groupName !== "string" || typeof groupToken !== "string" || groupName === "" || groupToken === "") {
@@ -28,7 +28,7 @@ export const LoginPage = (): ReactElement => {
 
       setFetching(true);
       setError(undefined);
-      new Api({ groupName, groupToken })
+      return new Api({ groupName, groupToken })
         .fetchAmILoggedIn()
         .then((response) => {
           if (response.ok) {
