@@ -6,6 +6,26 @@
   image-rendering: -webkit-optimize-contrast;
 }
 
+#background-worldmap.interactable {
+  filter: none !important;
+}
+
+#background-worldmap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 0;
+  height: 100%;
+  overflow: hidden;
+  filter: opacity(0.8);
+  transition: filter 0.5s;
+}
+
+.dark-mode #background-worldmap {
+  filter: opacity(0.15);
+}
+
 .canvas-map .dragging {
   cursor: grabbing;
 }
