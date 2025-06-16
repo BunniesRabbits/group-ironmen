@@ -3,14 +3,21 @@ export interface ApiCredentials {
   groupToken: string;
 }
 
+const LOCAL_STORAGE_KEY_GROUP_NAME = "groupName";
+const LOCAL_STORAGE_KEY_GROUP_TOKEN = "groupToken";
+
 export const loadValidatedCredentials = (): ApiCredentials | undefined => {
-  const name = localStorage.getItem("groupName");
-  const token = localStorage.getItem("groupToken");
+  const name = localStorage.getItem(LOCAL_STORAGE_KEY_GROUP_NAME);
+  const token = localStorage.getItem(LOCAL_STORAGE_KEY_GROUP_TOKEN);
 
   if (!name || name === "") return undefined;
   if (!token || token === "") return undefined;
 
   return { groupName: name, groupToken: token };
+};
+export const wipeCredentials = (): void => {
+  localStorage.removeItem(LOCAL_STORAGE_KEY_GROUP_NAME);
+  localStorage.removeItem(LOCAL_STORAGE_KEY_GROUP_TOKEN);
 };
 
 interface ApiURLArguments {

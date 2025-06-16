@@ -9,6 +9,7 @@ import { LoginPage } from "./components/login-page/login-page.tsx";
 import { AuthedLayout, UnauthedLayout } from "./layout.tsx";
 
 import "./main.css";
+import { LogoutPage } from "./components/logout-page/logout-page.tsx";
 
 const root = document.getElementById("root")!;
 
@@ -42,6 +43,7 @@ createRoot(root).render(
               </UnauthedLayout>
             }
           />
+          <Route path="/logout" element={<LogoutPage />} />
           <Route path="/group">
             <Route index element={<Navigate to="items" replace />} />
             <Route path="items" element={<AuthedLayout>{localStorage.getItem("groupName")}</AuthedLayout>} />
