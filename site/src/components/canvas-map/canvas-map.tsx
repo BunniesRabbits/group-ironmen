@@ -773,12 +773,10 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (canvas) {
-      const devicePixelRatio = window.devicePixelRatio;
-      pixelRatioRef.current = devicePixelRatio;
-      canvas.width = Math.max(canvas.offsetWidth * devicePixelRatio, 1);
-      canvas.height = Math.max(canvas.offsetHeight * devicePixelRatio, 1);
-    }
+    const devicePixelRatio = window.devicePixelRatio;
+    pixelRatioRef.current = devicePixelRatio;
+    canvas.width = Math.max(canvas.offsetWidth * devicePixelRatio, 1);
+    canvas.height = Math.max(canvas.offsetHeight * devicePixelRatio, 1);
   }, []);
 
   useEffect(() => {
@@ -882,8 +880,8 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
   );
 
   const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
-  const draggingClass = dragging ? "dragging" : undefined;
-  const interactiveClass = interactive ? "interactive" : undefined;
+  const draggingClass = dragging ? "dragging" : "";
+  const interactiveClass = interactive ? "interactive" : "";
 
   return (
     <div className="canvas-map">
@@ -897,20 +895,24 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
         className={`${draggingClass} ${interactiveClass}`}
         ref={canvasRef}
       />
-      <div className="canvas-map-plane-select-container rsborder-tiny rsbackground">
-        <select
-          className="canvas-map-plane-select"
-          onChange={(e) => {
-            handleSelectPlane(e.target.selectedIndex);
-          }}
-        >
-          <option value="1">Plane: 1</option>
-          <option value="2">Plane: 2</option>
-          <option value="3">Plane: 3</option>
-          <option value="4">Plane: 4</option>
-        </select>
-      </div>
-      <div className="canvas-map__coordinates">{coordinatesView}</div>
+      {interactive ? (
+        <>
+          <div className="canvas-map-plane-select-container rsborder-tiny rsbackground">
+            <select
+              className="canvas-map-plane-select"
+              onChange={(e) => {
+                handleSelectPlane(e.target.selectedIndex);
+              }}
+            >
+              <option value="1">Plane: 1</option>
+              <option value="2">Plane: 2</option>
+              <option value="3">Plane: 3</option>
+              <option value="4">Plane: 4</option>
+            </select>
+          </div>
+          <div className="canvas-map__coordinates">{coordinatesView}</div>
+        </>
+      ) : undefined}
     </div>
   );
 };
