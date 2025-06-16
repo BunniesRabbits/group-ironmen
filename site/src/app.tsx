@@ -9,20 +9,24 @@ import { useEffect, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
-import Api, { loadValidatedCredentials } from "./data/api";
+import Api, { type ItemsView, loadValidatedCredentials } from "./data/api";
+import { ItemsPage } from "./components/items-page/items-page";
 
 export const App = (): ReactElement => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
+  const [itemsView, setItemsView] = useState<ItemsView>();
 
   useEffect(() => {
     if (api === undefined) return;
 
+    api.onItemsUpdate = setItemsView;
     api.queueGetGroupData();
     return (): void => {
+      api.onItemsUpdate = undefined;
       api.close();
     };
-  }, [api]);
+  }, [api, setItemsView]);
   useEffect(() => {
     if (api !== undefined) return;
 
@@ -63,7 +67,14 @@ export const App = (): ReactElement => {
         <Route path="/logout" element={<LogoutPage callback={() => setApi(undefined)} />} />
         <Route path="/group">
           <Route index element={<Navigate to="items" replace />} />
-          <Route path="items" element={<AuthedLayout />} />
+          <Route
+            path="items"
+            element={
+              <AuthedLayout>
+                <ItemsPage items={itemsView} />
+              </AuthedLayout>
+            }
+          />
           <Route path="map" element={<AuthedLayout />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

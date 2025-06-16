@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import "./canvas-map.css";
 import { MapMetadata } from "../../data/map-data";
+import { type Distinct } from "../../util";
 
 const ICON_IMAGE_PIXEL_SIZE = 15;
 
@@ -39,8 +40,6 @@ interface CanvasMapCursor {
   // Multiple scroll events may occur in a frame, so we add them all up.
   accumulatedScroll: number;
 }
-
-type Distinct<T, DistinctName> = T & { __TYPE__: DistinctName };
 
 interface MapRegion {
   loaded: boolean;
