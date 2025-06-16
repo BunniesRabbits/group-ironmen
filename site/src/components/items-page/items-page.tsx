@@ -2,28 +2,33 @@ import type { ReactElement } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
 import type { ItemsView, MemberName } from "../../data/api";
+import type { ItemData } from "../../data/item-data";
 
-export const ItemsPage = ({ items }: { items?: ItemsView }): ReactElement => {
+export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: ItemData }): ReactElement => {
   const itemComponents: ReactElement[] = [];
-  (items ?? []).forEach((quantityByMemberName, itemID) => {
-    let totalQuantity = 0;
-    const quantityBreakdown = [...quantityByMemberName].map(([name, quantity]: [MemberName, number]) => {
-      totalQuantity += quantity;
-      return (
-        <li key={name}>
-          {name}: {quantity}
-        </li>
+  if (items !== undefined) {
+    items.forEach((quantityByMemberName, itemID) => {
+      let totalQuantity = 0;
+      const quantityBreakdown = [...quantityByMemberName].map(([name, quantity]: [MemberName, number]) => {
+        totalQuantity += quantity;
+        return (
+          <li key={name}>
+            {name}: {quantity}
+          </li>
+        );
+      });
+
+      const item = itemData?.get(itemID);
+
+      itemComponents.push(
+        <div key={itemID}>
+          Name: {item?.name ?? "UNKNOWN"} <br />
+          Total: {totalQuantity}
+          <ul>{quantityBreakdown}</ul>
+        </div>,
       );
     });
-
-    itemComponents.push(
-      <div key={itemID}>
-        ID: {itemID} <br />
-        Total: {totalQuantity}
-        <ul>{quantityBreakdown}</ul>
-      </div>,
-    );
-  });
+  }
 
   return (
     <>

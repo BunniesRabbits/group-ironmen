@@ -5,16 +5,49 @@ import { SetupInstructions } from "./components/setup-instructions/setup-instruc
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
 import { Navigate } from "react-router-dom";
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
 import Api, { type ItemsView, loadValidatedCredentials } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
+import { ItemData } from "./data/item-data";
+
+const fetchItemDataJSON = (): Promise<ItemData> =>
+  import("/src/assets/item_data.json")
+    .then((data) => {
+      return ItemData.safeParseAsync(data.default);
+    })
+    .then((parseResult) => {
+      if (!parseResult.success) throw new Error("Failed to parse item-data.json", { cause: parseResult.error });
+
+      return parseResult.data;
+    });
+
+const useItemData = (): { itemData?: ItemData } => {
+  // We don't need to worry about cache invalidation since this data is a static asset that is updated rarely.
+  // Users can refresh if they want to see a game update reflected.
+  const [data, setData] = useState<ItemData>();
+  const promiseRef = useRef<Promise<void>>(undefined);
+
+  useEffect(() => {
+    if (promiseRef.current !== undefined) return;
+
+    promiseRef.current = fetchItemDataJSON()
+      .then((itemData) => setData(itemData))
+      .catch((error) => console.error("Failed to get item data", error))
+      .finally(() => {
+        promiseRef.current = undefined;
+      });
+  }, []);
+
+  return { itemData: data };
+};
 
 export const App = (): ReactElement => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
+  const { itemData } = useItemData();
   const [itemsView, setItemsView] = useState<ItemsView>();
 
   useEffect(() => {
@@ -71,7 +104,7 @@ export const App = (): ReactElement => {
             path="items"
             element={
               <AuthedLayout>
-                <ItemsPage items={itemsView} />
+                <ItemsPage items={itemsView} itemData={itemData} />
               </AuthedLayout>
             }
           />
