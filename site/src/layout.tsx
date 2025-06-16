@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { useEffect, type ReactElement, type ReactNode } from "react";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
 import { useNavigate } from "react-router-dom";
 import { loadValidatedCredentials } from "./data/api";
@@ -28,12 +28,14 @@ export const AuthedLayout = ({
   children?: ReactNode;
 }): ReactElement => {
   const navigate = useNavigate();
-  const credentials = loadValidatedCredentials();
 
-  if (credentials === undefined) {
-    console.info("Invalid credentials, redirecting...");
-    void navigate("/");
-  }
+  useEffect(() => {
+    const credentials = loadValidatedCredentials();
+    if (credentials === undefined) {
+      console.info("Invalid credentials, redirecting...");
+      void navigate("/");
+    }
+  }, [navigate]);
 
   return (
     <>
