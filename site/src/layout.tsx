@@ -1,7 +1,8 @@
-import { useEffect, type ReactElement, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
-import { useNavigate } from "react-router-dom";
-import { loadValidatedCredentials } from "./data/api";
+import { Navigate } from "react-router-dom";
+import { type ApiCredentials, loadValidatedCredentials } from "./data/api";
+import { AppNavigation } from "./components/app-navigation/app-navigation";
 
 export const UnauthedLayout = ({
   isMapPage = false,
@@ -27,22 +28,19 @@ export const AuthedLayout = ({
   isMapPage?: boolean;
   children?: ReactNode;
 }): ReactElement => {
-  const navigate = useNavigate();
+  const [credentials] = useState<ApiCredentials | undefined>(loadValidatedCredentials());
 
-  useEffect(() => {
-    const credentials = loadValidatedCredentials();
-    if (credentials === undefined) {
-      console.info("Invalid credentials, redirecting...");
-      void navigate("/");
-    }
-  }, [navigate]);
+  if (credentials === undefined) return <Navigate to="/" />;
 
   return (
     <>
       <div style={{ position: "absolute", inset: 0 }}>
         <CanvasMap interactive={isMapPage} />
       </div>
-      <div style={{ position: "absolute", inset: 0 }}>{children}</div>
+      <div style={{ position: "absolute", inset: 0 }}>
+        <AppNavigation groupName={credentials?.groupName} />
+        {children}
+      </div>
     </>
   );
 };
