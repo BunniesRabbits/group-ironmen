@@ -5,13 +5,32 @@ import { SetupInstructions } from "./components/setup-instructions/setup-instruc
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
 import { Navigate } from "react-router-dom";
-import type { ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
+import Api, { loadValidatedCredentials } from "./data/api";
 
 export const App = (): ReactElement => {
   const location = useLocation();
+  const [api, setApi] = useState<Api>();
+
+  useEffect(() => {
+    if (api === undefined) return;
+
+    api.queueGetGroupData();
+    return (): void => {
+      api.close();
+    };
+  }, [api]);
+  useEffect(() => {
+    if (api !== undefined) return;
+
+    const credentials = loadValidatedCredentials();
+    if (credentials === undefined) return;
+
+    setApi(new Api(credentials));
+  }, [location, api]);
 
   return (
     <>
@@ -41,7 +60,7 @@ export const App = (): ReactElement => {
             </UnauthedLayout>
           }
         />
-        <Route path="/logout" element={<LogoutPage />} />
+        <Route path="/logout" element={<LogoutPage callback={() => setApi(undefined)} />} />
         <Route path="/group">
           <Route index element={<Navigate to="items" replace />} />
           <Route path="items" element={<AuthedLayout />} />
