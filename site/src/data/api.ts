@@ -45,7 +45,7 @@ const MemberItems = z
   .refine((arg) => arg.length % 2 === 0)
   .transform((arg: number[]) =>
     arg.reduce<Map<ItemID, number>>((items, _, index, flatItems) => {
-      if (index + 1 >= flatItems.length) return items;
+      if (index % 2 !== 0 || index + 1 >= flatItems.length) return items;
 
       const itemID = flatItems[index] as ItemID;
       const itemQuantity = flatItems[index + 1];
