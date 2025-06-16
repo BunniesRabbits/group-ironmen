@@ -43,7 +43,7 @@ export default defineConfig({
     __API_URL__:
       process.env.NODE_ENV === "production"
         ? JSON.stringify(process.env.VITE_API_URL ?? `${DEFAULT_API_URL}/api`)
-        : "/api",
+        : "'/api'",
   },
   server: {
     proxy: {
