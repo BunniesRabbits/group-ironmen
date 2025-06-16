@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import "./canvas-map.css";
-import Animation from "./animation";
 import { MapMetadata } from "../../data/map-data";
 
 const ICON_IMAGE_PIXEL_SIZE = 15;
@@ -11,11 +10,11 @@ const WORLD_UNITS_PER_REGION = REGION_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
 
 interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
-  x: Animation;
-  y: Animation;
+  x: number;
+  y: number;
 
   // Zoom of camera with smoothing
-  zoom: Animation;
+  zoom: number;
   minZoom: number;
   maxZoom: number;
 }
@@ -32,8 +31,9 @@ interface CanvasMapCursor {
   rateSamplesX: number[];
   rateSamplesY: number[];
 
-  // Tracks the linear deceleration due to friction when the map is let go.
+  // Milliseconds of time spent in friction, for computing the deceleration of the camera when let go
   accumulatedFrictionMS: number;
+
   isDragging: boolean;
 
   // Multiple scroll events may occur in a frame, so we add them all up.
@@ -120,17 +120,16 @@ class Context2DScaledWrapper {
    * The cursor's position is in canvas/screen space, which is physical pixels.
    * Thus the world position the cursor points to is relative to the canvas and view parameters, and this method handles the conversion.
    */
-  cursorPositionToWorldPosition(cursorPosition: CoordinatePair): CoordinatePair {
+  screenPositionToWorldPosition(cursorPosition: CoordinatePair): CoordinatePair {
     // screen space -> view space -> world space
 
     const viewPosition: CoordinatePair = {
-      x: (2.0 * (cursorPosition.x - 0.5 * this.context.canvas.width)) / this.pixelRatio,
-      y: (2.0 * (cursorPosition.y - 0.5 * this.context.canvas.height)) / this.pixelRatio,
+      x: cursorPosition.x - (0.5 * this.context.canvas.width) / this.pixelRatio,
+      y: cursorPosition.y - (0.5 * this.context.canvas.height) / this.pixelRatio,
     };
-    // Negative since OSRS y axis is flipped from canvas
     const worldPosition: CoordinatePair = {
       x: this.scale * viewPosition.x + this.translation.x,
-      y: -(this.scale * viewPosition.y + this.translation.y),
+      y: this.scale * viewPosition.y + this.translation.y,
     };
 
     return worldPosition;
@@ -209,6 +208,22 @@ class Context2DScaledWrapper {
     this.context.fillRect(position.x, position.y, extent.width, extent.height);
   }
 
+  fillLine({
+    worldStartPosition,
+    worldEndPosition,
+  }: {
+    worldStartPosition: CoordinatePair;
+    worldEndPosition: CoordinatePair;
+  }): void {
+    const start = this.convertWorldPositionToView(worldStartPosition);
+    const end = this.convertWorldPositionToView(worldEndPosition);
+
+    this.context.beginPath();
+    this.context.moveTo(start.x, start.y);
+    this.context.lineTo(end.x, end.y);
+    this.context.stroke();
+  }
+
   /**
    * Draws an image.
    * Be careful of the image offset/extent, you need to have knowledge of the underlying image.
@@ -283,8 +298,8 @@ interface ExtentPair {
   height: number;
 }
 
-const OURS_TO_WIKI_CONVERSION_FACTOR_X = -113;
-const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 50;
+const OURS_TO_WIKI_CONVERSION_FACTOR_X = -128;
+const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 63;
 
 const fetchMapJSON = (): Promise<MapMetadata> =>
   import("/src/assets/map.json").then((data) => {
@@ -317,9 +332,9 @@ class CanvasMapRenderer {
     this.iconsAtlas = iconsAtlas;
     this.regions = new Map();
     this.camera = {
-      x: Animation.createInactive({ position: INITIAL_X }),
-      y: Animation.createInactive({ position: INITIAL_Y }),
-      zoom: Animation.createInactive({ position: INITIAL_ZOOM }),
+      x: INITIAL_X,
+      y: INITIAL_Y,
+      zoom: INITIAL_ZOOM,
       minZoom: 1 / 32,
       maxZoom: 2,
     };
@@ -427,26 +442,28 @@ class CanvasMapRenderer {
     this.plane = plane;
   }
 
-  // Converts the cursor coords (which are relative to the window) to world space.
-  private cursorCoordsAsWorldCoordinates(context: Context2DScaledWrapper): CoordinatePair {
-    const cursorCoordinates = context.cursorPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
+  /**
+   * Converts the cursor coords (which are relative to the window) to the OSRS Wiki's coordinates.
+   * Do NOT use this as world coordinates e.g. for the rendering context, this is for display purposes.
+   */
+  private cursorCoordsAsWikiWorldCoordinates(context: Context2DScaledWrapper): CoordinatePair {
+    const cursorCoordinates = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
 
     // This conversion factor is a little weird, but for whatever reason the coordinates the wiki uses are shifted from what we end up with.
     // I have not investigated, and I assume it is due to how the region images are saved and everything.
     return {
       x: Math.floor(cursorCoordinates.x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
-      y: Math.floor(cursorCoordinates.y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
+      y: -Math.floor(cursorCoordinates.y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
     };
   }
 
   public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
 
-  private updateCursorAndCamera(elapsed: number): void {
+  private updateCursorVelocity(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
-    const worldUnitsPerCursorUnit = this.camera.zoom.current();
     if (this.cursor.isDragging) {
       const EVENTS_TO_KEEP = 10;
       this.cursor.rateSamplesX.push(cursorDeltaX / elapsed);
@@ -459,14 +476,27 @@ class CanvasMapRenderer {
       }
 
       this.cursor.accumulatedFrictionMS = 0;
-
-      this.camera.x.setToStatic({ position: this.camera.x.end() - worldUnitsPerCursorUnit * cursorDeltaX });
-      this.camera.y.setToStatic({ position: this.camera.y.end() - worldUnitsPerCursorUnit * cursorDeltaY });
     } else {
+      this.cursor.accumulatedFrictionMS += elapsed;
+    }
+  }
+
+  private updateCameraPositionFromCursorVelocity(): void {
+    const cursorDeltaX = this.cursor.x - this.cursor.previousX;
+    const cursorDeltaY = this.cursor.y - this.cursor.previousY;
+
+    // When calculating camera delta from cursor delta, we negate,
+    // since dragging is opposite the intended direction of movement.
+
+    const worldUnitsPerCursorUnit = this.camera.zoom;
+    if (this.cursor.isDragging) {
+      this.camera.x += -worldUnitsPerCursorUnit * cursorDeltaX;
+      this.camera.y += -worldUnitsPerCursorUnit * cursorDeltaY;
+    } else {
+      // The camera continues to move with linear deceleration due to friction
+
       const SPEED_THRESHOLD = 0.05;
       const FRICTION_PER_MS = 0.004;
-
-      this.cursor.accumulatedFrictionMS += elapsed;
 
       const velocityAverageX = average(this.cursor.rateSamplesX);
       const velocityAverageY = average(this.cursor.rateSamplesY);
@@ -477,40 +507,19 @@ class CanvasMapRenderer {
         const directionX = velocityAverageX / speed;
         const directionY = velocityAverageY / speed;
 
-        // Drag the camera with some inertia.
-        // We achieve this by just tweaking the endPosition, so the camera "chases".
-        this.camera.x.setNewEnd({
-          endPosition: this.camera.x.end() - worldUnitsPerCursorUnit * speedAfterFriction * directionX,
-          endTime: elapsed,
-          resetStart: false,
-        });
-        this.camera.y.setNewEnd({
-          endPosition: this.camera.y.end() - worldUnitsPerCursorUnit * speedAfterFriction * directionY,
-          endTime: elapsed,
-          resetStart: false,
-        });
+        this.camera.x += -worldUnitsPerCursorUnit * speedAfterFriction * directionX;
+        this.camera.y += -worldUnitsPerCursorUnit * speedAfterFriction * directionY;
       }
     }
+  }
 
+  private updateCameraZoomFromCursorScroll(): void {
     const ZOOM_SENSITIVITY = 1 / 3000;
     if (this.cursor.accumulatedScroll !== 0) {
-      this.camera.zoom.setNewEnd({
-        endPosition: this.camera.zoom.end() + ZOOM_SENSITIVITY * this.cursor.accumulatedScroll,
-        endTime: elapsed,
-        resetStart: false,
-      });
+      this.camera.zoom += ZOOM_SENSITIVITY * this.cursor.accumulatedScroll;
     }
-
     this.cursor.accumulatedScroll = 0;
-
-    this.camera.x.update(elapsed);
-    this.camera.y.update(elapsed);
-    this.camera.zoom.update(elapsed);
-    if (this.camera.zoom.current() > this.camera.maxZoom) {
-      this.camera.zoom.setToStatic({ position: this.camera.maxZoom });
-    } else if (this.camera.zoom.current() < this.camera.minZoom) {
-      this.camera.zoom.setToStatic({ position: this.camera.minZoom });
-    }
+    this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
   }
 
   update(context: Context2DScaledWrapper): void {
@@ -519,14 +528,47 @@ class CanvasMapRenderer {
 
     if (elapsed < 0.001) return;
 
-    this.updateCursorAndCamera(elapsed);
+    this.updateCursorVelocity(elapsed);
+
+    const previousZoom = this.camera.zoom;
+    context.setTransform({
+      translation: { x: this.camera.x, y: this.camera.y },
+      scale: previousZoom,
+      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
+    });
+    this.updateCameraZoomFromCursorScroll();
+    const zoom = this.camera.zoom;
+
+    if (zoom !== previousZoom) {
+      const cursorWorldPosition = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
+      // Zoom requires special handling since we want to zoom in on the cursor.
+      // This requires translating the camera towards the cursor some amount
+      const cameraToCursorWorldDelta: CoordinatePair = {
+        x: this.camera.x - cursorWorldPosition.x,
+        y: this.camera.y - cursorWorldPosition.y,
+      };
+      const zoomRatio = zoom / previousZoom;
+      this.camera.x = cursorWorldPosition.x + zoomRatio * cameraToCursorWorldDelta.x;
+      this.camera.y = cursorWorldPosition.y + zoomRatio * cameraToCursorWorldDelta.y;
+    }
+    this.updateCameraPositionFromCursorVelocity();
+
+    const cameraWorldPosition = {
+      x: this.camera.x,
+      y: this.camera.y,
+    };
+    context.setTransform({
+      translation: cameraWorldPosition,
+      scale: zoom,
+      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
+    });
 
     this.drawAll(context);
 
     const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
     if (cursorHasMoved) {
-      const coords = this.cursorCoordsAsWorldCoordinates(context);
-      this.onCursorCoordinatesUpdate?.(coords);
+      const displayCoords = this.cursorCoordsAsWikiWorldCoordinates(context);
+      this.onCursorCoordinatesUpdate?.(displayCoords);
     }
 
     this.cursor.previousX = this.cursor.x;
@@ -710,18 +752,6 @@ class CanvasMapRenderer {
   }
 
   private drawAll(context: Context2DScaledWrapper): void {
-    const zoom = Math.max(Math.min(this.camera.zoom.current(), this.camera.maxZoom), this.camera.minZoom);
-
-    const cameraWorldPosition = {
-      x: this.camera.x.current(),
-      y: this.camera.y.current(),
-    };
-
-    context.setTransform({
-      translation: cameraWorldPosition,
-      scale: zoom,
-      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
-    });
     this.drawVisibleRegions(context);
     this.drawVisibleIcons(context);
     this.drawVisibleAreaLabels(context);
