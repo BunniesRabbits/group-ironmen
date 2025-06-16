@@ -15,7 +15,7 @@ export const AppNavigation = ({ groupName }: { groupName: string }): ReactElemen
         <MenLink label="Settings" href="/group/settings" />
         <MenLink label="Setup" href="/setup-instructions" />
         <MenLink label="Logout" href="/logout" />
-        <MenLink label="Credits" href="/credits" />
+        <MenLink label="Homepage" href="/" />
       </nav>
     </div>
   );
