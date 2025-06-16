@@ -15,7 +15,7 @@ export const App = (): ReactElement => {
 
   return (
     <>
-      <CanvasMap interactive={location.pathname === "/map" || location.pathname === "/group/map"} />
+      <CanvasMap interactive={location.pathname === "/group/map"} />
       <Routes>
         <Route
           index
@@ -25,7 +25,6 @@ export const App = (): ReactElement => {
             </UnauthedLayout>
           }
         />
-        <Route path="/map" element={<UnauthedLayout></UnauthedLayout>} />
         <Route
           path="/setup-instructions"
           element={
