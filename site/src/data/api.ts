@@ -40,7 +40,7 @@ type GetGroupDataResponseJSON = z.infer<typeof GetGroupDataResponseJSON>;
 export default class Api {
   // This is overwritten in docker-entrypoint.sh.
   // The "/api" string is substituted with HOST_PROTOCOL + HOST_URL to construct the deployed URL
-  private baseURL = "/api";
+  private baseURL: string;
   private credentials: ApiCredentials;
   private getGroupDataLastCheck?: Date;
   private getGroupDataPromise?: Promise<void>;
@@ -87,6 +87,7 @@ export default class Api {
     this.closed = true;
   }
   constructor(credentials: ApiCredentials) {
+    this.baseURL = __API_URL__;
     this.credentials = credentials;
     this.closed = false;
   }

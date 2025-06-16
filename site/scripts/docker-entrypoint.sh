@@ -6,7 +6,8 @@ echo "[entrypoint] Replacing the API URL with the given HOST_PROTOCOL and HOST_U
 echo "[entrypoint] >>> HOST_URL=$HOST_URL"
 echo "[entrypoint] >>> HOST_PROTOCOL=$HOST_PROTOCOL"
 echo "[entrypoint] >>> $HOST_PROTOCOL://$HOST_URL/api"
-sed -i -e "s#\"/api\"#\"$HOST_PROTOCOL://$HOST_URL/api\"#g" $API_FILE_PATH
+VITE_API_URL="$HOST_PROTOCOL://$HOST_URL/api"
+export VITE_API_URL
 
 echo "[entrypoint] Running bundle"
 npm run bundle

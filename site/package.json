@@ -30,9 +30,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "preview": "vite preview",
+    "prod": "npm run build && npm run serve",
+    "bundle": "vite build",
     "build": "npm run lint && npm run format:check && tsc && vite build",
-    "serve": "npm run build && tsx scripts/server.ts --prod",
+    "serve": "tsx scripts/server.ts --prod",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
     "precommit": "npm run format:check && npm run lint",

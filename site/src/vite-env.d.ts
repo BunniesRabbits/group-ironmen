@@ -9,3 +9,6 @@ declare module "*.json" {
   const src: object;
   export default src;
 }
+
+// Vite global defines
+declare const __API_URL__: string;

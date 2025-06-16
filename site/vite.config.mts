@@ -34,13 +34,21 @@ const mapJsonPlugin = (): PluginOption => ({
   },
 });
 
+const DEFAULT_API_URL = "http://localhost:5000";
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [mapJsonPlugin(), react()],
+  define: {
+    __API_URL__:
+      process.env.NODE_ENV === "production"
+        ? JSON.stringify(process.env.VITE_API_URL ?? `${DEFAULT_API_URL}/api`)
+        : "/api",
+  },
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:5000", // Backend when using default configuration of docker
+        target: DEFAULT_API_URL, // Backend when using default configuration of docker
         changeOrigin: true,
       },
     },
