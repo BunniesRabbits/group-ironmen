@@ -3,10 +3,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { MenHomepage } from "./components/men-homepage/men-homepage.tsx";
-import { CanvasMap } from "./components/canvas-map/canvas-map.tsx";
+
+import { SetupInstructions } from "./components/setup-instructions/setup-instructions.tsx";
+import { LoginPage } from "./components/login-page/login-page.tsx";
+import { UnauthedLayout } from "./layout.tsx";
 
 import "./main.css";
-import { SetupInstructions } from "./components/setup-instructions/setup-instructions.tsx";
 
 const root = document.getElementById("root")!;
 
@@ -15,25 +17,35 @@ createRoot(root).render(
     <div className="wrap-routes unauthed-section" style={{ display: "flex", flexDirection: "column" }}>
       <BrowserRouter>
         <Routes>
-          <Route path="/map" element={<CanvasMap interactive={true} />} />
           <Route
             index
             element={
-              <>
-                <CanvasMap interactive={false} />
+              <UnauthedLayout>
                 <MenHomepage />
-              </>
+              </UnauthedLayout>
             }
           />
+          <Route path="/map" element={<UnauthedLayout isMapPage />} />
           <Route
             path="/setup-instructions"
             element={
-              <>
-                <CanvasMap interactive={false} />
+              <UnauthedLayout>
                 <SetupInstructions />
-              </>
+              </UnauthedLayout>
             }
           />
+          <Route
+            path="/login"
+            element={
+              <UnauthedLayout>
+                <LoginPage />
+              </UnauthedLayout>
+            }
+          />
+          <Route path="/group">
+            <Route index element={<Navigate to="items" replace />} />
+            <Route path="items" element={<UnauthedLayout>{localStorage.getItem("groupName")}</UnauthedLayout>} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -37,4 +37,12 @@ const mapJsonPlugin = (): PluginOption => ({
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [mapJsonPlugin(), react()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000", // Backend when using default configuration of docker
+        changeOrigin: true,
+      },
+    },
+  },
 });
