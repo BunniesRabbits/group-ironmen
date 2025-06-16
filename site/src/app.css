@@ -414,3 +414,11 @@ ul {
   display: flex;
   flex-direction: column;
 }
+
+.pointer-events-passthrough {
+  pointer-events: none;
+}
+
+.pointer-events-passthrough > * {
+  pointer-events: auto;
+}

@@ -3,7 +3,6 @@
   margin-bottom: 1em;
   align-items: center;
   padding: 8px 16px;
-  pointer-events: auto;
   overflow-x: auto;
   overflow-y: hidden;
 }
