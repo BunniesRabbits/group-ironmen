@@ -758,10 +758,7 @@ class CanvasMapRenderer {
   }
 }
 
-interface CanvasMapProps {
-  interactive: boolean;
-}
-export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
+export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactElement => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
@@ -819,7 +816,7 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
       .catch((reason) => {
         console.error("Failed to build renderer:", reason);
       });
-  }, [setRenderer]);
+  }, []);
 
   useEffect(() => {
     if (renderer === undefined) return;
@@ -829,7 +826,7 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
     return (): void => {
       renderer.onCursorCoordinatesUpdate = undefined;
     };
-  }, [setCoordinates, renderer]);
+  }, [renderer]);
   useEffect(() => {
     if (renderer === undefined) return;
 
@@ -838,7 +835,7 @@ export const CanvasMap = ({ interactive }: CanvasMapProps): ReactElement => {
     return (): void => {
       renderer.onDraggingUpdate = undefined;
     };
-  }, [setDragging, renderer]);
+  }, [renderer]);
 
   useEffect(() => {
     if (!canvasRef.current) return;

@@ -38,10 +38,12 @@
 
 .canvas-map .interactive {
   filter: none !important;
+  pointer-events: auto;
 }
 
 .canvas-map {
   position: absolute;
+  pointer-events: none;
   top: 0;
   left: 0;
   width: 100%;
