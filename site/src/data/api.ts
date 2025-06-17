@@ -87,6 +87,9 @@ const NPCInteractionFromBackend = z
     /**
      * Relative size of the NPC's hp bar. It is not the actual HP of the monster.
      * I.e. "max" in "current / max" for a traditional stat bar.
+     * See runelite source for comments:
+     * https://github.com/runelite/runelite/blob/a8bdd510971fc8974959e2c9b34b6b88b46bb0fd/runelite-api/src/main/java/net/runelite/api/Actor.java#L102
+     * This number is 30 for most actors, but larger for other things. -1 when health info does not exist.
      */
     scale: z.uint32().or(z.literal(-1)),
     /**
@@ -110,7 +113,7 @@ const NPCInteractionFromBackend = z
   })
   .transform(({ name, scale, ratio, location, last_updated }) => ({
     name,
-    healthRatio: scale > 0 ? scale / ratio : undefined,
+    healthRatio: scale > 0 ? ratio / scale : undefined,
     location,
     last_updated,
   }));

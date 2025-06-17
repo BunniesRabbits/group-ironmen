@@ -4,18 +4,41 @@ import "./player-panel.css";
 import type { NPCInteraction } from "../../data/api";
 
 // Shows a stat like hp/prayer
-const StatBar = ({ barColor, className }: { barColor: string; className?: string }): ReactElement => {
-  return <div style={{ background: barColor }} className={`stat-bar ${className}`} />;
+interface StatBarProps {
+  className?: string;
+  color: string;
+  bgColor: string;
+  ratio?: number;
+}
+const StatBar = ({ className, color, bgColor, ratio }: StatBarProps): ReactElement => {
+  let background = bgColor;
+  if (ratio === 1) {
+    background = color;
+  } else if (ratio !== undefined && ratio >= 0) {
+    const percentage = ratio * 100;
+    background = `linear-gradient(90deg, ${color}, ${percentage}%, ${bgColor} ${percentage}%)`;
+  }
+
+  return <div style={{ background }} className={`stat-bar ${className}`} />;
 };
 
 // Shows what the player is interacting with, like attacking/talking to an npc
-const PlayerInteracting = ({ npcName }: { npcName?: string }): ReactElement => {
+const PlayerInteracting = ({ npcName, healthRatio }: { npcName: string; healthRatio?: number }): ReactElement => {
+  const isNonCombatNPC = healthRatio === undefined;
+
+  const COMBAT_COLOR = "#A41623";
+  const COMBAT_BG_COLOR = "#383838";
+
+  const NONCOMBAT_COLOR = "#333355";
+
   return (
     <div className="player-interacting">
-      <StatBar barColor="#A41623" />
-      <div className="player-interacting-name" style={{ visibility: npcName === undefined ? "hidden" : "visible" }}>
-        {npcName}
-      </div>
+      <StatBar
+        color={isNonCombatNPC ? NONCOMBAT_COLOR : COMBAT_COLOR}
+        bgColor={isNonCombatNPC ? NONCOMBAT_COLOR : COMBAT_BG_COLOR}
+        ratio={healthRatio}
+      />
+      <div className="player-interacting-name">{npcName}</div>
     </div>
   );
 };
@@ -42,12 +65,15 @@ const PlayerStats = ({
 }): ReactElement => {
   const hueDegrees = 75;
 
-  const interactionBar = interacting !== undefined ? <PlayerInteracting npcName={interacting.name} /> : undefined;
+  const interactionBar =
+    interacting !== undefined ? (
+      <PlayerInteracting healthRatio={interacting.healthRatio} npcName={interacting.name} />
+    ) : undefined;
 
   return (
     <div className="player-stats">
       <div className="player-stats-hitpoints">
-        <StatBar className="player-stats-hitpoints-bar" barColor="#157145" />
+        <StatBar className="player-stats-hitpoints-bar" color="#157145" bgColor="#073823" ratio={1} />
         {interactionBar}
         <div className="player-stats-name">
           <img
@@ -64,13 +90,13 @@ const PlayerStats = ({
         </div>
       </div>
       <div className="player-stats-prayer">
-        <StatBar className="player-stats-prayer-bar" barColor="#336699" />
+        <StatBar className="player-stats-prayer-bar" color="#336699" bgColor="#073823" ratio={1} />
         <div className="player-stats-prayer-numbers">
           {prayer.current} / {prayer.max}
         </div>
       </div>
       <div className="player-stats-energy">
-        <StatBar className="player-stats-energy-bar" barColor="#a9a9a9" />
+        <StatBar className="player-stats-energy-bar" color="#a9a9a9" bgColor="#073823" ratio={1} />
       </div>
       <XpDropper player-name="${this.playerName}" />
     </div>
