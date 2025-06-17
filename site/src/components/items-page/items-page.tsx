@@ -139,6 +139,7 @@ export const ItemsPage = ({
 }): ReactElement => {
   // const [itemCount, setItemCount] = useState<number>(0);
   const [filter, setFilter] = useState<ItemFilter>("All");
+  const [searchString, setSearchString] = useState<string>("");
   const [sortCategory, setSortCategory] = useState<ItemSortCategory>("GE Unit Price");
 
   interface ItemAggregates {
@@ -155,6 +156,9 @@ export const ItemsPage = ({
   }
   const { totalHighAlch, totalGEPrice, filteredItems } = [...(items ?? [])].reduce<ItemAggregates>(
     (previousValue, [itemID, quantityByMemberName]) => {
+      const item = itemData?.get(itemID);
+      if (!item?.name.toLocaleLowerCase().includes(searchString)) return previousValue;
+
       let filteredTotalQuantity = 0;
       const filteredQuantities = new Map<MemberName, number>();
       quantityByMemberName.forEach((quantity, name) => {
@@ -165,8 +169,6 @@ export const ItemsPage = ({
       });
 
       if (filteredTotalQuantity <= 0) return previousValue;
-
-      const item = itemData?.get(itemID);
 
       const highAlch = item?.highalch ?? 0;
       const gePrice = gePrices?.get(itemID) ?? 0;
@@ -226,7 +228,12 @@ export const ItemsPage = ({
   return (
     <>
       <div className="items-page__head">
-        <SearchElement className="items-page__search" placeholder="Search" auto-focus />
+        <SearchElement
+          onChange={(string) => setSearchString(string.toLocaleLowerCase())}
+          className="items-page__search"
+          placeholder="Search"
+          auto-focus
+        />
         {pageSelection}
       </div>
       <div className="items-page__utility">
