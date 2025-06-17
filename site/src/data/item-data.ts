@@ -11,11 +11,20 @@ export const ItemDataEntry = z.object({
 });
 export type ItemDataEntry = z.infer<typeof ItemDataEntry>;
 
-export const ItemData = z.record(z.string(), ItemDataEntry).transform((itemData) => {
-  const result = new Map<ItemID, ItemDataEntry>();
-  for (const [itemIDString, itemDataEntry] of Object.entries(itemData)) {
-    result.set(parseInt(itemIDString) as ItemID, itemDataEntry);
-  }
-  return result;
-});
+export const ItemData = z
+  .record(
+    z
+      .string()
+      .transform((id) => Number.parseInt(id))
+      .refine(Number.isInteger)
+      .refine((id) => id >= 0),
+    ItemDataEntry,
+  )
+  .transform((itemData) => {
+    const result = new Map<ItemID, ItemDataEntry>();
+    for (const [itemIDString, itemDataEntry] of Object.entries(itemData)) {
+      result.set(parseInt(itemIDString) as ItemID, itemDataEntry);
+    }
+    return result;
+  });
 export type ItemData = z.infer<typeof ItemData>;

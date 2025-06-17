@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { CanvasMap } from "./components/canvas-map/canvas-map";
-import Api, { type ItemsView, loadValidatedCredentials } from "./data/api";
+import Api, { type GEPrices, type ItemsView, loadValidatedCredentials } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { ItemData } from "./data/item-data";
 
@@ -49,12 +49,17 @@ export const App = (): ReactElement => {
   const [api, setApi] = useState<Api>();
   const { itemData } = useItemData();
   const [itemsView, setItemsView] = useState<ItemsView>();
+  const [gePrices, setGEPrices] = useState<GEPrices>();
 
   useEffect(() => {
     if (api === undefined) return;
 
     api.onItemsUpdate = setItemsView;
     api.queueGetGroupData();
+    api
+      .fetchGEPrices()
+      .then(setGEPrices)
+      .catch((error) => console.error(error));
     return (): void => {
       api.onItemsUpdate = undefined;
       api.close();
@@ -104,7 +109,7 @@ export const App = (): ReactElement => {
             path="items"
             element={
               <AuthedLayout>
-                <ItemsPage items={itemsView} itemData={itemData} />
+                <ItemsPage items={itemsView} itemData={itemData} gePrices={gePrices} />
               </AuthedLayout>
             }
           />

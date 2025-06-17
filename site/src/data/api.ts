@@ -23,16 +23,14 @@ export const wipeCredentials = (): void => {
   localStorage.removeItem(LOCAL_STORAGE_KEY_GROUP_TOKEN);
 };
 
-interface ApiURLArguments {
-  baseURL: string;
-  groupName: string;
-}
-
-function makeAmILoggedInURL(args: ApiURLArguments): string {
+function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
 }
-function makeGetGroupDataURL(args: ApiURLArguments, fromTime: Date): string {
-  return `${args.baseURL}/group/${args.groupName}/get-group-data?from_time=${fromTime.toISOString()}`;
+function makeGetGroupDataURL(args: { baseURL: string; groupName: string; fromTime: Date }): string {
+  return `${args.baseURL}/group/${args.groupName}/get-group-data?from_time=${args.fromTime.toISOString()}`;
+}
+function makeGetGEPricesURL(args: { baseURL: string }): string {
+  return `${args.baseURL}/ge-prices`;
 }
 
 export type ItemID = Distinct<number, "ItemID">;
@@ -60,6 +58,25 @@ const MemberItems = z
     }, new Map<ItemID, number>()),
   );
 type MemberItems = z.infer<typeof MemberItems>;
+
+const GEPrices = z
+  .record(
+    z
+      .string()
+      .transform((id) => Number.parseInt(id))
+      .refine(Number.isInteger)
+      .refine((id) => id >= 0),
+    z.uint32(),
+  )
+  .transform((record) => {
+    const prices = new Map<ItemID, number>();
+    Object.entries(record).forEach(([itemIDString, price]) => {
+      const itemID = parseInt(itemIDString) as ItemID;
+      prices.set(itemID, price);
+    });
+    return prices;
+  });
+export type GEPrices = z.infer<typeof GEPrices>;
 
 export interface MemberData {
   bank: MemberItems;
@@ -178,7 +195,7 @@ export default class Api {
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
     this.getGroupDataPromise = fetch(
-      makeGetGroupDataURL({ baseURL: this.baseURL, groupName: this.credentials.groupName }, fetchDate),
+      makeGetGroupDataURL({ baseURL: this.baseURL, groupName: this.credentials.groupName, fromTime: fetchDate }),
       {
         headers: { Authorization: this.credentials.groupToken },
       },
@@ -228,5 +245,16 @@ export default class Api {
     return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.groupName }), {
       headers: { Authorization: this.credentials.groupToken },
     });
+  }
+  async fetchGEPrices(): Promise<GEPrices> {
+    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
+
+    return fetch(makeGetGEPricesURL({ baseURL: this.baseURL }))
+      .then((response) => response.json())
+      .then((json) => GEPrices.safeParseAsync(json))
+      .then((parseResult) => {
+        if (!parseResult.success) throw new Error("Failed to parse GEPrices response", { cause: parseResult.error });
+        return parseResult.data;
+      });
   }
 }

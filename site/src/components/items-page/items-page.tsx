@@ -1,25 +1,24 @@
 import { type ReactElement, Fragment } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type { ItemsView, MemberName } from "../../data/api";
+import type { GEPrices, ItemsView, MemberName } from "../../data/api";
 import type { ItemData } from "../../data/item-data";
 
 const ItemPanel = ({
   itemName,
   highAlch,
+  gePrice,
   imageURL,
+  totalQuantity,
   quantities,
 }: {
   itemName: string;
   highAlch: number;
+  gePrice: number;
   imageURL: string;
+  totalQuantity: number;
   quantities: Map<MemberName, number>;
 }): ReactElement => {
-  let totalQuantity = 0;
-  quantities.forEach((quantity) => {
-    totalQuantity += quantity;
-  });
-
   const quantityBreakdown = [...quantities].map(([name, quantity]: [MemberName, number]) => {
     const className = quantity <= 0 ? "inventory-item__no-quantity" : "";
     const quantityPercent = (quantity / totalQuantity) * 100;
@@ -46,11 +45,11 @@ const ItemPanel = ({
           </div>
           <div className="inventory-item__details">
             <span>Quantity</span>
-            <span>{totalQuantity}</span>
+            <span>{totalQuantity.toLocaleString()}</span>
             <span>High Alch</span>
-            <span>{highAlch}</span>
+            <span>{highAlch.toLocaleString()}</span>
             <span>GE Price</span>
-            <span>{0}</span>
+            <span>{gePrice.toLocaleString()}</span>
           </div>
         </div>
 
@@ -70,17 +69,41 @@ const ItemPanel = ({
   );
 };
 
-export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: ItemData }): ReactElement => {
+export const ItemsPage = ({
+  items,
+  itemData,
+  gePrices,
+}: {
+  items?: ItemsView;
+  itemData?: ItemData;
+  gePrices?: GEPrices;
+}): ReactElement => {
   const itemComponents: ReactElement[] = [];
+  let totalItems = 0;
+  let totalHighAlch = 0;
+  let totalGEPrice = 0;
   if (items !== undefined) {
     items.forEach((quantityByMemberName, itemID) => {
       const item = itemData?.get(itemID);
+
+      let totalQuantity = 0;
+      quantityByMemberName.forEach((quantity) => {
+        totalQuantity += quantity;
+      });
+
+      const highAlch = item?.highalch ?? 0;
+      const gePrice = gePrices?.get(itemID) ?? 0;
+      totalItems += 1;
+      totalHighAlch += totalQuantity * highAlch;
+      totalGEPrice += totalQuantity * gePrice;
 
       itemComponents.push(
         <ItemPanel
           key={itemID}
           imageURL={`/icons/items/${itemID}.webp`}
-          highAlch={item?.highalch ?? 0}
+          totalQuantity={totalQuantity}
+          highAlch={highAlch}
+          gePrice={gePrice}
           itemName={item?.name ?? "UNKNOWN"}
           quantities={quantityByMemberName}
         />,
@@ -110,14 +133,14 @@ export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: I
           <label htmlFor="items-page__individual-items">Individual item price</label>
         </div>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <span className="items-page__item-count">0</span>&nbsp;<span>items</span>
+          <span className="items-page__item-count">{totalItems.toLocaleString()}</span>&nbsp;<span>items</span>
         </span>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          HA:&nbsp;<span className="items-page__total-ha-price">0</span>
+          HA:&nbsp;<span className="items-page__total-ha-price">{totalHighAlch.toLocaleString()}</span>
           <span>gp</span>
         </span>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          GE:&nbsp;<span className="items-page__total-ge-price">0</span>
+          GE:&nbsp;<span className="items-page__total-ge-price">{totalGEPrice.toLocaleString()}</span>
           <span>gp</span>
         </span>
       </div>
