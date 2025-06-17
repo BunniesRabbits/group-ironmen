@@ -6,10 +6,12 @@ import type { ItemData } from "../../data/item-data";
 
 const ItemPanel = ({
   itemName,
+  highAlch,
   imageURL,
   quantities,
 }: {
   itemName: string;
+  highAlch: number;
   imageURL: string;
   quantities: Map<MemberName, number>;
 }): ReactElement => {
@@ -46,7 +48,7 @@ const ItemPanel = ({
             <span>Quantity</span>
             <span>{totalQuantity}</span>
             <span>High Alch</span>
-            <span>{0}</span>
+            <span>{highAlch}</span>
             <span>GE Price</span>
             <span>{0}</span>
           </div>
@@ -78,6 +80,7 @@ export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: I
         <ItemPanel
           key={itemID}
           imageURL={`/icons/items/${itemID}.webp`}
+          highAlch={item?.highalch ?? 0}
           itemName={item?.name ?? "UNKNOWN"}
           quantities={quantityByMemberName}
         />,
