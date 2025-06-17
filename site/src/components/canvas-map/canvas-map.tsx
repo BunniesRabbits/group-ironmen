@@ -41,8 +41,12 @@ interface CanvasMapCursor {
   accumulatedScroll: number;
 }
 
+const REGION_FADE_IN_SECONDS = 1;
+const REGION_FADE_IN_ALPHA_PER_MS = 1 / (REGION_FADE_IN_SECONDS * 1000);
+
 interface MapRegion {
   loaded: boolean;
+  alpha: number;
   image: HTMLImageElement;
 }
 
@@ -236,6 +240,7 @@ class Context2DScaledWrapper {
     worldPosition,
     worldExtent,
     pixelPerfect,
+    alpha,
   }: {
     image: HTMLImageElement;
     imageOffsetInPixels: CoordinatePair;
@@ -243,12 +248,15 @@ class Context2DScaledWrapper {
     worldPosition: CoordinatePair;
     worldExtent: ExtentPair;
     pixelPerfect?: boolean;
+    alpha: number;
   }): void {
     const position = this.convertWorldPositionToView(worldPosition);
     const extent = this.convertWorldExtentToView(worldExtent);
 
     pixelPerfect = pixelPerfect ?? false;
 
+    const previousAlpha = this.context.globalAlpha;
+    this.context.globalAlpha = alpha;
     if (pixelPerfect) {
       this.context.setTransform(1, 0, 0, 1, 0, 0);
 
@@ -285,6 +293,7 @@ class Context2DScaledWrapper {
         extent.height,
       );
     }
+    this.context.globalAlpha = previousAlpha;
   }
 }
 
@@ -521,6 +530,17 @@ class CanvasMapRenderer {
     this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
   }
 
+  private updateRegionsAlpha(elapsed: number): void {
+    this.regions.forEach((region) => {
+      if (!region.loaded) {
+        region.alpha = 0;
+        return;
+      }
+
+      region.alpha = Math.min(1, region.alpha + elapsed * REGION_FADE_IN_ALPHA_PER_MS);
+    });
+  }
+
   update(context: Context2DScaledWrapper): void {
     const currentUpdateTime = performance.now();
     const elapsed = currentUpdateTime - this.lastUpdateTime;
@@ -562,6 +582,7 @@ class CanvasMapRenderer {
       pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
     });
 
+    this.updateRegionsAlpha(elapsed);
     this.drawAll(context);
 
     const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
@@ -611,6 +632,7 @@ class CanvasMapRenderer {
             worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
             worldExtent: { width: iconScale, height: iconScale },
             pixelPerfect: true,
+            alpha: 1,
           });
         });
       }
@@ -663,6 +685,7 @@ class CanvasMapRenderer {
         if (!this.regions.has(coordinateHash)) {
           const region: MapRegion = {
             loaded: false,
+            alpha: 0,
             image: new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE),
           };
           const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
@@ -682,12 +705,19 @@ class CanvasMapRenderer {
           continue;
         }
 
+        if (region.alpha < 1) {
+          context.fillRect({
+            worldPosition,
+            worldExtent,
+          });
+        }
         context.drawImage({
           image: region.image,
           imageOffsetInPixels: { x: 0, y: 0 },
           imageExtentInPixels: { width: region.image.width, height: region.image.height },
           worldPosition,
           worldExtent,
+          alpha: region.alpha,
         });
       }
     }
@@ -744,6 +774,7 @@ class CanvasMapRenderer {
             worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
             worldExtent: { width: labelScale * image.width, height: labelScale * image.height },
             pixelPerfect: true,
+            alpha: 1,
           });
         });
       }
