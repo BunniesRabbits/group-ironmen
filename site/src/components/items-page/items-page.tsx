@@ -71,12 +71,9 @@ const ItemPanel = ({
 export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: ItemData }): ReactElement => {
   const itemComponents: ReactElement[] = [];
   if (items !== undefined) {
-    let index = 0;
     items.forEach((quantityByMemberName, itemID) => {
       const item = itemData?.get(itemID);
 
-      if (index > 30) return;
-      index += 1;
       itemComponents.push(
         <ItemPanel
           key={itemID}
