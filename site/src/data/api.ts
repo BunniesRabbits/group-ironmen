@@ -41,13 +41,17 @@ export type MemberName = Distinct<string, "MemberName">;
 // TODO: I am unsure what to name these types to make it clear they come from the network
 
 const MemberItems = z
-  .array(z.uint32())
+  .array(z.uint32().or(z.literal(-1)))
   .refine((arg) => arg.length % 2 === 0)
   .transform((arg: number[]) =>
     arg.reduce<Map<ItemID, number>>((items, _, index, flatItems) => {
       if (index % 2 !== 0 || index + 1 >= flatItems.length) return items;
 
       const itemID = flatItems[index] as ItemID;
+
+      // -1 seems to be a sentinel for empty rune pouch spots
+      if (itemID < 0) return items;
+
       const itemQuantity = flatItems[index + 1];
 
       items.set(itemID, itemQuantity + (items.get(itemID) ?? 0));
@@ -59,13 +63,21 @@ type MemberItems = z.infer<typeof MemberItems>;
 
 export interface MemberData {
   bank: MemberItems;
+  equipment: MemberItems;
+  inventory: MemberItems;
+  runePouch: MemberItems;
+  seedVault: MemberItems;
 }
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 
 const MemberDataUpdate = z.object({
   name: z.string().transform((arg) => arg as MemberName),
-  last_updated: z.iso.datetime(),
+  last_updated: z.iso.datetime().optional(),
   bank: z.optional(MemberItems),
+  equipment: z.optional(MemberItems),
+  inventory: z.optional(MemberItems),
+  runePouch: z.optional(MemberItems),
+  seedVault: z.optional(MemberItems),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -84,6 +96,7 @@ export default class Api {
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {
     return response.reduce<Date>((previousNewest, { last_updated }) => {
+      if (last_updated === undefined) return previousNewest;
       const memberDate = new Date(last_updated);
       if (memberDate < previousNewest) return previousNewest;
       return memberDate;
@@ -96,25 +109,56 @@ export default class Api {
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
     // In the future, we may want to diff the amounts and try to update sparingly.
 
-    for (const { name, bank } of response) {
-      if (!this.groupData.has(name)) this.groupData.set(name, { bank: new Map() });
+    for (const { name, bank, equipment, inventory, runePouch, seedVault } of response) {
+      if (!this.groupData.has(name))
+        this.groupData.set(name, {
+          bank: new Map(),
+          equipment: new Map(),
+          inventory: new Map(),
+          runePouch: new Map(),
+          seedVault: new Map(),
+        });
       const memberData = this.groupData.get(name)!;
 
-      if (bank === undefined) continue;
-      memberData.bank = new Map(bank);
-      updated = true;
+      if (bank !== undefined) {
+        memberData.bank = new Map(bank);
+        updated = true;
+      }
+
+      if (equipment !== undefined) {
+        memberData.equipment = new Map(equipment);
+        updated = true;
+      }
+
+      if (inventory !== undefined) {
+        memberData.inventory = new Map(inventory);
+        updated = true;
+      }
+
+      if (runePouch !== undefined) {
+        memberData.runePouch = new Map(runePouch);
+        updated = true;
+      }
+
+      if (seedVault !== undefined) {
+        memberData.seedVault = new Map(seedVault);
+        updated = true;
+      }
     }
 
     if (!updated) return;
 
     const itemsView: ItemsView = new Map();
-    this.groupData.forEach(({ bank }, memberName) => {
-      bank.forEach((quantity, itemID) => {
-        if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
-        const itemView = itemsView.get(itemID)!;
+    this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
+      [bank, equipment, inventory, runePouch, seedVault].forEach((storageArea) =>
+        storageArea.forEach((quantity, itemID) => {
+          if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
+          const itemView = itemsView.get(itemID)!;
 
-        itemView.set(memberName, quantity);
-      });
+          const oldQuantity = itemView.get(memberName) ?? 0;
+          itemView.set(memberName, oldQuantity + quantity);
+        }),
+      );
     });
 
     this.onItemsUpdate?.(itemsView);
