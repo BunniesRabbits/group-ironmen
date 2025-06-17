@@ -6,15 +6,15 @@ import type { ItemData } from "../../data/item-data";
 
 const ItemPanel = ({
   itemName,
-  highAlch,
-  gePrice,
+  highAlchPer,
+  gePricePer,
   imageURL,
   totalQuantity,
   quantities,
 }: {
   itemName: string;
-  highAlch: number;
-  gePrice: number;
+  highAlchPer: number;
+  gePricePer: number;
   imageURL: string;
   totalQuantity: number;
   quantities: Map<MemberName, number>;
@@ -34,6 +34,9 @@ const ItemPanel = ({
     );
   });
 
+  const highAlch = highAlchPer * totalQuantity;
+  const gePrice = gePricePer * totalQuantity;
+
   return (
     <div className="inventory-item rsborder rsbackground rendered">
       <div className="inventory-item__top rsborder-tiny">
@@ -47,9 +50,13 @@ const ItemPanel = ({
             <span>Quantity</span>
             <span>{totalQuantity.toLocaleString()}</span>
             <span>High Alch</span>
-            <span>{highAlch.toLocaleString()}</span>
+            <span>{highAlchPer.toLocaleString()}gp</span>
+            <span>Total</span>
+            <span>{highAlch.toLocaleString()}gp</span>
             <span>GE Price</span>
-            <span>{gePrice.toLocaleString()}</span>
+            <span>{gePricePer.toLocaleString()}gp</span>
+            <span>Total</span>
+            <span>{gePrice.toLocaleString()}gp</span>
           </div>
         </div>
 
@@ -102,8 +109,8 @@ export const ItemsPage = ({
           key={itemID}
           imageURL={`/icons/items/${itemID}.webp`}
           totalQuantity={totalQuantity}
-          highAlch={highAlch}
-          gePrice={gePrice}
+          highAlchPer={highAlch}
+          gePricePer={gePrice}
           itemName={item?.name ?? "UNKNOWN"}
           quantities={quantityByMemberName}
         />,
@@ -127,10 +134,6 @@ export const ItemsPage = ({
         </div>
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select className="items-page__player-filter"></select>
-        </div>
-        <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <input type="checkbox" id="items-page__individual-items" />
-          <label htmlFor="items-page__individual-items">Individual item price</label>
         </div>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <span className="items-page__item-count">{totalItems.toLocaleString()}</span>&nbsp;<span>items</span>
