@@ -1,10 +1,19 @@
 import { type ReactElement, Fragment, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type { GEPrices, ItemsView, MemberName } from "../../data/api";
+import type { GEPrices, ItemID, ItemsView, MemberName } from "../../data/api";
 import type { ItemData } from "../../data/item-data";
 
 type ItemFilter = "All" | MemberName;
+const ItemSortCategory = [
+  "Total Quantity",
+  "HA Total Value",
+  "HA Unit Value",
+  "GE Total Price",
+  "GE Unit Price",
+  "Alphabetical",
+] as const;
+type ItemSortCategory = (typeof ItemSortCategory)[number];
 
 const ItemPanel = ({
   itemName,
@@ -92,7 +101,7 @@ const usePageSelection = ({
 
   const pageCount = Math.ceil(itemCount / ITEMS_PER_PAGE);
 
-  if (pageCurrent >= pageCount) setPageCurrent(0);
+  if (itemCount > 0 && pageCurrent >= pageCount) setPageCurrent(0);
 
   const buttons = [];
   for (let page = 0; page < pageCount; page += 1) {
@@ -130,48 +139,78 @@ export const ItemsPage = ({
 }): ReactElement => {
   // const [itemCount, setItemCount] = useState<number>(0);
   const [filter, setFilter] = useState<ItemFilter>("All");
+  const [sortCategory, setSortCategory] = useState<ItemSortCategory>("GE Unit Price");
 
-  const filteredItems: ItemsView = new Map();
-  let itemCount = 0;
-  items?.forEach((quantityByMemberName, itemID) => {
-    if (filter !== "All" && (quantityByMemberName.get(filter) ?? 0) <= 0) return;
+  interface ItemAggregates {
+    totalHighAlch: number;
+    totalGEPrice: number;
+    filteredItems: {
+      itemID: ItemID;
+      itemName: string;
+      quantityByMemberName: Map<MemberName, number>;
+      totalQuantity: number;
+      gePrice: number;
+      highAlch: number;
+    }[];
+  }
+  const { totalHighAlch, totalGEPrice, filteredItems } = [...(items ?? [])].reduce<ItemAggregates>(
+    (previousValue, [itemID, quantityByMemberName]) => {
+      let filteredTotalQuantity = 0;
+      const filteredQuantities = new Map<MemberName, number>();
+      quantityByMemberName.forEach((quantity, name) => {
+        if (filter !== "All" && filter !== name) return;
 
-    filteredItems.set(itemID, quantityByMemberName);
-    itemCount += 1;
-  });
+        filteredQuantities.set(name, quantity);
+        filteredTotalQuantity += quantity;
+      });
 
-  const { pageNumber, element: pageSelection } = usePageSelection({ itemCount });
+      if (filteredTotalQuantity <= 0) return previousValue;
 
-  const itemComponents: ReactElement[] = [];
-  let totalItems = 0;
-  let totalHighAlch = 0;
-  let totalGEPrice = 0;
+      const item = itemData?.get(itemID);
+
+      const highAlch = item?.highalch ?? 0;
+      const gePrice = gePrices?.get(itemID) ?? 0;
+      previousValue.totalHighAlch += filteredTotalQuantity * highAlch;
+      previousValue.totalGEPrice += filteredTotalQuantity * gePrice;
+
+      previousValue.filteredItems.push({
+        itemID,
+        itemName: item?.name ?? "@UNKNOWN",
+        quantityByMemberName: filteredQuantities,
+        totalQuantity: filteredTotalQuantity,
+        gePrice,
+        highAlch,
+      });
+
+      return previousValue;
+    },
+    { totalHighAlch: 0, totalGEPrice: 0, filteredItems: [] },
+  );
+
+  const { pageNumber, element: pageSelection } = usePageSelection({ itemCount: filteredItems.length });
+
   const fromIndex = pageNumber * ITEMS_PER_PAGE;
   const toIndex = (pageNumber + 1) * ITEMS_PER_PAGE;
 
-  let index = 0;
-  filteredItems.forEach((quantityByMemberName, itemID) => {
-    const item = itemData?.get(itemID);
-
-    let totalQuantity = 0;
-    quantityByMemberName.forEach((quantity, name) => {
-      if (filter !== "All" && name !== filter) return;
-
-      totalQuantity += quantity;
-    });
-
-    const highAlch = item?.highalch ?? 0;
-    const gePrice = gePrices?.get(itemID) ?? 0;
-    totalItems += 1;
-    totalHighAlch += totalQuantity * highAlch;
-    totalGEPrice += totalQuantity * gePrice;
-
-    if (index >= toIndex || index < fromIndex) {
-      index += 1;
-      return;
-    }
-
-    itemComponents.push(
+  const renderedPanels = filteredItems
+    .sort((lhs, rhs) => {
+      switch (sortCategory) {
+        case "Total Quantity":
+          return rhs.totalQuantity - lhs.totalQuantity;
+        case "HA Total Value":
+          return rhs.highAlch * rhs.totalQuantity - lhs.highAlch * lhs.totalQuantity;
+        case "HA Unit Value":
+          return rhs.highAlch - lhs.highAlch;
+        case "GE Total Price":
+          return rhs.gePrice * rhs.totalQuantity - lhs.gePrice * lhs.totalQuantity;
+        case "GE Unit Price":
+          return rhs.gePrice - lhs.gePrice;
+        case "Alphabetical":
+          return lhs.itemName.localeCompare(rhs.itemName);
+      }
+    })
+    .filter((_, index) => index >= fromIndex && index < toIndex)
+    .map(({ gePrice, highAlch, itemID, itemName, quantityByMemberName, totalQuantity }) => (
       <ItemPanel
         key={itemID}
         imageURL={`/icons/items/${itemID}.webp`}
@@ -179,13 +218,11 @@ export const ItemsPage = ({
         highAlchPer={highAlch}
         gePricePer={gePrice}
         filter={filter}
-        itemName={item?.name ?? "UNKNOWN"}
+        itemName={itemName}
         quantities={quantityByMemberName}
-      />,
-    );
+      />
+    ));
 
-    index += 1;
-  });
   return (
     <>
       <div className="items-page__head">
@@ -194,18 +231,24 @@ export const ItemsPage = ({
       </div>
       <div className="items-page__utility">
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <select className="items-page__sort">
-            <option value="totalquantity">Sort: Total Quantity</option>
-            <option value="highalch">Sort: High Alch</option>
-            <option value="geprice">Sort: GE Price</option>
-            <option value="alphabetical">Sort: Alphabetical</option>
+          <select
+            className="items-page__sort"
+            onChange={(e) => {
+              setSortCategory(e.target.value as ItemSortCategory);
+            }}
+          >
+            {ItemSortCategory.map((category) => (
+              <option selected={category === sortCategory} value={category}>
+                Sort: {category}
+              </option>
+            ))}
           </select>
         </div>
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select
             className="items-page__player-filter"
             onChange={(e) => {
-              setFilter(e.target.value as MemberName);
+              setFilter(e.target.value as ItemFilter);
             }}
           >
             {["All", ...(memberNames ?? [])].map((name) => (
@@ -214,7 +257,8 @@ export const ItemsPage = ({
           </select>
         </div>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <span className="items-page__item-count">{totalItems.toLocaleString()}</span>&nbsp;<span>items</span>
+          <span className="items-page__item-count">{filteredItems.length.toLocaleString()}</span>&nbsp;
+          <span>items</span>
         </span>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           HA:&nbsp;<span className="items-page__total-ha-price">{totalHighAlch.toLocaleString()}</span>
@@ -225,7 +269,7 @@ export const ItemsPage = ({
           <span>gp</span>
         </span>
       </div>
-      <section className="items-page__list">{itemComponents}</section>
+      <section className="items-page__list">{renderedPanels}</section>
     </>
   );
 };
