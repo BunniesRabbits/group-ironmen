@@ -131,3 +131,10 @@
 .inventory-pager__buttons button {
   padding: 4px 8px;
 }
+
+.items-page__search {
+  display: flex;
+  position: relative;
+  min-width: 300px;
+  max-width: 500px;
+}

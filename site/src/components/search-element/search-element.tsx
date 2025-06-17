@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
 
+import "./search-element.css";
+
 export const SearchElement = ({ className, placeholder }: { className: string; placeholder: string }): ReactElement => {
   return (
     <div className={className}>
