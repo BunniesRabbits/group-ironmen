@@ -1,31 +1,89 @@
-import type { ReactElement } from "react";
+import { type ReactElement, Fragment } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
 import type { ItemsView, MemberName } from "../../data/api";
 import type { ItemData } from "../../data/item-data";
 
+const ItemPanel = ({
+  itemName,
+  imageURL,
+  quantities,
+}: {
+  itemName: string;
+  imageURL: string;
+  quantities: Map<MemberName, number>;
+}): ReactElement => {
+  let totalQuantity = 0;
+  quantities.forEach((quantity) => {
+    totalQuantity += quantity;
+  });
+
+  const quantityBreakdown = [...quantities].map(([name, quantity]: [MemberName, number]) => {
+    const className = quantity <= 0 ? "inventory-item__no-quantity" : "";
+    const quantityPercent = (quantity / totalQuantity) * 100;
+    return (
+      <Fragment key={name}>
+        <span className={className}>{name}</span>
+        <span>{quantity}</span>
+        <div
+          className="inventory-item__quantity-bar"
+          style={{ transform: `scaleX(${quantityPercent}%)`, background: `hsl(${quantityPercent}, 100%, 40%)` }}
+        ></div>
+      </Fragment>
+    );
+  });
+
+  return (
+    <div className="inventory-item rsborder rsbackground rendered">
+      <div className="inventory-item__top rsborder-tiny">
+        <div className="inventory-item__top-right">
+          <div className="inventory-item__name">
+            <a className="rstext" href="${item.wikiLink}" target="_blank">
+              {itemName}
+            </a>
+          </div>
+          <div className="inventory-item__details">
+            <span>Quantity</span>
+            <span>{totalQuantity}</span>
+            <span>High Alch</span>
+            <span>{0}</span>
+            <span>GE Price</span>
+            <span>{0}</span>
+          </div>
+        </div>
+
+        <div className="inventory-item__picture-container">
+          <img
+            loading="lazy"
+            alt={itemName ?? "An unknown item"}
+            className="inventory-item__picture"
+            src={imageURL}
+            width="63"
+            height="56"
+          />
+        </div>
+      </div>
+      <div className="inventory-item__bottom">{quantityBreakdown}</div>
+    </div>
+  );
+};
+
 export const ItemsPage = ({ items, itemData }: { items?: ItemsView; itemData?: ItemData }): ReactElement => {
   const itemComponents: ReactElement[] = [];
   if (items !== undefined) {
+    let index = 0;
     items.forEach((quantityByMemberName, itemID) => {
-      let totalQuantity = 0;
-      const quantityBreakdown = [...quantityByMemberName].map(([name, quantity]: [MemberName, number]) => {
-        totalQuantity += quantity;
-        return (
-          <li key={name}>
-            {name}: {quantity}
-          </li>
-        );
-      });
-
       const item = itemData?.get(itemID);
 
+      if (index > 30) return;
+      index += 1;
       itemComponents.push(
-        <div key={itemID}>
-          Name: {item?.name ?? "UNKNOWN"} <br />
-          Total: {totalQuantity}
-          <ul>{quantityBreakdown}</ul>
-        </div>,
+        <ItemPanel
+          key={itemID}
+          imageURL={`/icons/items/${itemID}.webp`}
+          itemName={item?.name ?? "UNKNOWN"}
+          quantities={quantityByMemberName}
+        />,
       );
     });
   }

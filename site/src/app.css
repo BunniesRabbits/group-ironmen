@@ -415,10 +415,15 @@ ul {
   flex-direction: column;
 }
 
-.pointer-events-passthrough {
+#main-content {
+  position: absolute;
+  gap: 16px;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   pointer-events: none;
 }
 
-.pointer-events-passthrough > * {
+#main-content > * {
   pointer-events: auto;
 }

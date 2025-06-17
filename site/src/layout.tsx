@@ -18,7 +18,7 @@ export const AuthedLayout = ({ children }: { children?: ReactNode }): ReactEleme
 
   return (
     <>
-      <div className="pointer-events-passthrough" style={{ position: "absolute", inset: 0 }}>
+      <div id="main-content">
         <AppNavigation groupName={credentials?.groupName} />
         {children}
       </div>
