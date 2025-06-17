@@ -145,10 +145,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button.active {
-  outline: 1px solid rgb(200, 200, 200);
-}
-
 a {
   color: var(--link-color);
   text-decoration: none;
@@ -426,4 +422,8 @@ ul {
 
 #main-content > * {
   pointer-events: auto;
+}
+
+.active {
+  outline: 1px solid rgb(200, 200, 200);
 }
