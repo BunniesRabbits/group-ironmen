@@ -872,7 +872,11 @@ class CanvasMapRenderer {
   }
 }
 
-export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactElement => {
+export const useCanvasMap = ({
+  interactive,
+}: {
+  interactive: boolean;
+}): { coordinateIndicator: ReactElement; planeSelect: ReactElement; backgroundMap: ReactElement } => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
@@ -1000,7 +1004,24 @@ export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactEleme
   const draggingClass = dragging ? "dragging" : "";
   const interactiveClass = interactive ? "interactive" : "";
 
-  return (
+  const planeSelect = (
+    <div id="canvas-map-plane-select-container" className="rsborder-tiny rsbackground">
+      <select
+        id="canvas-map-plane-select"
+        onChange={(e) => {
+          handleSelectPlane(e.target.selectedIndex);
+        }}
+      >
+        <option value="1">Plane: 1</option>
+        <option value="2">Plane: 2</option>
+        <option value="3">Plane: 3</option>
+        <option value="4">Plane: 4</option>
+      </select>
+    </div>
+  );
+  const coordinateIndicator = <div id="canvas-map-coordinates">{coordinatesView}</div>;
+
+  const backgroundMap = (
     <div id="canvas-map-container">
       <canvas
         onPointerMove={handlePointerMove}
@@ -1012,24 +1033,8 @@ export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactEleme
         className={`${draggingClass} ${interactiveClass}`}
         ref={canvasRef}
       />
-      {interactive ? (
-        <>
-          <div id="canvas-map-plane-select-container" className="rsborder-tiny rsbackground">
-            <select
-              id="canvas-map-plane-select"
-              onChange={(e) => {
-                handleSelectPlane(e.target.selectedIndex);
-              }}
-            >
-              <option value="1">Plane: 1</option>
-              <option value="2">Plane: 2</option>
-              <option value="3">Plane: 3</option>
-              <option value="4">Plane: 4</option>
-            </select>
-          </div>
-          <div id="canvas-map-coordinates">{coordinatesView}</div>
-        </>
-      ) : undefined}
     </div>
   );
+
+  return { coordinateIndicator, planeSelect, backgroundMap };
 };

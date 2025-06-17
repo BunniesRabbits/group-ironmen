@@ -8,7 +8,7 @@ import { Navigate } from "react-router-dom";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 
 import "./app.css";
-import { CanvasMap } from "./components/canvas-map/canvas-map";
+import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, { type GEPrices, type ItemsView, loadValidatedCredentials } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { ItemData } from "./data/item-data";
@@ -80,9 +80,13 @@ export const App = (): ReactElement => {
     .filter((name) => name !== "@SHARED")
     .map<ReactElement>((name) => <PlayerPanel name={name} key={name} />);
 
+  const { coordinateIndicator, planeSelect, backgroundMap } = useCanvasMap({
+    interactive: location.pathname === "/group/map",
+  });
+
   return (
     <>
-      <CanvasMap interactive={location.pathname === "/group/map"} />
+      {backgroundMap}
       <Routes>
         <Route
           index
@@ -124,7 +128,15 @@ export const App = (): ReactElement => {
               </AuthedLayout>
             }
           />
-          <Route path="map" element={<AuthedLayout panels={panels} />} />
+          <Route
+            path="map"
+            element={
+              <AuthedLayout panels={panels}>
+                {planeSelect}
+                {coordinateIndicator}
+              </AuthedLayout>
+            }
+          />
           <Route path="graphs" element={<AuthedLayout panels={panels} />} />
           <Route path="panels" element={<AuthedLayout panels={undefined}>{panels}</AuthedLayout>} />
           <Route path="settings" element={<AuthedLayout panels={panels} />} />
