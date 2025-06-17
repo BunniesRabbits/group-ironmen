@@ -5,7 +5,7 @@ import { Link } from "react-router";
 export interface MenLinkProps {
   label: string;
   href: string;
-  selected: boolean;
+  selected?: boolean;
 }
 export const MenLink = (props: MenLinkProps): ReactElement => {
   return (
