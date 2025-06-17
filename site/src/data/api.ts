@@ -36,8 +36,6 @@ function makeGetGEPricesURL(args: { baseURL: string }): string {
 export type ItemID = Distinct<number, "ItemID">;
 export type MemberName = Distinct<string, "MemberName">;
 
-// TODO: I am unsure what to name these types to make it clear they come from the network
-
 const MemberItemsFromBackend = z
   .array(z.uint32().or(z.literal(-1)))
   .refine((arg) => arg.length % 2 === 0)
@@ -77,6 +75,29 @@ const GEPricesFromBackend = z
     return prices;
   });
 export type GEPrices = z.infer<typeof GEPricesFromBackend>;
+
+const StatsFromBackend = z
+  .array(z.uint32())
+  .length(7)
+  .refine((stats) => stats[5] === 100) // Plugin reports max run energy as 100, when it actually is 10000.
+  .transform((args) => {
+    return {
+      health: {
+        current: args[0],
+        max: args[1],
+      },
+      prayer: {
+        current: args[2],
+        max: args[3],
+      },
+      run: {
+        current: args[4],
+        max: 10000,
+      },
+      world: args[6],
+    };
+  });
+export type Stats = z.infer<typeof StatsFromBackend>;
 
 const NPCInteractionFromBackend = z
   .object({
@@ -126,10 +147,12 @@ export interface MemberData {
   runePouch: MemberItems;
   seedVault: MemberItems;
   interacting?: NPCInteraction;
+  stats?: Stats;
 }
 
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
+export type StatsView = Map<MemberName, Stats>;
 
 const MemberDataUpdate = z.object({
   /**
@@ -169,6 +192,10 @@ const MemberDataUpdate = z.object({
    * Information on NPC the player last interacted with.
    */
   interacting: NPCInteractionFromBackend.optional(),
+  /**
+   * Stats of the player, including the last known world they were on.
+   */
+  stats: StatsFromBackend.optional(),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -195,6 +222,7 @@ export default class Api {
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedItems = false;
     let updatedNPCInteractions = false;
+    let updatedStats = false;
 
     this.knownMembers = [];
 
@@ -202,7 +230,7 @@ export default class Api {
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
     // In the future, we may want to diff the amounts and try to update sparingly.
 
-    for (const { name, bank, equipment, inventory, runePouch, seedVault, interacting } of response) {
+    for (const { name, bank, equipment, inventory, runePouch, seedVault, interacting, stats } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
           bank: new Map(),
@@ -244,6 +272,11 @@ export default class Api {
         memberData.interacting = structuredClone(interacting);
         updatedNPCInteractions = true;
       }
+
+      if (stats !== undefined) {
+        memberData.stats = structuredClone(stats);
+        updatedStats = true;
+      }
     }
 
     if (updatedItems) {
@@ -271,10 +304,20 @@ export default class Api {
       });
       this.onNPCInteractionsUpdate?.(npcInteractionsView);
     }
+
+    if (updatedStats) {
+      const statsView: StatsView = new Map();
+      this.groupData.forEach(({ stats }, name) => {
+        if (stats === undefined) return;
+        statsView.set(name, stats);
+      });
+      this.onStatsUpdate?.(statsView);
+    }
   }
 
   public onItemsUpdate?: (items: ItemsView) => void;
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
+  public onStatsUpdate?: (stats: StatsView) => void;
 
   public getKnownMembers(): MemberName[] {
     return [...this.knownMembers];

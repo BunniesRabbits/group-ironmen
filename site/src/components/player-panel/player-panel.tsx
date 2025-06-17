@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import "./player-panel.css";
-import type { NPCInteraction } from "../../data/api";
+import type { NPCInteraction, Stats } from "../../data/api";
 
 // Shows a stat like hp/prayer
 interface StatBarProps {
@@ -43,24 +43,17 @@ const PlayerInteracting = ({ npcName, healthRatio }: { npcName: string; healthRa
   );
 };
 
-interface Stat {
-  current: number;
-  max: number;
-}
-
 const XpDropper = (): ReactElement => {
   return <></>;
 };
 
 const PlayerStats = ({
   name,
-  hitpoints,
-  prayer,
+  stats,
   interacting,
 }: {
   name: string;
-  hitpoints: Stat;
-  prayer: Stat;
+  stats?: Stats;
   interacting?: NPCInteraction;
 }): ReactElement => {
   const hueDegrees = 75;
@@ -70,10 +63,14 @@ const PlayerStats = ({
       <PlayerInteracting healthRatio={interacting.healthRatio} npcName={interacting.name} />
     ) : undefined;
 
+  const healthRatio = (stats?.health?.current ?? 0) / (stats?.health?.max ?? 1);
+  const prayerRatio = (stats?.prayer?.current ?? 0) / (stats?.prayer?.max ?? 1);
+  const runRatio = (stats?.run?.current ?? 0) / (stats?.run?.max ?? 1);
+
   return (
     <div className="player-stats">
       <div className="player-stats-hitpoints">
-        <StatBar className="player-stats-hitpoints-bar" color="#157145" bgColor="#073823" ratio={1} />
+        <StatBar className="player-stats-hitpoints-bar" color="#157145" bgColor="#073823" ratio={healthRatio} />
         {interactionBar}
         <div className="player-stats-name">
           <img
@@ -83,35 +80,38 @@ const PlayerStats = ({
             width="12"
             height="15"
           />
-          {name} -<span className="player-stats-world">W404</span>
+          {name} - <span className="player-stats-world">W{stats?.world}</span>
         </div>
         <div className="player-stats-hitpoints-numbers">
-          {hitpoints.current} / {hitpoints.max}
+          {stats?.health.current} / {stats?.health.max}
         </div>
       </div>
       <div className="player-stats-prayer">
-        <StatBar className="player-stats-prayer-bar" color="#336699" bgColor="#073823" ratio={1} />
+        <StatBar className="player-stats-prayer-bar" color="#336699" bgColor="#112233" ratio={prayerRatio} />
         <div className="player-stats-prayer-numbers">
-          {prayer.current} / {prayer.max}
+          {stats?.prayer.current} / {stats?.prayer.max}
         </div>
       </div>
       <div className="player-stats-energy">
-        <StatBar className="player-stats-energy-bar" color="#a9a9a9" bgColor="#073823" ratio={1} />
+        <StatBar className="player-stats-energy-bar" color="#a9a9a9" bgColor="#383838" ratio={runRatio} />
       </div>
       <XpDropper player-name="${this.playerName}" />
     </div>
   );
 };
 
-export const PlayerPanel = ({ name, interacting }: { name: string; interacting?: NPCInteraction }): ReactElement => {
+export const PlayerPanel = ({
+  name,
+  interacting,
+  stats,
+}: {
+  name: string;
+  interacting?: NPCInteraction;
+  stats?: Stats;
+}): ReactElement => {
   return (
     <div className="player-panel rsborder rsbackground">
-      <PlayerStats
-        interacting={interacting}
-        name={name}
-        hitpoints={{ current: 50, max: 99 }}
-        prayer={{ current: 45, max: 70 }}
-      />
+      <PlayerStats interacting={interacting} name={name} stats={stats} />
       <div className="player-panel-minibar">
         <button aria-label="inventory" type="button">
           <img alt="osrs inventory icon" src="/ui/777-0.png" width="26" height="28" />
