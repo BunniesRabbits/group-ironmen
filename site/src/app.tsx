@@ -74,6 +74,8 @@ export const App = (): ReactElement => {
     setApi(new Api(credentials));
   }, [location, api]);
 
+  const panels = api?.getKnownMembers().filter((name) => name !== "@SHARED");
+
   return (
     <>
       <CanvasMap interactive={location.pathname === "/group/map"} />
@@ -108,7 +110,7 @@ export const App = (): ReactElement => {
           <Route
             path="items"
             element={
-              <AuthedLayout>
+              <AuthedLayout panels={panels}>
                 <ItemsPage
                   memberNames={api?.getKnownMembers()}
                   items={itemsView}
@@ -118,7 +120,10 @@ export const App = (): ReactElement => {
               </AuthedLayout>
             }
           />
-          <Route path="map" element={<AuthedLayout />} />
+          <Route path="map" element={<AuthedLayout panels={panels} />} />
+          <Route path="graphs" element={<AuthedLayout panels={panels} />} />
+          <Route path="panels" element={<AuthedLayout panels={panels} />} />
+          <Route path="settings" element={<AuthedLayout panels={panels} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
