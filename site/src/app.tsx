@@ -122,7 +122,7 @@ export const App = (): ReactElement => {
           />
           <Route path="map" element={<AuthedLayout panels={panels} />} />
           <Route path="graphs" element={<AuthedLayout panels={panels} />} />
-          <Route path="panels" element={<AuthedLayout panels={panels} />} />
+          <Route path="panels" element={<AuthedLayout panels={undefined}>{panels}</AuthedLayout>} />
           <Route path="settings" element={<AuthedLayout panels={panels} />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
