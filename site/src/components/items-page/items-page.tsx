@@ -1,4 +1,4 @@
-import { type ReactElement, Fragment } from "react";
+import { type ReactElement, Fragment, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
 import type { GEPrices, ItemsView, MemberName } from "../../data/api";
@@ -76,6 +76,34 @@ const ItemPanel = ({
   );
 };
 
+const ITEMS_PER_PAGE = 100;
+const usePageSelection = ({ itemCount }: { itemCount: number }): { pageNumber: number; element: ReactElement } => {
+  const [pageCurrent, setPageCurrent] = useState<number>(0);
+
+  const pageCount = Math.ceil(itemCount / ITEMS_PER_PAGE);
+  const buttons = [];
+  for (let page = 0; page < pageCount; page += 1) {
+    buttons.push(
+      <button
+        key={page}
+        onClick={() => {
+          setPageCurrent(page);
+        }}
+        className={`${pageCurrent === page ? "active" : ""} inventory-pager__button men-button`}
+      >
+        {page + 1}
+      </button>,
+    );
+  }
+  const element = (
+    <div id="inventory-pager">
+      <div className="inventory-pager__label">Page:</div>
+      <div className="inventory-pager__buttons">{buttons}</div>
+    </div>
+  );
+  return { pageNumber: pageCurrent, element };
+};
+
 export const ItemsPage = ({
   items,
   itemData,
@@ -85,10 +113,15 @@ export const ItemsPage = ({
   itemData?: ItemData;
   gePrices?: GEPrices;
 }): ReactElement => {
+  const { pageNumber, element: pageSelection } = usePageSelection({ itemCount: items?.size ?? 0 });
+
   const itemComponents: ReactElement[] = [];
   let totalItems = 0;
   let totalHighAlch = 0;
   let totalGEPrice = 0;
+  const fromIndex = pageNumber * ITEMS_PER_PAGE;
+  const toIndex = (pageNumber + 1) * ITEMS_PER_PAGE;
+  let index = 0;
   if (items !== undefined) {
     items.forEach((quantityByMemberName, itemID) => {
       const item = itemData?.get(itemID);
@@ -104,6 +137,11 @@ export const ItemsPage = ({
       totalHighAlch += totalQuantity * highAlch;
       totalGEPrice += totalQuantity * gePrice;
 
+      if (index >= toIndex || index < fromIndex) {
+        index += 1;
+        return;
+      }
+
       itemComponents.push(
         <ItemPanel
           key={itemID}
@@ -115,13 +153,15 @@ export const ItemsPage = ({
           quantities={quantityByMemberName}
         />,
       );
+
+      index += 1;
     });
   }
-
   return (
     <>
       <div className="items-page__head">
         <SearchElement className="items-page__search" placeholder="Search" auto-focus />
+        {pageSelection}
       </div>
       <div className="items-page__utility">
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
