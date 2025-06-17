@@ -110,6 +110,7 @@ export default class Api {
   private getGroupDataPromise?: Promise<void>;
   private closed: boolean;
   private groupData: Map<MemberName, MemberData>;
+  private knownMembers: MemberName[];
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {
     return response.reduce<Date>((previousNewest, { last_updated }) => {
@@ -121,6 +122,8 @@ export default class Api {
   }
   private updateGroupData(response: GetGroupDataResponse): void {
     let updated = false;
+
+    this.knownMembers = [];
 
     // Backend always sends the entirety of the items, in each category that changes.
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
@@ -136,6 +139,8 @@ export default class Api {
           seedVault: new Map(),
         });
       const memberData = this.groupData.get(name)!;
+
+      this.knownMembers.push(name);
 
       if (bank !== undefined) {
         memberData.bank = new Map(bank);
@@ -182,6 +187,10 @@ export default class Api {
   }
 
   public onItemsUpdate?: (items: ItemsView) => void;
+
+  public getKnownMembers(): MemberName[] {
+    return [...this.knownMembers];
+  }
 
   /**
    * Kicks off fetching the group data once a second from the backend.
@@ -235,6 +244,7 @@ export default class Api {
     this.baseURL = __API_URL__;
     this.credentials = credentials;
     this.closed = false;
+    this.knownMembers = [];
 
     this.groupData = new Map();
   }

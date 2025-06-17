@@ -4,12 +4,15 @@ import "./items-page.css";
 import type { GEPrices, ItemsView, MemberName } from "../../data/api";
 import type { ItemData } from "../../data/item-data";
 
+type ItemFilter = "All" | MemberName;
+
 const ItemPanel = ({
   itemName,
   highAlchPer,
   gePricePer,
   imageURL,
   totalQuantity,
+  filter,
   quantities,
 }: {
   itemName: string;
@@ -17,9 +20,12 @@ const ItemPanel = ({
   gePricePer: number;
   imageURL: string;
   totalQuantity: number;
+  filter: ItemFilter;
   quantities: Map<MemberName, number>;
 }): ReactElement => {
   const quantityBreakdown = [...quantities].map(([name, quantity]: [MemberName, number]) => {
+    if (filter !== "All" && filter !== name) return;
+
     const className = quantity <= 0 ? "inventory-item__no-quantity" : "";
     const quantityPercent = (quantity / totalQuantity) * 100;
     return (
@@ -77,10 +83,17 @@ const ItemPanel = ({
 };
 
 const ITEMS_PER_PAGE = 100;
-const usePageSelection = ({ itemCount }: { itemCount: number }): { pageNumber: number; element: ReactElement } => {
+const usePageSelection = ({
+  itemCount,
+}: {
+  itemCount: number;
+}): { pageNumber: number; resetPage: () => void; element: ReactElement } => {
   const [pageCurrent, setPageCurrent] = useState<number>(0);
 
   const pageCount = Math.ceil(itemCount / ITEMS_PER_PAGE);
+
+  if (pageCurrent >= pageCount) setPageCurrent(0);
+
   const buttons = [];
   for (let page = 0; page < pageCount; page += 1) {
     buttons.push(
@@ -101,19 +114,33 @@ const usePageSelection = ({ itemCount }: { itemCount: number }): { pageNumber: n
       <div className="inventory-pager__buttons">{buttons}</div>
     </div>
   );
-  return { pageNumber: pageCurrent, element };
+  return { pageNumber: pageCurrent, resetPage: () => setPageCurrent(0), element };
 };
 
 export const ItemsPage = ({
   items,
   itemData,
   gePrices,
+  memberNames,
 }: {
   items?: ItemsView;
   itemData?: ItemData;
   gePrices?: GEPrices;
+  memberNames?: MemberName[];
 }): ReactElement => {
-  const { pageNumber, element: pageSelection } = usePageSelection({ itemCount: items?.size ?? 0 });
+  // const [itemCount, setItemCount] = useState<number>(0);
+  const [filter, setFilter] = useState<ItemFilter>("All");
+
+  const filteredItems: ItemsView = new Map();
+  let itemCount = 0;
+  items?.forEach((quantityByMemberName, itemID) => {
+    if (filter !== "All" && (quantityByMemberName.get(filter) ?? 0) <= 0) return;
+
+    filteredItems.set(itemID, quantityByMemberName);
+    itemCount += 1;
+  });
+
+  const { pageNumber, element: pageSelection } = usePageSelection({ itemCount });
 
   const itemComponents: ReactElement[] = [];
   let totalItems = 0;
@@ -121,42 +148,44 @@ export const ItemsPage = ({
   let totalGEPrice = 0;
   const fromIndex = pageNumber * ITEMS_PER_PAGE;
   const toIndex = (pageNumber + 1) * ITEMS_PER_PAGE;
+
   let index = 0;
-  if (items !== undefined) {
-    items.forEach((quantityByMemberName, itemID) => {
-      const item = itemData?.get(itemID);
+  filteredItems.forEach((quantityByMemberName, itemID) => {
+    const item = itemData?.get(itemID);
 
-      let totalQuantity = 0;
-      quantityByMemberName.forEach((quantity) => {
-        totalQuantity += quantity;
-      });
+    let totalQuantity = 0;
+    quantityByMemberName.forEach((quantity, name) => {
+      if (filter !== "All" && name !== filter) return;
 
-      const highAlch = item?.highalch ?? 0;
-      const gePrice = gePrices?.get(itemID) ?? 0;
-      totalItems += 1;
-      totalHighAlch += totalQuantity * highAlch;
-      totalGEPrice += totalQuantity * gePrice;
-
-      if (index >= toIndex || index < fromIndex) {
-        index += 1;
-        return;
-      }
-
-      itemComponents.push(
-        <ItemPanel
-          key={itemID}
-          imageURL={`/icons/items/${itemID}.webp`}
-          totalQuantity={totalQuantity}
-          highAlchPer={highAlch}
-          gePricePer={gePrice}
-          itemName={item?.name ?? "UNKNOWN"}
-          quantities={quantityByMemberName}
-        />,
-      );
-
-      index += 1;
+      totalQuantity += quantity;
     });
-  }
+
+    const highAlch = item?.highalch ?? 0;
+    const gePrice = gePrices?.get(itemID) ?? 0;
+    totalItems += 1;
+    totalHighAlch += totalQuantity * highAlch;
+    totalGEPrice += totalQuantity * gePrice;
+
+    if (index >= toIndex || index < fromIndex) {
+      index += 1;
+      return;
+    }
+
+    itemComponents.push(
+      <ItemPanel
+        key={itemID}
+        imageURL={`/icons/items/${itemID}.webp`}
+        totalQuantity={totalQuantity}
+        highAlchPer={highAlch}
+        gePricePer={gePrice}
+        filter={filter}
+        itemName={item?.name ?? "UNKNOWN"}
+        quantities={quantityByMemberName}
+      />,
+    );
+
+    index += 1;
+  });
   return (
     <>
       <div className="items-page__head">
@@ -173,7 +202,16 @@ export const ItemsPage = ({
           </select>
         </div>
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <select className="items-page__player-filter"></select>
+          <select
+            className="items-page__player-filter"
+            onChange={(e) => {
+              setFilter(e.target.value as MemberName);
+            }}
+          >
+            {["All", ...(memberNames ?? [])].map((name) => (
+              <option value={name}>{name}</option>
+            ))}
+          </select>
         </div>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <span className="items-page__item-count">{totalItems.toLocaleString()}</span>&nbsp;<span>items</span>

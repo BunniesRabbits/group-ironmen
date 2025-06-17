@@ -109,7 +109,12 @@ export const App = (): ReactElement => {
             path="items"
             element={
               <AuthedLayout>
-                <ItemsPage items={itemsView} itemData={itemData} gePrices={gePrices} />
+                <ItemsPage
+                  memberNames={api?.getKnownMembers()}
+                  items={itemsView}
+                  itemData={itemData}
+                  gePrices={gePrices}
+                />
               </AuthedLayout>
             }
           />
