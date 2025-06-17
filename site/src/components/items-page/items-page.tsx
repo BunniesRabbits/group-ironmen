@@ -243,7 +243,7 @@ export const ItemsPage = ({
             }}
           >
             {ItemSortCategory.map((category) => (
-              <option selected={category === sortCategory} value={category}>
+              <option key={category} selected={category === sortCategory} value={category}>
                 Sort: {category}
               </option>
             ))}
@@ -256,7 +256,9 @@ export const ItemsPage = ({
             }}
           >
             {["All", ...(memberNames ?? [])].map((name) => (
-              <option value={name}>{name}</option>
+              <option key={name} value={name}>
+                {name}
+              </option>
             ))}
           </select>
         </div>

@@ -12,6 +12,7 @@ import { CanvasMap } from "./components/canvas-map/canvas-map";
 import Api, { type GEPrices, type ItemsView, loadValidatedCredentials } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { ItemData } from "./data/item-data";
+import { PlayerPanel } from "./components/player-panel/player-panel";
 
 const fetchItemDataJSON = (): Promise<ItemData> =>
   import("/src/assets/item_data.json")
@@ -74,7 +75,10 @@ export const App = (): ReactElement => {
     setApi(new Api(credentials));
   }, [location, api]);
 
-  const panels = api?.getKnownMembers().filter((name) => name !== "@SHARED");
+  const panels = api
+    ?.getKnownMembers()
+    .filter((name) => name !== "@SHARED")
+    .map<ReactElement>((name) => <PlayerPanel name={name} key={name} />);
 
   return (
     <>
