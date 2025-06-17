@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 
 import "./player-panel.css";
+import type { NPCInteraction } from "../../data/api";
 
 // Shows a stat like hp/prayer
 const StatBar = ({ barColor, className }: { barColor: string; className?: string }): ReactElement => {
@@ -28,14 +29,26 @@ const XpDropper = (): ReactElement => {
   return <></>;
 };
 
-const PlayerStats = ({ name, hitpoints, prayer }: { name: string; hitpoints: Stat; prayer: Stat }): ReactElement => {
+const PlayerStats = ({
+  name,
+  hitpoints,
+  prayer,
+  interacting,
+}: {
+  name: string;
+  hitpoints: Stat;
+  prayer: Stat;
+  interacting?: NPCInteraction;
+}): ReactElement => {
   const hueDegrees = 75;
+
+  const interactionBar = interacting !== undefined ? <PlayerInteracting npcName={interacting.name} /> : undefined;
 
   return (
     <div className="player-stats">
       <div className="player-stats-hitpoints">
         <StatBar className="player-stats-hitpoints-bar" barColor="#157145" />
-        <PlayerInteracting npcName={"a baddie"} />
+        {interactionBar}
         <div className="player-stats-name">
           <img
             alt={`Player icon for ${name}`}
@@ -64,10 +77,15 @@ const PlayerStats = ({ name, hitpoints, prayer }: { name: string; hitpoints: Sta
   );
 };
 
-export const PlayerPanel = ({ name }: { name: string }): ReactElement => {
+export const PlayerPanel = ({ name, interacting }: { name: string; interacting?: NPCInteraction }): ReactElement => {
   return (
     <div className="player-panel rsborder rsbackground">
-      <PlayerStats name={name} hitpoints={{ current: 50, max: 99 }} prayer={{ current: 45, max: 70 }} />
+      <PlayerStats
+        interacting={interacting}
+        name={name}
+        hitpoints={{ current: 50, max: 99 }}
+        prayer={{ current: 45, max: 70 }}
+      />
       <div className="player-panel-minibar">
         <button aria-label="inventory" type="button">
           <img alt="osrs inventory icon" src="/ui/777-0.png" width="26" height="28" />

@@ -38,7 +38,7 @@ export type MemberName = Distinct<string, "MemberName">;
 
 // TODO: I am unsure what to name these types to make it clear they come from the network
 
-const MemberItems = z
+const MemberItemsFromBackend = z
   .array(z.uint32().or(z.literal(-1)))
   .refine((arg) => arg.length % 2 === 0)
   .transform((arg: number[]) =>
@@ -57,9 +57,9 @@ const MemberItems = z
       return items;
     }, new Map<ItemID, number>()),
   );
-type MemberItems = z.infer<typeof MemberItems>;
+type MemberItems = z.infer<typeof MemberItemsFromBackend>;
 
-const GEPrices = z
+const GEPricesFromBackend = z
   .record(
     z
       .string()
@@ -76,7 +76,45 @@ const GEPrices = z
     });
     return prices;
   });
-export type GEPrices = z.infer<typeof GEPrices>;
+export type GEPrices = z.infer<typeof GEPricesFromBackend>;
+
+const NPCInteractionFromBackend = z
+  .object({
+    /**
+     * Name of the NPC.
+     */
+    name: z.string(),
+    /**
+     * Relative size of the NPC's hp bar. It is not the actual HP of the monster.
+     * I.e. "max" in "current / max" for a traditional stat bar.
+     */
+    scale: z.uint32().or(z.literal(-1)),
+    /**
+     * Amount of the NPC's hp bar that is filled.
+     * I.e. "current" in "current / max" for a traditional stat bar.
+     */
+    ratio: z.uint32().or(z.literal(-1)),
+    /**
+     * Where the NPC is in the world
+     */
+    location: z.object({ x: z.number(), y: z.number(), plane: z.number() }),
+    /**
+     * The last time the player reported interacting with the NPC.
+     */
+    last_updated: z.iso.datetime(),
+  })
+  .refine((interaction) => {
+    const noHP = interaction.scale === -1 && interaction.ratio === -1;
+    const hasHP = interaction.scale > 0 && interaction.ratio >= 0;
+    return noHP || hasHP;
+  })
+  .transform(({ name, scale, ratio, location, last_updated }) => ({
+    name,
+    healthRatio: scale > 0 ? scale / ratio : undefined,
+    location,
+    last_updated,
+  }));
+export type NPCInteraction = z.infer<typeof NPCInteractionFromBackend>;
 
 export interface MemberData {
   bank: MemberItems;
@@ -84,17 +122,50 @@ export interface MemberData {
   inventory: MemberItems;
   runePouch: MemberItems;
   seedVault: MemberItems;
+  interacting?: NPCInteraction;
 }
+
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
+export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 
 const MemberDataUpdate = z.object({
+  /**
+   * The name of the player
+   */
   name: z.string().transform((arg) => arg as MemberName),
+  /**
+   * The last time the player sent an update
+   */
   last_updated: z.iso.datetime().optional(),
-  bank: z.optional(MemberItems),
-  equipment: z.optional(MemberItems),
-  inventory: z.optional(MemberItems),
-  runePouch: z.optional(MemberItems),
-  seedVault: z.optional(MemberItems),
+  /**
+   * The items in the player's bank.
+   * When defined, it always contains all of the items.
+   */
+  bank: z.optional(MemberItemsFromBackend),
+  /**
+   * The items in the player's equipment.
+   * When defined, it always contains all of the items.
+   */
+  equipment: z.optional(MemberItemsFromBackend),
+  /**
+   * The items in the player's inventory.
+   * When defined, it always contains all of the items.
+   */
+  inventory: z.optional(MemberItemsFromBackend),
+  /**
+   * The items in the player's rune pouch.
+   * When defined, it always contains all of the items.
+   */
+  runePouch: z.optional(MemberItemsFromBackend),
+  /**
+   * The items in the player's farming guild seed vault.
+   * When defined, it always contains all of the items.
+   */
+  seedVault: z.optional(MemberItemsFromBackend),
+  /**
+   * Information on NPC the player last interacted with.
+   */
+  interacting: NPCInteractionFromBackend.optional(),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -119,7 +190,8 @@ export default class Api {
     }, new Date(0));
   }
   private updateGroupData(response: GetGroupDataResponse): void {
-    let updated = false;
+    let updatedItems = false;
+    let updatedNPCInteractions = false;
 
     this.knownMembers = [];
 
@@ -127,7 +199,7 @@ export default class Api {
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
     // In the future, we may want to diff the amounts and try to update sparingly.
 
-    for (const { name, bank, equipment, inventory, runePouch, seedVault } of response) {
+    for (const { name, bank, equipment, inventory, runePouch, seedVault, interacting } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
           bank: new Map(),
@@ -142,49 +214,64 @@ export default class Api {
 
       if (bank !== undefined) {
         memberData.bank = new Map(bank);
-        updated = true;
+        updatedItems = true;
       }
 
       if (equipment !== undefined) {
         memberData.equipment = new Map(equipment);
-        updated = true;
+        updatedItems = true;
       }
 
       if (inventory !== undefined) {
         memberData.inventory = new Map(inventory);
-        updated = true;
+        updatedItems = true;
       }
 
       if (runePouch !== undefined) {
         memberData.runePouch = new Map(runePouch);
-        updated = true;
+        updatedItems = true;
       }
 
       if (seedVault !== undefined) {
         memberData.seedVault = new Map(seedVault);
-        updated = true;
+        updatedItems = true;
+      }
+
+      if (interacting !== undefined) {
+        memberData.interacting = structuredClone(interacting);
+        updatedNPCInteractions = true;
       }
     }
 
-    if (!updated) return;
+    if (updatedItems) {
+      const itemsView: ItemsView = new Map();
+      this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
+        [bank, equipment, inventory, runePouch, seedVault].forEach((storageArea) =>
+          storageArea.forEach((quantity, itemID) => {
+            if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
+            const itemView = itemsView.get(itemID)!;
 
-    const itemsView: ItemsView = new Map();
-    this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
-      [bank, equipment, inventory, runePouch, seedVault].forEach((storageArea) =>
-        storageArea.forEach((quantity, itemID) => {
-          if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
-          const itemView = itemsView.get(itemID)!;
+            const oldQuantity = itemView.get(memberName) ?? 0;
+            itemView.set(memberName, oldQuantity + quantity);
+          }),
+        );
+      });
 
-          const oldQuantity = itemView.get(memberName) ?? 0;
-          itemView.set(memberName, oldQuantity + quantity);
-        }),
-      );
-    });
+      this.onItemsUpdate?.(itemsView);
+    }
 
-    this.onItemsUpdate?.(itemsView);
+    if (updatedNPCInteractions) {
+      const npcInteractionsView: NPCInteractionsView = new Map();
+      this.groupData.forEach(({ interacting }, name) => {
+        if (interacting === undefined) return;
+        npcInteractionsView.set(name, interacting);
+      });
+      this.onNPCInteractionsUpdate?.(npcInteractionsView);
+    }
   }
 
   public onItemsUpdate?: (items: ItemsView) => void;
+  public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
 
   public getKnownMembers(): MemberName[] {
     return [...this.knownMembers];
@@ -259,7 +346,7 @@ export default class Api {
 
     return fetch(makeGetGEPricesURL({ baseURL: this.baseURL }))
       .then((response) => response.json())
-      .then((json) => GEPrices.safeParseAsync(json))
+      .then((json) => GEPricesFromBackend.safeParseAsync(json))
       .then((parseResult) => {
         if (!parseResult.success) throw new Error("Failed to parse GEPrices response", { cause: parseResult.error });
         return parseResult.data;
