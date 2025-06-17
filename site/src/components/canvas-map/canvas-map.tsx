@@ -622,6 +622,7 @@ class CanvasMapRenderer {
       currentTransform.translation.y !== previousTransform.translation.y;
     const anyVisibleRegionUpdatedAlpha = this.updateRegionsAlpha(context, elapsed);
 
+    this.loadVisibleAll(context);
     if (anyVisibleRegionUpdatedAlpha || transformHasChanged) {
       this.drawAll(context);
     }
@@ -635,6 +636,71 @@ class CanvasMapRenderer {
     this.cursor.previousX = this.cursor.x;
     this.cursor.previousY = this.cursor.y;
     this.lastUpdateTime = currentUpdateTime;
+  }
+
+  private loadVisibleAll(context: Context2DScaledWrapper): void {
+    // Load regions and labels, which use individual images.
+    // Icons are in an atlas and are already loaded.
+
+    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
+    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+
+    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+
+    const regionYMin = -Math.ceil(
+      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+    const regionYMax = -Math.floor(
+      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+
+    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
+      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
+        const hash3D = hashMapRegionCoordinate3Ds({ position: { x: regionX, y: regionY }, plane: this.plane });
+        const hash2D = hashMapRegionCoordinate2Ds({ x: regionX, y: regionY });
+
+        if (!this.regions.has(hash3D)) {
+          const image = new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE);
+          const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
+
+          const region: MapRegion = {
+            alpha: 0,
+            position: { x: regionX, y: regionY },
+          };
+          image.src = `/map/${regionFileBaseName}.webp`;
+          image.onload = (): void => {
+            createImageBitmap(image)
+              .then((bitmap) => {
+                region.image = bitmap;
+              })
+              .catch((reason) => {
+                console.error("Failed to load image bitmap for:", image.src, reason);
+              });
+          };
+
+          this.regions.set(hash3D, region);
+        }
+
+        const labels = this.labelsByRegion.get(hash2D);
+        if (labels === undefined) continue;
+
+        labels.forEach((label) => {
+          const { labelID, plane } = label;
+          if (plane !== this.plane) return;
+
+          if (label.image === undefined) {
+            const image = new Image();
+            image.src = `/map/labels/${labelID}.webp`;
+            image.onload = (): void => {
+              createImageBitmap(image)
+                .then((bitmap) => (label.image = bitmap))
+                .catch((reason) => console.error("Failed to load image bitmap for", image.src, reason));
+            };
+          }
+        });
+      }
+    }
   }
 
   private drawVisibleIcons(context: Context2DScaledWrapper): void {
@@ -723,28 +789,8 @@ class CanvasMapRenderer {
           height: WORLD_UNITS_PER_REGION,
         };
 
-        if (!this.regions.has(coordinateHash)) {
-          const image = new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE);
-          const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
-
-          const region: MapRegion = {
-            alpha: 0,
-            position: { x: regionX, y: regionY },
-          };
-          image.src = `/map/${regionFileBaseName}.webp`;
-          image.onload = (): void => {
-            createImageBitmap(image)
-              .then((bitmap) => {
-                region.image = bitmap;
-              })
-              .catch((reason) => {
-                console.error("Failed to load image bitmap for:", image.src, reason);
-              });
-          };
-
-          this.regions.set(coordinateHash, region);
-        }
-        const region = this.regions.get(coordinateHash)!;
+        const region = this.regions.get(coordinateHash);
+        if (region === undefined) continue;
 
         if (region.image === undefined) {
           context.fillRect({
@@ -797,23 +843,10 @@ class CanvasMapRenderer {
         if (labels === undefined) continue;
 
         labels.forEach((label) => {
-          const { labelID, worldPosition, plane } = label;
-          if (plane !== this.plane) return;
+          const { worldPosition, plane } = label;
 
-          if (label.image === undefined) {
-            const image = new Image();
-            image.src = `/map/labels/${labelID}.webp`;
-            image.onload = (): void => {
-              createImageBitmap(image)
-                .then((bitmap) => (label.image = bitmap))
-                .catch((reason) => console.error("Failed to load image bitmap for", image.src, reason));
-            };
-          }
-
-          if (label.image === undefined) return;
           const image = label.image;
-
-          if (plane !== 0) return;
+          if (plane !== this.plane || image === undefined) return;
 
           const offsetX = 0;
           const offsetY = 64;
