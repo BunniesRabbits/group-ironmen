@@ -48,6 +48,7 @@ interface MapRegion {
   loaded: boolean;
   alpha: number;
   image: HTMLImageElement;
+  position: CoordinatePair;
 }
 
 type MapRegionCoordinate2DHash = Distinct<string, "MapRegionCoordinate2DHash">;
@@ -530,18 +531,52 @@ class CanvasMapRenderer {
     this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
   }
 
-  private updateRegionsAlpha(elapsed: number): void {
+  /**
+   * @param elapsed Milliseconds elapsed since last update.
+   * @returns Whether or not any VISIBLE tiles updated their alpha.
+   */
+  private updateRegionsAlpha(context: Context2DScaledWrapper, elapsed: number): boolean {
+    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
+    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+
+    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+
+    const regionYMin = -Math.ceil(
+      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+    const regionYMax = -Math.floor(
+      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
+    );
+
+    let anyVisibleTileUpdatedAlpha = false;
+
     this.regions.forEach((region) => {
       if (!region.loaded) {
         region.alpha = 0;
         return;
       }
 
+      const previousAlpha = region.alpha;
       region.alpha = Math.min(1, region.alpha + elapsed * REGION_FADE_IN_ALPHA_PER_MS);
+
+      const alphaChanged = previousAlpha !== region.alpha;
+      const regionIsProbablyVisible =
+        (region.position.x >= regionXMin && region.position.x <= regionXMax) ||
+        (region.position.y >= regionYMin && region.position.y <= regionYMax);
+
+      anyVisibleTileUpdatedAlpha ||= alphaChanged && regionIsProbablyVisible;
     });
+
+    return anyVisibleTileUpdatedAlpha;
   }
 
   update(context: Context2DScaledWrapper): void {
+    const previousTransform = {
+      translation: { x: this.camera.x, y: this.camera.y },
+      scale: this.camera.zoom,
+    };
+
     const currentUpdateTime = performance.now();
     const elapsed = currentUpdateTime - this.lastUpdateTime;
 
@@ -572,18 +607,26 @@ class CanvasMapRenderer {
     }
     this.updateCameraPositionFromCursorVelocity();
 
-    const cameraWorldPosition = {
-      x: this.camera.x,
-      y: this.camera.y,
+    const currentTransform = {
+      translation: { x: this.camera.x, y: this.camera.y },
+      scale: this.camera.zoom,
     };
+
     context.setTransform({
-      translation: cameraWorldPosition,
-      scale: zoom,
+      translation: currentTransform.translation,
+      scale: currentTransform.scale,
       pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
     });
 
-    this.updateRegionsAlpha(elapsed);
-    this.drawAll(context);
+    const transformHasChanged =
+      currentTransform.scale !== previousTransform.scale ||
+      currentTransform.translation.x !== previousTransform.translation.x ||
+      currentTransform.translation.y !== previousTransform.translation.y;
+    const anyVisibleRegionUpdatedAlpha = this.updateRegionsAlpha(context, elapsed);
+
+    if (anyVisibleRegionUpdatedAlpha || transformHasChanged) {
+      this.drawAll(context);
+    }
 
     const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
     if (cursorHasMoved) {
@@ -687,6 +730,7 @@ class CanvasMapRenderer {
             loaded: false,
             alpha: 0,
             image: new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE),
+            position: { x: regionX, y: regionY },
           };
           const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
           region.image.src = `/map/${regionFileBaseName}.webp`;
