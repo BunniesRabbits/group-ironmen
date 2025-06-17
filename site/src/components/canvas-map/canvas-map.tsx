@@ -45,9 +45,9 @@ const REGION_FADE_IN_SECONDS = 1;
 const REGION_FADE_IN_ALPHA_PER_MS = 1 / (REGION_FADE_IN_SECONDS * 1000);
 
 interface MapRegion {
-  loaded: boolean;
   alpha: number;
-  image: HTMLImageElement;
+  // Undefined while loading from file
+  image?: ImageBitmap;
   position: CoordinatePair;
 }
 
@@ -83,8 +83,7 @@ interface MapLabel {
   labelID: number;
   worldPosition: CoordinatePair;
   plane: number;
-  image?: HTMLImageElement;
-  loaded: boolean;
+  image?: ImageBitmap;
 }
 type MapLabelGrid = Map<MapRegionCoordinate2DHash, MapLabel[]>;
 
@@ -243,7 +242,7 @@ class Context2DScaledWrapper {
     pixelPerfect,
     alpha,
   }: {
-    image: HTMLImageElement;
+    image: ImageBitmap;
     imageOffsetInPixels: CoordinatePair;
     imageExtentInPixels: ExtentPair;
     worldPosition: CoordinatePair;
@@ -320,7 +319,7 @@ class CanvasMapRenderer {
   private camera: CanvasMapCamera;
   private cursor: CanvasMapCursor;
   private lastUpdateTime: DOMHighResTimeStamp;
-  private iconsAtlas: HTMLImageElement;
+  private iconsAtlas: ImageBitmap;
   private iconsByRegion: MapIconGrid;
   private labelsByRegion: MapLabelGrid;
 
@@ -332,7 +331,7 @@ class CanvasMapRenderer {
    */
   private plane: number;
 
-  constructor(mapData: MapMetadata, iconsAtlas: HTMLImageElement) {
+  constructor(mapData: MapMetadata, iconsAtlas: ImageBitmap) {
     const INITIAL_X = 3360;
     const INITIAL_Y = -3150;
     const INITIAL_ZOOM = 1 / 4;
@@ -403,7 +402,6 @@ class CanvasMapRenderer {
                   labelID: labelFlat[index + 2],
                   plane,
                   worldPosition: { x: labelFlat[index], y: labelFlat[index + 1] },
-                  loaded: false,
                 });
               }
               return labels;
@@ -552,7 +550,7 @@ class CanvasMapRenderer {
     let anyVisibleTileUpdatedAlpha = false;
 
     this.regions.forEach((region) => {
-      if (!region.loaded) {
+      if (region.image === undefined) {
         region.alpha = 0;
         return;
       }
@@ -726,22 +724,29 @@ class CanvasMapRenderer {
         };
 
         if (!this.regions.has(coordinateHash)) {
+          const image = new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE);
+          const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
+
           const region: MapRegion = {
-            loaded: false,
             alpha: 0,
-            image: new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE),
             position: { x: regionX, y: regionY },
           };
-          const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
-          region.image.src = `/map/${regionFileBaseName}.webp`;
-          region.image.onload = (): void => {
-            region.loaded = true;
+          image.src = `/map/${regionFileBaseName}.webp`;
+          image.onload = (): void => {
+            createImageBitmap(image)
+              .then((bitmap) => {
+                region.image = bitmap;
+              })
+              .catch((reason) => {
+                console.error("Failed to load image bitmap for:", image.src, reason);
+              });
           };
+
           this.regions.set(coordinateHash, region);
         }
         const region = this.regions.get(coordinateHash)!;
 
-        if (!region.loaded) {
+        if (region.image === undefined) {
           context.fillRect({
             worldPosition,
             worldExtent,
@@ -796,15 +801,17 @@ class CanvasMapRenderer {
           if (plane !== this.plane) return;
 
           if (label.image === undefined) {
-            label.image = new Image();
-            label.image.src = `/map/labels/${labelID}.webp`;
-            label.image.onload = (): void => {
-              label.loaded = true;
+            const image = new Image();
+            image.src = `/map/labels/${labelID}.webp`;
+            image.onload = (): void => {
+              createImageBitmap(image)
+                .then((bitmap) => (label.image = bitmap))
+                .catch((reason) => console.error("Failed to load image bitmap for", image.src, reason));
             };
           }
-          const image = label.image;
 
-          if (!label.loaded) return;
+          if (label.image === undefined) return;
+          const image = label.image;
 
           if (plane !== 0) return;
 
@@ -880,11 +887,17 @@ export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactEleme
   useEffect(() => {
     console.info("Rebuilding renderer.");
 
-    fetchMapJSON()
-      .then((mapData) => {
-        const ICONS_IN_ATLAS = 123;
-        const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_PIXEL_SIZE, ICON_IMAGE_PIXEL_SIZE);
-        iconAtlas.src = "/map/icons/map_icons.webp";
+    const iconAtlasPromise = new Promise<ImageBitmap>((resolve) => {
+      const ICONS_IN_ATLAS = 123;
+      const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_PIXEL_SIZE, ICON_IMAGE_PIXEL_SIZE);
+      iconAtlas.src = "/map/icons/map_icons.webp";
+      iconAtlas.onload = (): void => {
+        resolve(createImageBitmap(iconAtlas));
+      };
+    });
+
+    Promise.all([fetchMapJSON(), iconAtlasPromise])
+      .then(([mapData, iconAtlas]) => {
         setRenderer(new CanvasMapRenderer(mapData, iconAtlas));
       })
       .catch((reason) => {
