@@ -1,25 +1,26 @@
-ul.social-links {
-  list-style-type: none;
-}
-
-ul.social-links > li {
+#social-links > li {
   display: flex;
 }
 
-ul.social-links > li > a > div {
+#social-links > li > a > div {
   display: flex;
   width: 35px;
-  align-content: center;
-  justify-content: center;
+  place-content: center center;
 }
 
-.social-links {
+#social-links {
   display: flex;
   flex-direction: column;
   gap: 0.5em;
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 1em;
+  list-style: none;
+  font-size: 1.2em;
 }
 
-.social-links a {
+#social-links a {
   display: flex;
   align-items: center;
 }

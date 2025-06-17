@@ -1,8 +1,7 @@
-.items-page__list {
+#items-page-list {
   display: flex;
   flex: 1;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-flow: row wrap;
   padding: 12px;
   gap: 12px;
   align-items: flex-start;
@@ -11,34 +10,29 @@
   justify-content: center;
 }
 
-.items-page__head {
+#items-page-head {
   display: flex;
   align-items: flex-end;
-  column-gap: 8px;
+  gap: 6px 8px;
   margin-inline: 16px;
-  row-gap: 6px;
 }
 
-@media only screen and (max-width: 850px) {
-  .items-page__head {
+@media only screen and (width <= 850px) {
+  #items-page-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .items-page__head search-element {
+  #items-page-head search-element {
     margin-right: 0;
   }
 }
 
-.items-page__utility {
+#items-page-utility {
   margin-inline: 16px;
   display: flex;
   align-items: center;
   overflow-x: auto;
-}
-
-.items-page__info-box input {
-  margin: 0 0.5em 0 0;
 }
 
 .inventory-item {
@@ -59,17 +53,16 @@
   visibility: visible;
 }
 
-.inventory-item__top {
+.inventory-item-top {
   display: grid;
   grid-template-columns: 2fr 1fr;
   align-items: center;
   transform: translateZ(1px);
   padding: 8px;
-
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(255 255 255 / 5%);
 }
 
-.inventory-item__details {
+.inventory-item-details {
   display: grid;
   grid-template-columns: 1fr 2fr;
   grid-gap: 0 0.5em;
@@ -77,7 +70,7 @@
   white-space: nowrap;
 }
 
-.inventory-item__picture {
+.inventory-item-picture {
   width: 63px;
   min-height: 56px;
   min-width: 63px;
@@ -85,7 +78,7 @@
   image-rendering: optimizequality;
 }
 
-.inventory-item__bottom {
+.inventory-item-bottom {
   display: grid;
   grid-template-columns: 1fr 1fr 2fr;
   align-items: center;
@@ -94,13 +87,13 @@
   padding: 8px;
 }
 
-.inventory-item__quantity-bar {
+.inventory-item-quantity-bar {
   height: 8px;
   width: 100%;
   transform-origin: left;
 }
 
-.inventory-item__picture-container {
+.inventory-item-picture-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -109,7 +102,7 @@
   min-width: 50px;
 }
 
-.inventory-item__name {
+.inventory-item-name {
   font-size: 20px;
 }
 
@@ -117,24 +110,23 @@
   display: block;
 }
 
-.inventory-pager__label {
+#inventory-pager-label {
   margin-bottom: 0.25em;
 }
 
-.inventory-pager__buttons {
+#inventory-pager-buttons {
   display: flex;
   flex-wrap: wrap;
-  row-gap: 4px;
-  column-gap: 4px;
+  gap: 4px;
 }
 
-.inventory-pager__buttons button {
+#inventory-pager-buttons button {
   padding: 4px 8px;
   width: 32px;
   height: 32px;
 }
 
-.items-page__search {
+#items-page-search {
   display: flex;
   position: relative;
   min-width: 300px;

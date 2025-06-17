@@ -3,18 +3,18 @@ import type { ReactElement } from "react";
 import "./search-element.css";
 
 export const SearchElement = ({
-  className,
+  id,
   placeholder,
   onChange,
 }: {
-  className: string;
+  id: string;
   placeholder: string;
   onChange: (value: string) => void;
 }): ReactElement => {
   return (
-    <div className={className}>
+    <div id={id}>
       <input
-        className="search-element__input"
+        className="search-element-input"
         placeholder={`${placeholder}`}
         type="text"
         tabIndex={0}

@@ -20,8 +20,8 @@ export const AppNavigation = ({ groupName }: { groupName: string }): ReactElemen
 
   return (
     <div id="app-navigation" className="rsborder-tiny rsbackground">
-      <h4 className="app-navigation__group-name">{groupName}</h4>
-      <nav className="app-navigation__nav">{links}</nav>
+      <h4 id="app-navigation-group-name">{groupName}</h4>
+      <nav id="app-navigation-nav">{links}</nav>
     </div>
   );
 };

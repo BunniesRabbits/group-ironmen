@@ -1,7 +1,6 @@
 .login-page {
   display: flex;
-  justify-content: center;
-  align-content: center;
+  place-content: center center;
   padding: 64px 12px;
   width: 100%;
   box-sizing: border-box;

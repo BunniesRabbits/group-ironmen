@@ -12,11 +12,11 @@ export const MenHomepage = (): ReactElement => {
   const loginLink = <MenLink label="Login" href="/login" />;
 
   return (
-    <div className="men-homepage">
+    <div id="men-homepage">
       <SocialLinks />
-      <div className="men-homepage__container">
+      <div id="men-homepage-container">
         <h1>GroupIron.men</h1>
-        <div className="men-homepage__links">{hasLogin ? groupLink : loginLink}</div>
+        <div id="men-homepage-links">{hasLogin ? groupLink : loginLink}</div>
       </div>
     </div>
   );

@@ -880,22 +880,22 @@ export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactEleme
   const interactiveClass = interactive ? "interactive" : "";
 
   return (
-    <div className="canvas-map">
+    <div id="canvas-map-container">
       <canvas
         onPointerMove={handlePointerMove}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
         onWheel={handleScroll}
-        id="background-worldmap"
+        id="canvas-map"
         className={`${draggingClass} ${interactiveClass}`}
         ref={canvasRef}
       />
       {interactive ? (
         <>
-          <div className="canvas-map-plane-select-container rsborder-tiny rsbackground">
+          <div id="canvas-map-plane-select-container" className="rsborder-tiny rsbackground">
             <select
-              className="canvas-map-plane-select"
+              id="canvas-map-plane-select"
               onChange={(e) => {
                 handleSelectPlane(e.target.selectedIndex);
               }}
@@ -906,7 +906,7 @@ export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactEleme
               <option value="4">Plane: 4</option>
             </select>
           </div>
-          <div className="canvas-map__coordinates">{coordinatesView}</div>
+          <div id="canvas-map-coordinates">{coordinatesView}</div>
         </>
       ) : undefined}
     </div>

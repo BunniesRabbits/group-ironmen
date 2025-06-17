@@ -1,4 +1,4 @@
-.men-homepage {
+#men-homepage {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -8,15 +8,7 @@
   color: white;
 }
 
-.men-homepage .social-links {
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: 1em;
-  font-size: 1.2em;
-}
-
-.men-homepage__container {
+#men-homepage-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -25,13 +17,13 @@
   flex-direction: column;
 }
 
-.men-homepage__container h1 {
+#men-homepage-container h1 {
   text-shadow: 3px 3px var(--black);
   font-size: min(128px, 16vw);
   margin: 0;
 }
 
-.men-homepage__links {
+#men-homepage-links {
   margin-top: 1.5em;
   display: flex;
   gap: 2em;

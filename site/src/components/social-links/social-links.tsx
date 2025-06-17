@@ -3,8 +3,8 @@ import "./social-links.css";
 
 export const SocialLinks = (): ReactElement => {
   return (
-    <ul className="social-links">
-      <li className="social-links-item">
+    <ul id="social-links">
+      <li>
         <a href="https://ko-fi.com/gimplugin" title="Support the original creator on Ko-fi" target="_blank">
           <div>
             <img alt="kofi logo" loading="lazy" src="/images/kofi_p_logo_nolabel.webp" height="20" />

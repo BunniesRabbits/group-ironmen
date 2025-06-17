@@ -35,14 +35,13 @@ const ItemPanel = ({
   const quantityBreakdown = [...quantities].map(([name, quantity]: [MemberName, number]) => {
     if (filter !== "All" && filter !== name) return;
 
-    const className = quantity <= 0 ? "inventory-item__no-quantity" : "";
     const quantityPercent = (quantity / totalQuantity) * 100;
     return (
       <Fragment key={name}>
-        <span className={className}>{name}</span>
+        <span>{name}</span>
         <span>{quantity}</span>
         <div
-          className="inventory-item__quantity-bar"
+          className="inventory-item-quantity-bar"
           style={{ transform: `scaleX(${quantityPercent}%)`, background: `hsl(${quantityPercent}, 100%, 40%)` }}
         ></div>
       </Fragment>
@@ -54,14 +53,14 @@ const ItemPanel = ({
 
   return (
     <div className="inventory-item rsborder rsbackground rendered">
-      <div className="inventory-item__top rsborder-tiny">
-        <div className="inventory-item__top-right">
-          <div className="inventory-item__name">
+      <div className="inventory-item-top rsborder-tiny">
+        <div className="inventory-item-top-right">
+          <div className="inventory-item-name">
             <a className="rstext" href="${item.wikiLink}" target="_blank">
               {itemName}
             </a>
           </div>
-          <div className="inventory-item__details">
+          <div className="inventory-item-details">
             <span>Quantity</span>
             <span>{totalQuantity.toLocaleString()}</span>
             <span>High Alch</span>
@@ -75,18 +74,18 @@ const ItemPanel = ({
           </div>
         </div>
 
-        <div className="inventory-item__picture-container">
+        <div className="inventory-item-picture-container">
           <img
             loading="lazy"
             alt={itemName ?? "An unknown item"}
-            className="inventory-item__picture"
+            className="inventory-item-picture"
             src={imageURL}
             width="63"
             height="56"
           />
         </div>
       </div>
-      <div className="inventory-item__bottom">{quantityBreakdown}</div>
+      <div className="inventory-item-bottom">{quantityBreakdown}</div>
     </div>
   );
 };
@@ -119,8 +118,8 @@ const usePageSelection = ({
   }
   const element = (
     <div id="inventory-pager">
-      <div className="inventory-pager__label">Page:</div>
-      <div className="inventory-pager__buttons">{buttons}</div>
+      <div id="inventory-pager-label">Page:</div>
+      <div id="inventory-pager-buttons">{buttons}</div>
     </div>
   );
   return { pageNumber: pageCurrent, resetPage: () => setPageCurrent(0), element };
@@ -227,19 +226,18 @@ export const ItemsPage = ({
 
   return (
     <>
-      <div className="items-page__head">
+      <div id="items-page-head">
         <SearchElement
           onChange={(string) => setSearchString(string.toLocaleLowerCase())}
-          className="items-page__search"
+          id="items-page-search"
           placeholder="Search"
           auto-focus
         />
         {pageSelection}
       </div>
-      <div className="items-page__utility">
+      <div id="items-page-utility">
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select
-            className="items-page__sort"
             onChange={(e) => {
               setSortCategory(e.target.value as ItemSortCategory);
             }}
@@ -253,7 +251,6 @@ export const ItemsPage = ({
         </div>
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select
-            className="items-page__player-filter"
             onChange={(e) => {
               setFilter(e.target.value as ItemFilter);
             }}
@@ -264,19 +261,19 @@ export const ItemsPage = ({
           </select>
         </div>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          <span className="items-page__item-count">{filteredItems.length.toLocaleString()}</span>&nbsp;
+          <span>{filteredItems.length.toLocaleString()}</span>&nbsp;
           <span>items</span>
         </span>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          HA:&nbsp;<span className="items-page__total-ha-price">{totalHighAlch.toLocaleString()}</span>
+          HA:&nbsp;<span>{totalHighAlch.toLocaleString()}</span>
           <span>gp</span>
         </span>
         <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
-          GE:&nbsp;<span className="items-page__total-ge-price">{totalGEPrice.toLocaleString()}</span>
+          GE:&nbsp;<span>{totalGEPrice.toLocaleString()}</span>
           <span>gp</span>
         </span>
       </div>
-      <section className="items-page__list">{renderedPanels}</section>
+      <section id="items-page-list">{renderedPanels}</section>
     </>
   );
 };
