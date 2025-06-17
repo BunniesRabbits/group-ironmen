@@ -102,8 +102,6 @@ const GetGroupDataResponse = z.array(MemberDataUpdate);
 type GetGroupDataResponse = z.infer<typeof GetGroupDataResponse>;
 
 export default class Api {
-  // This is overwritten in docker-entrypoint.sh.
-  // The "/api" string is substituted with HOST_PROTOCOL + HOST_URL to construct the deployed URL
   private baseURL: string;
   private credentials: ApiCredentials;
   private groupDataValidUpToDate?: Date;
