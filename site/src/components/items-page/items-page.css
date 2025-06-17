@@ -130,6 +130,8 @@
 
 .inventory-pager__buttons button {
   padding: 4px 8px;
+  width: 32px;
+  height: 32px;
 }
 
 .items-page__search {
