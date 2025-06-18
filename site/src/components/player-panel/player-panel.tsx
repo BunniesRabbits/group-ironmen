@@ -429,7 +429,7 @@ export const PlayerPanel = ({
   }
 
   return (
-    <div className={`player-panel rsborder rsbackground ${content !== undefined ? "" : ""}`}>
+    <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
       <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={name} stats={stats} />
       <div className="player-panel-minibar">{buttons}</div>
       <div className="player-panel-content">{content}</div>
