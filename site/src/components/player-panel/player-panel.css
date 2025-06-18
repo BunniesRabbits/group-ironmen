@@ -39,7 +39,10 @@
   padding: 4px 0;
 }
 
-.player-panel-minibar button:hover,
+.player-panel-minibar button:hover {
+  background: rgb(255 255 255 / 10%);
+}
+
 button.player-panel-tab-active {
   background: rgb(255 255 255 / 20%);
 }

@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 
 import "./player-panel.css";
 import type { NPCInteraction, Stats } from "../../data/api";
@@ -178,6 +178,10 @@ const PlayerStats = ({
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const PlayerPanelSubcategories = ["Inventory", "Equipment", "Stats", "Quests", "Diaries", "Collection Log"] as const;
+type PlayerPanelSubcategory = (typeof PlayerPanelSubcategories)[number];
+
 export const PlayerPanel = ({
   name,
   stats,
@@ -189,29 +193,73 @@ export const PlayerPanel = ({
   lastUpdated?: Date;
   interacting?: NPCInteraction;
 }): ReactElement => {
+  const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
+
+  const buttons = (
+    [
+      {
+        category: "Inventory",
+        ariaLabel: "inventory",
+        alt: "osrs inventory",
+        src: "/ui/777-0.png",
+        width: 26,
+        height: 28,
+      },
+      {
+        category: "Equipment",
+        ariaLabel: "equipment",
+        alt: "osrs t-posing knight",
+        src: "/ui/778-0.png",
+        width: 27,
+        height: 32,
+      },
+      { category: "Stats", ariaLabel: "skills", alt: "osrs stats", src: "/ui/3579-0.png", width: 23, height: 22 },
+      { category: "Quests", ariaLabel: "quests", alt: "osrs quest", src: "/ui/776-0.png", width: 22, height: 22 },
+      {
+        category: "Diaries",
+        ariaLabel: "diaries",
+        alt: "osrs diary",
+        src: "/ui/1298-0.png",
+        width: 22,
+        height: 22,
+      },
+      {
+        category: "Collection Log",
+        ariaLabel: "collection-log",
+        alt: "osrs collection log",
+        src: "/icons/items/22711.webp",
+        width: 32,
+        height: 32,
+        class: "player-panel-collection-log",
+      },
+    ] satisfies {
+      category: PlayerPanelSubcategory;
+      ariaLabel: string;
+      alt: string;
+      src: string;
+      width: number;
+      height: number;
+      class?: string;
+    }[]
+  ).map((props) => (
+    <button
+      className={`${props.category === subcategory ? "player-panel-tab-active" : ""} ${props.class}`}
+      aria-label={props.ariaLabel}
+      type="button"
+      onClick={() => {
+        const alreadySelected = props.category === subcategory;
+        if (alreadySelected) setSubcategory(undefined);
+        else setSubcategory(props.category);
+      }}
+    >
+      <img alt={props.alt} src={props.src} width={props.width} height={props.height} />
+    </button>
+  ));
+
   return (
     <div className="player-panel rsborder rsbackground">
       <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={name} stats={stats} />
-      <div className="player-panel-minibar">
-        <button aria-label="inventory" type="button">
-          <img alt="osrs inventory icon" src="/ui/777-0.png" width="26" height="28" />
-        </button>
-        <button aria-label="equipment" type="button">
-          <img alt="osrs t-posing knight" src="/ui/778-0.png" width="27" height="32" />
-        </button>
-        <button aria-label="skills" type="button">
-          <img alt="osrs stats icon" src="/ui/3579-0.png" width="23" height="22" />
-        </button>
-        <button aria-label="quests" type="button">
-          <img alt="osrs quest icon" src="/ui/776-0.png" width="22" height="22" />
-        </button>
-        <button aria-label="diaries" type="button">
-          <img alt="osrs diary icon" src="/ui/1298-0.png" width="22" height="22" />
-        </button>
-        <button aria-label="collection-log" type="button">
-          <img alt="osrs collection log icon" src="/icons/items/22711.webp" width="32" />
-        </button>
-      </div>
+      <div className="player-panel-minibar">{buttons}</div>
       <div className="player-panel-content"></div>
     </div>
   );
