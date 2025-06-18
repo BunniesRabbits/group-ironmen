@@ -238,12 +238,13 @@ export const ItemsPage = ({
       <div id="items-page-utility">
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select
+            value={sortCategory}
             onChange={(e) => {
               setSortCategory(e.target.value as ItemSortCategory);
             }}
           >
             {ItemSortCategory.map((category) => (
-              <option key={category} selected={category === sortCategory} value={category}>
+              <option key={category} value={category}>
                 Sort: {category}
               </option>
             ))}
@@ -251,6 +252,7 @@ export const ItemsPage = ({
         </div>
         <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
           <select
+            value={filter}
             onChange={(e) => {
               setFilter(e.target.value as ItemFilter);
             }}
