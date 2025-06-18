@@ -49,25 +49,44 @@ export const PlayerQuests = ({ questData, quests }: { questData?: QuestData; que
     currentPoints += questData?.get(id)?.points ?? 0;
   });
 
-  const questList = questData
-    ?.entries()
-    .filter(([, { name }]) => name.toLowerCase().includes(nameFilter?.toLowerCase()))
-    .map(([id, { name, difficulty }]) => {
-      const status = quests?.get(id) ?? "NOT_STARTED";
-      return (
-        <a
-          href={getQuestWikiLinkURL(name)}
-          className={getClassForQuestStatus(status)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div className="player-quests-quest">
-            <img className="player-quests-difficulty-icon" src={getDifficultyIconURL(difficulty)} alt={difficulty} />
-            {name}
-          </div>
-        </a>
-      );
-    });
+  const questList = [
+    ...(questData
+      ?.entries()
+      .filter(([, { name }]) => name.toLowerCase().includes(nameFilter?.toLowerCase()))
+      .map(([id, { name, difficulty, member, miniquest }]) => {
+        const status = quests?.get(id) ?? "NOT_STARTED";
+        return {
+          member,
+          miniquest,
+          element: (
+            <a
+              key={id}
+              href={getQuestWikiLinkURL(name)}
+              className={getClassForQuestStatus(status)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div className="player-quests-quest">
+                <img
+                  className="player-quests-difficulty-icon"
+                  src={getDifficultyIconURL(difficulty)}
+                  alt={difficulty}
+                />
+                {name}
+              </div>
+            </a>
+          ),
+        };
+      }) ?? []),
+  ];
+
+  const freeQuests = questList?.filter(({ member }) => !member).map(({ element }) => element);
+  const membersQuests = questList
+    ?.filter(({ member, miniquest }) => {
+      return member && !miniquest;
+    })
+    .map(({ element }) => element);
+  const miniquestQuests = questList?.filter(({ miniquest }) => !!miniquest).map(({ element }) => element);
 
   return (
     <div className="player-quests">
@@ -77,7 +96,14 @@ export const PlayerQuests = ({ questData, quests }: { questData?: QuestData; que
           <span className="player-quests-current-points">{currentPoints}</span> / {possiblePoints}
         </div>
       </div>
-      <div className="player-quests-list">{questList}</div>
+      <div className="player-quests-list">
+        <h4 className="player-quests-section-header">Free Quests</h4>
+        {freeQuests}
+        <h4 className="player-quests-section-header">Members' Quests</h4>
+        {membersQuests}
+        <h4 className="player-quests-section-header">Miniquests</h4>
+        {miniquestQuests}
+      </div>
     </div>
   );
 };
