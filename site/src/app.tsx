@@ -12,6 +12,7 @@ import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, {
   type GEPrices,
   type ItemsView,
+  type LastUpdatedView,
   loadValidatedCredentials,
   type NPCInteractionsView,
   type StatsView,
@@ -59,6 +60,7 @@ export const App = (): ReactElement => {
   const [gePrices, setGEPrices] = useState<GEPrices>();
   const [npcInteractions, setNPCInteractions] = useState<NPCInteractionsView>();
   const [stats, setStats] = useState<StatsView>();
+  const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
 
   useEffect(() => {
     if (api === undefined) return;
@@ -66,6 +68,7 @@ export const App = (): ReactElement => {
     api.onItemsUpdate = setItemsView;
     api.onNPCInteractionsUpdate = setNPCInteractions;
     api.onStatsUpdate = setStats;
+    api.onLastUpdatedUpdate = setLastUpdated;
     api.queueGetGroupData();
     api
       .fetchGEPrices()
@@ -75,6 +78,7 @@ export const App = (): ReactElement => {
       api.onItemsUpdate = undefined;
       api.onNPCInteractionsUpdate = undefined;
       api.onStatsUpdate = undefined;
+      api.onLastUpdatedUpdate = undefined;
       api.close();
     };
   }, [api, setItemsView]);
@@ -91,7 +95,13 @@ export const App = (): ReactElement => {
     ?.getKnownMembers()
     .filter((name) => name !== "@SHARED")
     .map<ReactElement>((name) => (
-      <PlayerPanel interacting={npcInteractions?.get(name)} name={name} stats={stats?.get(name)} key={name} />
+      <PlayerPanel
+        interacting={npcInteractions?.get(name)}
+        name={name}
+        lastUpdated={lastUpdated?.get(name)}
+        stats={stats?.get(name)}
+        key={name}
+      />
     ));
 
   const { coordinateIndicator, planeSelect, backgroundMap } = useCanvasMap({

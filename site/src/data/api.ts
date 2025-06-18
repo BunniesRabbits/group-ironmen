@@ -99,6 +99,27 @@ const StatsFromBackend = z
   });
 export type Stats = z.infer<typeof StatsFromBackend>;
 
+const DateFromBackend = z.iso
+  .datetime()
+  .transform((date: string) => date.split(/\D+/))
+  .refine((fragments) => {
+    // console.log(fragments);
+    return fragments.length === 8;
+  })
+  .transform((fragments) => {
+    return new Date(
+      Date.UTC(
+        parseInt(fragments[0]),
+        parseInt(fragments[1]) - 1,
+        parseInt(fragments[2]),
+        parseInt(fragments[3]),
+        parseInt(fragments[4]),
+        parseInt(fragments[5]),
+        parseFloat(`${fragments[6].slice(0, 3)}.${fragments[6].slice(3)}`),
+      ),
+    );
+  });
+
 const NPCInteractionFromBackend = z
   .object({
     /**
@@ -125,7 +146,7 @@ const NPCInteractionFromBackend = z
     /**
      * The last time the player reported interacting with the NPC.
      */
-    last_updated: z.iso.datetime(),
+    last_updated: DateFromBackend,
   })
   .refine((interaction) => {
     const noHP = interaction.scale === -1 && interaction.ratio === -1;
@@ -136,7 +157,7 @@ const NPCInteractionFromBackend = z
     name,
     healthRatio: scale > 0 ? ratio / scale : undefined,
     location,
-    last_updated,
+    last_updated: new Date(last_updated),
   }));
 export type NPCInteraction = z.infer<typeof NPCInteractionFromBackend>;
 
@@ -148,11 +169,13 @@ export interface MemberData {
   seedVault: MemberItems;
   interacting?: NPCInteraction;
   stats?: Stats;
+  lastUpdated: Date;
 }
 
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 export type StatsView = Map<MemberName, Stats>;
+export type LastUpdatedView = Map<MemberName, Date>;
 
 const MemberDataUpdate = z.object({
   /**
@@ -162,7 +185,7 @@ const MemberDataUpdate = z.object({
   /**
    * The last time the player sent an update
    */
-  last_updated: z.iso.datetime().optional(),
+  last_updated: DateFromBackend.optional(),
   /**
    * The items in the player's bank.
    * When defined, it always contains all of the items.
@@ -223,6 +246,7 @@ export default class Api {
     let updatedItems = false;
     let updatedNPCInteractions = false;
     let updatedStats = false;
+    let updatedLastUpdated = false;
 
     this.knownMembers = [];
 
@@ -230,7 +254,17 @@ export default class Api {
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
     // In the future, we may want to diff the amounts and try to update sparingly.
 
-    for (const { name, bank, equipment, inventory, runePouch, seedVault, interacting, stats } of response) {
+    for (const {
+      name,
+      bank,
+      equipment,
+      inventory,
+      runePouch,
+      seedVault,
+      interacting,
+      stats,
+      last_updated,
+    } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
           bank: new Map(),
@@ -238,6 +272,7 @@ export default class Api {
           inventory: new Map(),
           runePouch: new Map(),
           seedVault: new Map(),
+          lastUpdated: new Date(0),
         });
       const memberData = this.groupData.get(name)!;
 
@@ -277,6 +312,11 @@ export default class Api {
         memberData.stats = structuredClone(stats);
         updatedStats = true;
       }
+
+      if (last_updated !== undefined) {
+        memberData.lastUpdated = structuredClone(last_updated);
+        updatedLastUpdated = true;
+      }
     }
 
     if (updatedItems) {
@@ -313,11 +353,21 @@ export default class Api {
       });
       this.onStatsUpdate?.(statsView);
     }
+
+    if (updatedLastUpdated) {
+      const lastUpdatedView: LastUpdatedView = new Map();
+      this.groupData.forEach(({ lastUpdated }, name) => {
+        if (lastUpdated === undefined) return;
+        lastUpdatedView.set(name, lastUpdated);
+      });
+      this.onLastUpdatedUpdate?.(lastUpdatedView);
+    }
   }
 
   public onItemsUpdate?: (items: ItemsView) => void;
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
   public onStatsUpdate?: (stats: StatsView) => void;
+  public onLastUpdatedUpdate?: (lastUpdated: LastUpdatedView) => void;
 
   public getKnownMembers(): MemberName[] {
     return [...this.knownMembers];

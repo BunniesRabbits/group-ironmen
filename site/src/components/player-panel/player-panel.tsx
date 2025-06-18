@@ -1,7 +1,35 @@
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import "./player-panel.css";
 import type { NPCInteraction, Stats } from "../../data/api";
+
+/**
+ * Time in milliseconds before a player is considered offline/inactive.
+ * When that is, they are displayed as all grey.
+ */
+const INACTIVE_TIMER_MS = 300 * 1000;
+/**
+ * Time in milliseconds before an npc interaction is considered stale and shouldn't be shown.
+ */
+const INTERACTION_TIMER_MS = 30 * 1000;
+/**
+ * Static colors to use for various stat bars.
+ */
+const COLORS = {
+  player: {
+    hitpoints: "#157145",
+    hitpointsBG: "#073823",
+    prayer: "#336699",
+    prayerBG: "#112233",
+    energy: "#a9a9a9",
+    energyBG: "#383838",
+  },
+  interaction: {
+    combat: "#A41623",
+    combatBG: "#383838",
+    nonCombat: "#333355",
+  },
+};
 
 // Shows a stat like hp/prayer
 interface StatBarProps {
@@ -26,16 +54,11 @@ const StatBar = ({ className, color, bgColor, ratio }: StatBarProps): ReactEleme
 const PlayerInteracting = ({ npcName, healthRatio }: { npcName: string; healthRatio?: number }): ReactElement => {
   const isNonCombatNPC = healthRatio === undefined;
 
-  const COMBAT_COLOR = "#A41623";
-  const COMBAT_BG_COLOR = "#383838";
-
-  const NONCOMBAT_COLOR = "#333355";
-
   return (
     <div className="player-interacting">
       <StatBar
-        color={isNonCombatNPC ? NONCOMBAT_COLOR : COMBAT_COLOR}
-        bgColor={isNonCombatNPC ? NONCOMBAT_COLOR : COMBAT_BG_COLOR}
+        color={isNonCombatNPC ? COLORS.interaction.nonCombat : COLORS.interaction.combat}
+        bgColor={isNonCombatNPC ? COLORS.interaction.nonCombat : COLORS.interaction.combatBG}
         ratio={healthRatio}
       />
       <div className="player-interacting-name">{npcName}</div>
@@ -50,27 +73,51 @@ const XpDropper = (): ReactElement => {
 const PlayerStats = ({
   name,
   stats,
+  lastUpdated,
   interacting,
 }: {
   name: string;
   stats?: Stats;
+  lastUpdated?: Date;
   interacting?: NPCInteraction;
 }): ReactElement => {
   const hueDegrees = 75;
 
-  const interactionBar =
-    interacting !== undefined ? (
-      <PlayerInteracting healthRatio={interacting.healthRatio} npcName={interacting.name} />
-    ) : undefined;
+  const now = new Date();
+  const online = now.getTime() - (lastUpdated ?? new Date(0)).getTime() < INACTIVE_TIMER_MS;
+
+  let interactionBar: ReactNode = undefined;
+  if (online && interacting !== undefined) {
+    if (now.getTime() - interacting.last_updated.getTime() < INTERACTION_TIMER_MS) {
+      const { healthRatio, name } = interacting;
+      interactionBar = <PlayerInteracting healthRatio={healthRatio} npcName={name} />;
+    }
+  }
+
+  let status: ReactNode = undefined;
+  if (online && stats?.world !== undefined) {
+    status = (
+      <>
+        - <span className="player-stats-world">{`W${stats.world}`}</span>
+      </>
+    );
+  } else if (!online && lastUpdated !== undefined) {
+    status = <> - {lastUpdated.toISOString()}</>;
+  }
 
   const healthRatio = (stats?.health?.current ?? 0) / (stats?.health?.max ?? 1);
   const prayerRatio = (stats?.prayer?.current ?? 0) / (stats?.prayer?.max ?? 1);
   const runRatio = (stats?.run?.current ?? 0) / (stats?.run?.max ?? 1);
 
   return (
-    <div className="player-stats">
+    <div className={`player-stats ${online ? "" : "greyscale"}`}>
       <div className="player-stats-hitpoints">
-        <StatBar className="player-stats-hitpoints-bar" color="#157145" bgColor="#073823" ratio={healthRatio} />
+        <StatBar
+          className="player-stats-hitpoints-bar"
+          color={COLORS.player.hitpoints}
+          bgColor={COLORS.player.hitpointsBG}
+          ratio={healthRatio}
+        />
         {interactionBar}
         <div className="player-stats-name">
           <img
@@ -80,20 +127,30 @@ const PlayerStats = ({
             width="12"
             height="15"
           />
-          {name} - <span className="player-stats-world">W{stats?.world}</span>
+          {name} {status}
         </div>
         <div className="player-stats-hitpoints-numbers">
           {stats?.health.current} / {stats?.health.max}
         </div>
       </div>
       <div className="player-stats-prayer">
-        <StatBar className="player-stats-prayer-bar" color="#336699" bgColor="#112233" ratio={prayerRatio} />
+        <StatBar
+          className="player-stats-prayer-bar"
+          color={COLORS.player.prayer}
+          bgColor={COLORS.player.prayerBG}
+          ratio={prayerRatio}
+        />
         <div className="player-stats-prayer-numbers">
           {stats?.prayer.current} / {stats?.prayer.max}
         </div>
       </div>
       <div className="player-stats-energy">
-        <StatBar className="player-stats-energy-bar" color="#a9a9a9" bgColor="#383838" ratio={runRatio} />
+        <StatBar
+          className="player-stats-energy-bar"
+          color={COLORS.player.energy}
+          bgColor={COLORS.player.energyBG}
+          ratio={runRatio}
+        />
       </div>
       <XpDropper player-name="${this.playerName}" />
     </div>
@@ -102,16 +159,18 @@ const PlayerStats = ({
 
 export const PlayerPanel = ({
   name,
-  interacting,
   stats,
+  lastUpdated,
+  interacting,
 }: {
   name: string;
-  interacting?: NPCInteraction;
   stats?: Stats;
+  lastUpdated?: Date;
+  interacting?: NPCInteraction;
 }): ReactElement => {
   return (
     <div className="player-panel rsborder rsbackground">
-      <PlayerStats interacting={interacting} name={name} stats={stats} />
+      <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={name} stats={stats} />
       <div className="player-panel-minibar">
         <button aria-label="inventory" type="button">
           <img alt="osrs inventory icon" src="/ui/777-0.png" width="26" height="28" />
