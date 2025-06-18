@@ -17,6 +17,7 @@ type ItemSortCategory = (typeof ItemSortCategory)[number];
 
 const ItemPanel = ({
   itemName,
+  itemID,
   highAlchPer,
   gePricePer,
   imageURL,
@@ -25,6 +26,7 @@ const ItemPanel = ({
   quantities,
 }: {
   itemName: string;
+  itemID: ItemID;
   highAlchPer: number;
   gePricePer: number;
   imageURL: string;
@@ -51,12 +53,14 @@ const ItemPanel = ({
   const highAlch = highAlchPer * totalQuantity;
   const gePrice = gePricePer * totalQuantity;
 
+  const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
+
   return (
     <div className="inventory-item rsborder rsbackground rendered">
       <div className="inventory-item-top rsborder-tiny">
         <div className="inventory-item-top-right">
           <div className="inventory-item-name">
-            <a className="rstext" href="${item.wikiLink}" target="_blank">
+            <a className="rstext" href={wikiLink} target="_blank">
               {itemName}
             </a>
           </div>
@@ -214,6 +218,7 @@ export const ItemsPage = ({
     .map(({ gePrice, highAlch, itemID, itemName, quantityByMemberName, totalQuantity }) => (
       <ItemPanel
         key={itemID}
+        itemID={itemID}
         imageURL={`/icons/items/${itemID}.webp`}
         totalQuantity={totalQuantity}
         highAlchPer={highAlch}
