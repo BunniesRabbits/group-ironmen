@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, {
+  type EquipmentView,
   type GEPrices,
   type InventoryView,
   type ItemsView,
@@ -64,12 +65,14 @@ export const App = (): ReactElement => {
   const [stats, setStats] = useState<StatsView>();
   const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
   const [inventoryView, setInventoryView] = useState<InventoryView>();
+  const [equipmentView, setEquipmentView] = useState<EquipmentView>();
   const [skills, setSkills] = useState<SkillsView>();
 
   useEffect(() => {
     if (api === undefined) return;
 
     api.onInventoryUpdate = setInventoryView;
+    api.onEquipmentUpdate = setEquipmentView;
     api.onItemsUpdate = setItemsView;
     api.onNPCInteractionsUpdate = setNPCInteractions;
     api.onStatsUpdate = setStats;
@@ -81,6 +84,8 @@ export const App = (): ReactElement => {
       .then(setGEPrices)
       .catch((error) => console.error(error));
     return (): void => {
+      api.onInventoryUpdate = undefined;
+      api.onEquipmentUpdate = undefined;
       api.onItemsUpdate = undefined;
       api.onNPCInteractionsUpdate = undefined;
       api.onStatsUpdate = undefined;
@@ -105,9 +110,10 @@ export const App = (): ReactElement => {
       <PlayerPanel
         interacting={npcInteractions?.get(name)}
         inventory={inventoryView?.get(name)}
+        equipment={equipmentView?.get(name)}
+        skills={skills?.get(name)}
         name={name}
         lastUpdated={lastUpdated?.get(name)}
-        skills={skills?.get(name)}
         stats={stats?.get(name)}
         key={name}
       />

@@ -1,7 +1,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 
 import "./player-panel.css";
-import type { Inventory, NPCInteraction, Skill, Skills, Stats } from "../../data/api";
+import type { Equipment, EquipmentSlot, Inventory, NPCInteraction, Skill, Skills, Stats } from "../../data/api";
 
 /**
  * cyrb53 (c) 2018 bryc (github.com/bryc)
@@ -187,7 +187,7 @@ const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement => {
     <div className="player-inventory">
       <div className="player-inventory-background">
         {(items ?? Array<undefined>(28).fill(undefined)).map((item, index) => {
-          if (item === undefined) return <span key={index} />;
+          if (item === undefined) return <span className="player-inventory-item-box" key={index} />;
           return (
             <img
               key={`${item.itemID} ${item.quantity}`}
@@ -211,6 +211,64 @@ const levelLookup = new Map<number, number>();
     xp += 0.25 * Math.floor(L + 300 * 2 ** (L / 7));
   }
 }
+
+const VisibleEquipmentSlots: EquipmentSlot[] = [
+  "Head",
+  "Cape",
+  "Amulet",
+  "Weapon",
+  "Body",
+  "Shield",
+  // "Arms",
+  "Legs",
+  // "Hair",
+  "Gloves",
+  "Boots",
+  // "Jaw",
+  "Ring",
+  "Ammo",
+];
+const EquipmentSlotEmptyIcons = new Map<EquipmentSlot, string>([
+  ["Head", "156-0.png"],
+  ["Cape", "157-0.png"],
+  ["Amulet", "158-0.png"],
+  ["Weapon", "159-0.png"],
+  ["Body", "161-0.png"],
+  ["Shield", "162-0.png"],
+  ["Legs", "163-0.png"],
+  ["Gloves", "164-0.png"],
+  ["Boots", "165-0.png"],
+  ["Ring", "160-0.png"],
+  ["Ammo", "166-0.png"],
+]);
+
+const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement => {
+  return (
+    <div className="player-equipment">
+      {VisibleEquipmentSlots.map((slot) => {
+        const item = items?.get(slot);
+        let className = "equipment-slot-empty";
+        let iconURL = `/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`;
+        if (item !== undefined) {
+          className = "equipment-slot-item";
+          iconURL = `/icons/items/${item.itemID}.webp`;
+        }
+        return (
+          <div
+            key={slot}
+            className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+          >
+            <img
+              alt="osrs item" // TODO: get name of item
+              className={className}
+              src={iconURL}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // Row-major order, like how the skills are laid out in OSRS
 const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
@@ -282,6 +340,7 @@ export const PlayerPanel = ({
   lastUpdated,
   interacting,
   inventory,
+  equipment,
   skills,
 }: {
   name: string;
@@ -289,6 +348,7 @@ export const PlayerPanel = ({
   lastUpdated?: Date;
   interacting?: NPCInteraction;
   inventory?: Inventory;
+  equipment?: Equipment;
   skills?: Skills;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
@@ -359,6 +419,9 @@ export const PlayerPanel = ({
   switch (subcategory) {
     case "Inventory":
       content = <PlayerInventory items={inventory} />;
+      break;
+    case "Equipment":
+      content = <PlayerEquipment items={equipment} />;
       break;
     case "Skills":
       content = <PlayerSkills skills={skills} />;

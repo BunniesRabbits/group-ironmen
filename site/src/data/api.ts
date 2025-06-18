@@ -1,6 +1,11 @@
 import { z } from "zod/v4";
 import { type Distinct } from "../util";
 
+/*
+ * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
+ * Disparate types are all entangled.
+ */
+
 export interface ApiCredentials {
   groupName: string;
   groupToken: string;
@@ -57,16 +62,17 @@ const MemberItemsFromBackend = z
   );
 export type MemberItems = z.infer<typeof MemberItemsFromBackend>;
 
-export interface InventoryItem {
+export interface ItemStack {
   itemID: ItemID;
   quantity: number;
 }
+
 const INVENTORY_SIZE = 28;
 const InventoryFromBackend = z
   .array(z.uint32())
   .length(2 * INVENTORY_SIZE)
   .transform((flat) =>
-    flat.reduce<(InventoryItem | undefined)[]>((inventory, _, index, flat) => {
+    flat.reduce<(ItemStack | undefined)[]>((inventory, _, index, flat) => {
       if (index % 2 !== 0) return inventory;
 
       const itemID = flat[index] as ItemID;
@@ -78,6 +84,48 @@ const InventoryFromBackend = z
     }, []),
   );
 export type Inventory = z.infer<typeof InventoryFromBackend>;
+
+/**
+ * Backend obeys this order:
+ * https://github.com/runelite/runelite/blob/a8bdd510971fc8974959e2c9b34b6b88b46bb0fd/runelite-api/src/main/java/net/runelite/api/EquipmentInventorySlot.java#L37
+ * We use the names from runelite source.
+ */
+const EquipmentSlotInBackendOrder = [
+  "Head",
+  "Cape",
+  "Amulet",
+  "Weapon",
+  "Body",
+  "Shield",
+  "Arms",
+  "Legs",
+  "Hair",
+  "Gloves",
+  "Boots",
+  "Jaw",
+  "Ring",
+  "Ammo",
+] as const;
+export type EquipmentSlot = (typeof EquipmentSlotInBackendOrder)[number];
+
+const NUMBER_OF_EQUIPMENT_SLOTS = EquipmentSlotInBackendOrder.length;
+const EquipmentFromBackend = z
+  .array(z.uint32())
+  .length(2 * NUMBER_OF_EQUIPMENT_SLOTS)
+  .transform((equipmentFlat) => {
+    return equipmentFlat.reduce<Map<EquipmentSlot, ItemStack>>((equipment, _, index, equipmentFlat) => {
+      if (index % 2 !== 0 || index + 1 >= equipmentFlat.length) return equipment;
+
+      const itemID = equipmentFlat[index] as ItemID;
+      const quantity = equipmentFlat[index + 1];
+
+      if (quantity < 1) return equipment;
+
+      const slot = EquipmentSlotInBackendOrder[index / 2];
+      equipment.set(slot, { itemID, quantity });
+      return equipment;
+    }, new Map());
+  });
 
 const GEPricesFromBackend = z
   .record(
@@ -218,7 +266,7 @@ export type Skills = z.infer<typeof SkillsFromBackend>;
 
 export interface MemberData {
   bank: MemberItems;
-  equipment: MemberItems;
+  equipment: Equipment;
   inventory: Inventory;
   runePouch: MemberItems;
   seedVault: MemberItems;
@@ -228,7 +276,10 @@ export interface MemberData {
   skills?: Skills;
 }
 
+export type Equipment = z.infer<typeof EquipmentFromBackend>;
+
 export type InventoryView = Map<MemberName, Inventory>;
+export type EquipmentView = Map<MemberName, Equipment>;
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 export type StatsView = Map<MemberName, Stats>;
@@ -253,7 +304,7 @@ const MemberDataUpdate = z.object({
    * The items in the player's equipment.
    * When defined, it always contains all of the items.
    */
-  equipment: z.optional(MemberItemsFromBackend),
+  equipment: z.optional(EquipmentFromBackend),
   /**
    * The items in the player's inventory.
    * When defined, it always contains all of the items.
@@ -305,8 +356,9 @@ export default class Api {
     }, new Date(0));
   }
   private updateGroupData(response: GetGroupDataResponse): void {
-    let updatedItems = false;
+    let updatedBankVaultPouch = false;
     let updatedInventory = false;
+    let updatedEquipment = false;
     let updatedNPCInteractions = false;
     let updatedStats = false;
     let updatedLastUpdated = false;
@@ -345,12 +397,12 @@ export default class Api {
 
       if (bank !== undefined) {
         memberData.bank = new Map(bank);
-        updatedItems = true;
+        updatedBankVaultPouch = true;
       }
 
       if (equipment !== undefined) {
-        memberData.equipment = new Map(equipment);
-        updatedItems = true;
+        memberData.equipment = structuredClone(equipment);
+        updatedEquipment = true;
       }
 
       if (inventory !== undefined) {
@@ -360,12 +412,12 @@ export default class Api {
 
       if (runePouch !== undefined) {
         memberData.runePouch = new Map(runePouch);
-        updatedItems = true;
+        updatedBankVaultPouch = true;
       }
 
       if (seedVault !== undefined) {
         memberData.seedVault = new Map(seedVault);
-        updatedItems = true;
+        updatedBankVaultPouch = true;
       }
 
       if (interacting !== undefined) {
@@ -389,30 +441,34 @@ export default class Api {
       }
     }
 
-    if (updatedItems || updatedInventory) {
-      const itemsView: ItemsView = new Map();
-      this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
-        [bank, equipment, runePouch, seedVault].forEach((storageArea) =>
-          storageArea.forEach((quantity, itemID) => {
-            if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
-            const itemView = itemsView.get(itemID)!;
+    if (updatedBankVaultPouch || updatedInventory) {
+      const sumOfAllItems: ItemsView = new Map();
+      const incrementItemCount = (memberName: MemberName, { itemID, quantity }: ItemStack): void => {
+        if (!sumOfAllItems.has(itemID)) sumOfAllItems.set(itemID, new Map<MemberName, number>());
+        const itemView = sumOfAllItems.get(itemID)!;
 
-            const oldQuantity = itemView.get(memberName) ?? 0;
-            itemView.set(memberName, oldQuantity + quantity);
+        const oldQuantity = itemView.get(memberName) ?? 0;
+        itemView.set(memberName, oldQuantity + quantity);
+      };
+
+      this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
+        // Each item storage is slightly different, so we need to iterate them different.
+        [bank, runePouch, seedVault].forEach((storageArea) =>
+          storageArea.forEach((quantity, itemID) => {
+            incrementItemCount(memberName, { quantity, itemID });
           }),
         );
         inventory
           .filter((item) => item !== undefined)
-          .forEach(({ itemID, quantity }) => {
-            if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
-            const itemView = itemsView.get(itemID)!;
-
-            const oldQuantity = itemView.get(memberName) ?? 0;
-            itemView.set(memberName, oldQuantity + quantity);
+          .forEach((item) => {
+            incrementItemCount(memberName, item);
           });
+        equipment.forEach((item) => {
+          incrementItemCount(memberName, item);
+        });
       });
 
-      this.onItemsUpdate?.(itemsView);
+      this.onItemsUpdate?.(sumOfAllItems);
     }
 
     if (updatedInventory) {
@@ -422,6 +478,15 @@ export default class Api {
       });
 
       this.onInventoryUpdate?.(inventoryView);
+    }
+
+    if (updatedEquipment) {
+      const equipmentView: EquipmentView = new Map();
+      this.groupData.forEach(({ equipment }, memberName) => {
+        equipmentView.set(memberName, new Map(equipment));
+      });
+
+      this.onEquipmentUpdate?.(equipmentView);
     }
 
     if (updatedNPCInteractions) {
@@ -463,6 +528,7 @@ export default class Api {
 
   public onSkillsUpdate?: (skills: SkillsView) => void;
   public onInventoryUpdate?: (inventory: InventoryView) => void;
+  public onEquipmentUpdate?: (equipment: EquipmentView) => void;
   public onItemsUpdate?: (items: ItemsView) => void;
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
   public onStatsUpdate?: (stats: StatsView) => void;
