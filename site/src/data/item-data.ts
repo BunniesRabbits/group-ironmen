@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import type { ItemID } from "./api";
 
-export const ItemDataEntry = z.object({
+const ItemDataEntry = z.object({
   name: z.string(),
   highalch: z.uint32(),
   stacks: z
@@ -11,7 +11,7 @@ export const ItemDataEntry = z.object({
 });
 export type ItemDataEntry = z.infer<typeof ItemDataEntry>;
 
-export const ItemData = z
+const ItemData = z
   .record(
     z
       .string()
@@ -28,3 +28,14 @@ export const ItemData = z
     return result;
   });
 export type ItemData = z.infer<typeof ItemData>;
+
+export const fetchItemDataJSON = (): Promise<ItemData> =>
+  import("/src/assets/item_data.json")
+    .then((data) => {
+      return ItemData.safeParseAsync(data.default);
+    })
+    .then((parseResult) => {
+      if (!parseResult.success) throw new Error("Failed to parse item_data.json", { cause: parseResult.error });
+
+      return parseResult.data;
+    });

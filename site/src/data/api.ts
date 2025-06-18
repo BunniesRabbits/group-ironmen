@@ -264,6 +264,20 @@ const SkillsFromBackend = z
   .transform((xpFlat) => new Map(xpFlat.map((xp, index) => [SkillsInBackendOrder[index], xp])));
 export type Skills = z.infer<typeof SkillsFromBackend>;
 
+const QuestStatus = ["NOT_STARTED", "IN_PROGRESS", "FINISHED"] as const;
+export type QuestStatus = (typeof QuestStatus)[number];
+
+/**
+ * Quests are sent by the backend without IDs. They are sorted by ascending ID order.
+ * Thus, if there is a mismatch in length, it is impossible to tell which quests are missing.
+ */
+const QuestsFromBackend = z
+  .uint32()
+  .refine((progress) => progress === 0 || progress === 1 || progress === 2)
+  .transform((progress) => QuestStatus[progress])
+  .array();
+export type Quests = z.infer<typeof QuestsFromBackend>;
+
 export interface MemberData {
   bank: MemberItems;
   equipment: Equipment;
@@ -274,6 +288,7 @@ export interface MemberData {
   stats?: Stats;
   lastUpdated: Date;
   skills?: Skills;
+  quests?: Quests;
 }
 
 export type Equipment = z.infer<typeof EquipmentFromBackend>;
@@ -285,6 +300,7 @@ export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 export type StatsView = Map<MemberName, Stats>;
 export type LastUpdatedView = Map<MemberName, Date>;
 export type SkillsView = Map<MemberName, Skills>;
+export type QuestsView = Map<MemberName, Quests>;
 
 const MemberDataUpdate = z.object({
   /**
@@ -332,6 +348,10 @@ const MemberDataUpdate = z.object({
    * Skills of the player, given in XP amount.
    */
   skills: SkillsFromBackend.optional(),
+  /**
+   * Quest progress/completion status per quest.
+   */
+  quests: QuestsFromBackend.optional(),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -363,6 +383,7 @@ export default class Api {
     let updatedStats = false;
     let updatedLastUpdated = false;
     let updatedSkills = false;
+    let updatedQuests = false;
 
     this.knownMembers = [];
 
@@ -381,6 +402,7 @@ export default class Api {
       stats,
       last_updated,
       skills,
+      quests,
     } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
@@ -438,6 +460,11 @@ export default class Api {
       if (skills !== undefined) {
         memberData.skills = structuredClone(skills);
         updatedSkills = true;
+      }
+
+      if (quests !== undefined) {
+        memberData.quests = structuredClone(quests);
+        updatedQuests = true;
       }
     }
 
@@ -524,6 +551,15 @@ export default class Api {
       });
       this.onSkillsUpdate?.(skillsView);
     }
+
+    if (updatedQuests) {
+      const questsView: QuestsView = new Map();
+      this.groupData.forEach(({ quests }, name) => {
+        if (quests === undefined) return;
+        questsView.set(name, quests);
+      });
+      this.onQuestsUpdate?.(questsView);
+    }
   }
 
   public onSkillsUpdate?: (skills: SkillsView) => void;
@@ -533,6 +569,7 @@ export default class Api {
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
   public onStatsUpdate?: (stats: StatsView) => void;
   public onLastUpdatedUpdate?: (lastUpdated: LastUpdatedView) => void;
+  public onQuestsUpdate?: (quests: QuestsView) => void;
 
   public getKnownMembers(): MemberName[] {
     return [...this.knownMembers];

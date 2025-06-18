@@ -18,42 +18,59 @@ import Api, {
   loadValidatedCredentials,
   type MemberName,
   type NPCInteractionsView,
+  type QuestsView,
   type SkillsView,
   type StatsView,
 } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
-import { ItemData } from "./data/item-data";
 import { PlayerPanel } from "./components/player-panel/player-panel";
+import { fetchItemDataJSON, type ItemData } from "./data/item-data";
+import { fetchQuestDataJSON, type QuestData } from "./data/quest-data";
 
-const fetchItemDataJSON = (): Promise<ItemData> =>
-  import("/src/assets/item_data.json")
-    .then((data) => {
-      return ItemData.safeParseAsync(data.default);
-    })
-    .then((parseResult) => {
-      if (!parseResult.success) throw new Error("Failed to parse item-data.json", { cause: parseResult.error });
+interface GameData {
+  items: ItemData;
+  quests: QuestData;
+}
+/**
+ * Asynchronously loads game assets such as item/quest descriptions.
+ * Values are individually undefined until loading succeeds.
+ */
+const useGameData = (): Partial<GameData> => {
+  const [itemData, setItemData] = useState<ItemData>();
+  const itemPromiseRef = useRef<Promise<void>>(undefined);
 
-      return parseResult.data;
-    });
+  const [questData, setQuestData] = useState<QuestData>();
+  const questPromiseRef = useRef<Promise<void>>(undefined);
 
-const useItemData = (): { itemData?: ItemData } => {
-  // We don't need to worry about cache invalidation since this data is a static asset that is updated rarely.
-  // Users can refresh if they want to see a game update reflected.
-  const [data, setData] = useState<ItemData>();
-  const promiseRef = useRef<Promise<void>>(undefined);
+  /*
+   * We don't need to worry about cache invalidation since this data is a static asset that is updated rarely.
+   * Users can refresh if they want to see a game update reflected.
+   * Thus, we do a simple fetch with promise.
+   */
 
   useEffect(() => {
-    if (promiseRef.current !== undefined) return;
+    // Promises will try infinitely to load, not good for long run but ok for now
 
-    promiseRef.current = fetchItemDataJSON()
-      .then((itemData) => setData(itemData))
-      .catch((error) => console.error("Failed to get item data", error))
-      .finally(() => {
-        promiseRef.current = undefined;
-      });
-  }, []);
+    if (questData === undefined) {
+      questPromiseRef.current ??= fetchQuestDataJSON()
+        .then((questData) => setQuestData(questData))
+        .catch((error) => console.error("Failed to get quest data", error))
+        .finally(() => {
+          questPromiseRef.current = undefined;
+        });
+    }
 
-  return { itemData: data };
+    if (itemData === undefined) {
+      itemPromiseRef.current ??= fetchItemDataJSON()
+        .then((itemData) => setItemData(itemData))
+        .catch((error) => console.error("Failed to get item data", error))
+        .finally(() => {
+          itemPromiseRef.current = undefined;
+        });
+    }
+  }, [itemData, questData]);
+
+  return { items: itemData, quests: questData };
 };
 
 interface APIConnectionWithDataViews {
@@ -66,6 +83,7 @@ interface APIConnectionWithDataViews {
   inventoryView: InventoryView;
   equipmentView: EquipmentView;
   skills: SkillsView;
+  quests: QuestsView;
   knownMembers: MemberName[];
 }
 const useAPI = (): Partial<APIConnectionWithDataViews> => {
@@ -79,6 +97,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const [inventoryView, setInventoryView] = useState<InventoryView>();
   const [equipmentView, setEquipmentView] = useState<EquipmentView>();
   const [skills, setSkills] = useState<SkillsView>();
+  const [quests, setQuests] = useState<QuestsView>();
 
   const knownMembers = api?.getKnownMembers();
 
@@ -92,6 +111,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
     api.onStatsUpdate = setStats;
     api.onLastUpdatedUpdate = setLastUpdated;
     api.onSkillsUpdate = setSkills;
+    api.onQuestsUpdate = setQuests;
     api.queueGetGroupData();
     api
       .fetchGEPrices()
@@ -131,12 +151,13 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
     equipmentView,
     skills,
     knownMembers,
+    quests,
   };
 };
 
 export const App = (): ReactElement => {
   const location = useLocation();
-  const { itemData } = useItemData();
+  const { items: itemData, quests: questData } = useGameData();
 
   const {
     close: closeAPI,
@@ -148,6 +169,7 @@ export const App = (): ReactElement => {
     inventoryView,
     equipmentView,
     skills,
+    quests,
     knownMembers,
   } = useAPI();
 
@@ -159,6 +181,8 @@ export const App = (): ReactElement => {
         inventory={inventoryView?.get(name)}
         equipment={equipmentView?.get(name)}
         skills={skills?.get(name)}
+        quests={quests?.get(name)}
+        questData={questData}
         name={name}
         lastUpdated={lastUpdated?.get(name)}
         stats={stats?.get(name)}
