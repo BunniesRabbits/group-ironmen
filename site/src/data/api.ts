@@ -441,7 +441,7 @@ export default class Api {
       }
     }
 
-    if (updatedBankVaultPouch || updatedInventory) {
+    if (updatedBankVaultPouch || updatedInventory || updatedEquipment) {
       const sumOfAllItems: ItemsView = new Map();
       const incrementItemCount = (memberName: MemberName, { itemID, quantity }: ItemStack): void => {
         if (!sumOfAllItems.has(itemID)) sumOfAllItems.set(itemID, new Map<MemberName, number>());
