@@ -5,7 +5,7 @@ import { SetupInstructions } from "./components/setup-instructions/setup-instruc
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
 import { Navigate } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
@@ -24,54 +24,8 @@ import Api, {
 } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
-import { fetchItemDataJSON, type ItemData } from "./data/item-data";
-import { fetchQuestDataJSON, type QuestData } from "./data/quest-data";
-
-interface GameData {
-  items: ItemData;
-  quests: QuestData;
-}
-/**
- * Asynchronously loads game assets such as item/quest descriptions.
- * Values are individually undefined until loading succeeds.
- */
-const useGameData = (): Partial<GameData> => {
-  const [itemData, setItemData] = useState<ItemData>();
-  const itemPromiseRef = useRef<Promise<void>>(undefined);
-
-  const [questData, setQuestData] = useState<QuestData>();
-  const questPromiseRef = useRef<Promise<void>>(undefined);
-
-  /*
-   * We don't need to worry about cache invalidation since this data is a static asset that is updated rarely.
-   * Users can refresh if they want to see a game update reflected.
-   * Thus, we do a simple fetch with promise.
-   */
-
-  useEffect(() => {
-    // Promises will try infinitely to load, not good for long run but ok for now
-
-    if (questData === undefined) {
-      questPromiseRef.current ??= fetchQuestDataJSON()
-        .then((questData) => setQuestData(questData))
-        .catch((error) => console.error("Failed to get quest data", error))
-        .finally(() => {
-          questPromiseRef.current = undefined;
-        });
-    }
-
-    if (itemData === undefined) {
-      itemPromiseRef.current ??= fetchItemDataJSON()
-        .then((itemData) => setItemData(itemData))
-        .catch((error) => console.error("Failed to get item data", error))
-        .finally(() => {
-          itemPromiseRef.current = undefined;
-        });
-    }
-  }, [itemData, questData]);
-
-  return { items: itemData, quests: questData };
-};
+import { type ItemData } from "./data/item-data";
+import { type QuestData } from "./data/quest-data";
 
 interface APIConnectionWithDataViews {
   close: () => void;
@@ -84,8 +38,19 @@ interface APIConnectionWithDataViews {
   equipmentView: EquipmentView;
   skills: SkillsView;
   quests: QuestsView;
+  questData: QuestData;
+  itemData: ItemData;
   knownMembers: MemberName[];
 }
+
+/**
+ * A hook that provides access to the backend network API, but also game data, wrapped and processed somewhat.
+ *
+ * For example, loading quests over the network requires resolving their IDs from the quests information themselves.
+ * But that information is loaded from a json file, so processing quests requires synchronization which this hook provides.
+ *
+ * Data is only provided when it is ready to be used.
+ */
 const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
@@ -98,33 +63,33 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const [equipmentView, setEquipmentView] = useState<EquipmentView>();
   const [skills, setSkills] = useState<SkillsView>();
   const [quests, setQuests] = useState<QuestsView>();
+  const [itemData, setItemData] = useState<ItemData>();
+  const [questData, setQuestData] = useState<QuestData>();
 
   const knownMembers = api?.getKnownMembers();
 
   useEffect(() => {
     if (api === undefined) return;
 
-    api.onInventoryUpdate = setInventoryView;
-    api.onEquipmentUpdate = setEquipmentView;
-    api.onItemsUpdate = setItemsView;
-    api.onNPCInteractionsUpdate = setNPCInteractions;
-    api.onStatsUpdate = setStats;
-    api.onLastUpdatedUpdate = setLastUpdated;
-    api.onSkillsUpdate = setSkills;
-    api.onQuestsUpdate = setQuests;
+    api.setUpdateCallbacks({
+      onInventoryUpdate: setInventoryView,
+      onEquipmentUpdate: setEquipmentView,
+      onItemsUpdate: setItemsView,
+      onNPCInteractionsUpdate: setNPCInteractions,
+      onStatsUpdate: setStats,
+      onLastUpdatedUpdate: setLastUpdated,
+      onSkillsUpdate: setSkills,
+      onQuestsUpdate: setQuests,
+      onItemDataUpdate: setItemData,
+      onQuestDataUpdate: setQuestData,
+    });
+
     api.queueGetGroupData();
     api
       .fetchGEPrices()
       .then(setGEPrices)
       .catch((error) => console.error(error));
     return (): void => {
-      api.onInventoryUpdate = undefined;
-      api.onEquipmentUpdate = undefined;
-      api.onItemsUpdate = undefined;
-      api.onNPCInteractionsUpdate = undefined;
-      api.onStatsUpdate = undefined;
-      api.onLastUpdatedUpdate = undefined;
-      api.onSkillsUpdate = undefined;
       api.close();
     };
   }, [api, setItemsView]);
@@ -152,12 +117,13 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
     skills,
     knownMembers,
     quests,
+    questData,
+    itemData,
   };
 };
 
 export const App = (): ReactElement => {
   const location = useLocation();
-  const { items: itemData, quests: questData } = useGameData();
 
   const {
     close: closeAPI,
@@ -171,6 +137,8 @@ export const App = (): ReactElement => {
     skills,
     quests,
     knownMembers,
+    questData,
+    itemData,
   } = useAPI();
 
   const panels = knownMembers

@@ -1,5 +1,7 @@
 import { z } from "zod/v4";
 import { type Distinct } from "../util";
+import { fetchItemDataJSON, type ItemData } from "./item-data";
+import { fetchQuestDataJSON, type QuestData } from "./quest-data";
 
 /*
  * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
@@ -358,6 +360,18 @@ type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 const GetGroupDataResponse = z.array(MemberDataUpdate);
 type GetGroupDataResponse = z.infer<typeof GetGroupDataResponse>;
 
+interface UpdateCallbacks {
+  onSkillsUpdate: (skills: SkillsView) => void;
+  onInventoryUpdate: (inventory: InventoryView) => void;
+  onEquipmentUpdate: (equipment: EquipmentView) => void;
+  onItemsUpdate: (items: ItemsView) => void;
+  onNPCInteractionsUpdate: (interactions: NPCInteractionsView) => void;
+  onStatsUpdate: (stats: StatsView) => void;
+  onLastUpdatedUpdate: (lastUpdated: LastUpdatedView) => void;
+  onQuestsUpdate: (quests: QuestsView) => void;
+  onItemDataUpdate: (itemData: ItemData) => void;
+  onQuestDataUpdate: (questData: QuestData) => void;
+}
 export default class Api {
   private baseURL: string;
   private credentials: ApiCredentials;
@@ -366,6 +380,8 @@ export default class Api {
   private closed: boolean;
   private groupData: Map<MemberName, MemberData>;
   private knownMembers: MemberName[];
+  private itemData?: ItemData;
+  private questData?: QuestData;
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {
     return response.reduce<Date>((previousNewest, { last_updated }) => {
@@ -495,7 +511,7 @@ export default class Api {
         });
       });
 
-      this.onItemsUpdate?.(sumOfAllItems);
+      this.callbacks?.onItemsUpdate(sumOfAllItems);
     }
 
     if (updatedInventory) {
@@ -504,7 +520,7 @@ export default class Api {
         inventoryView.set(memberName, structuredClone(inventory));
       });
 
-      this.onInventoryUpdate?.(inventoryView);
+      this.callbacks?.onInventoryUpdate(inventoryView);
     }
 
     if (updatedEquipment) {
@@ -513,7 +529,7 @@ export default class Api {
         equipmentView.set(memberName, new Map(equipment));
       });
 
-      this.onEquipmentUpdate?.(equipmentView);
+      this.callbacks?.onEquipmentUpdate(equipmentView);
     }
 
     if (updatedNPCInteractions) {
@@ -522,7 +538,7 @@ export default class Api {
         if (interacting === undefined) return;
         npcInteractionsView.set(name, interacting);
       });
-      this.onNPCInteractionsUpdate?.(npcInteractionsView);
+      this.callbacks?.onNPCInteractionsUpdate(npcInteractionsView);
     }
 
     if (updatedStats) {
@@ -531,7 +547,7 @@ export default class Api {
         if (stats === undefined) return;
         statsView.set(name, stats);
       });
-      this.onStatsUpdate?.(statsView);
+      this.callbacks?.onStatsUpdate(statsView);
     }
 
     if (updatedLastUpdated) {
@@ -540,7 +556,7 @@ export default class Api {
         if (lastUpdated === undefined) return;
         lastUpdatedView.set(name, lastUpdated);
       });
-      this.onLastUpdatedUpdate?.(lastUpdatedView);
+      this.callbacks?.onLastUpdatedUpdate(lastUpdatedView);
     }
 
     if (updatedSkills) {
@@ -549,7 +565,7 @@ export default class Api {
         if (skills === undefined) return;
         skillsView.set(name, skills);
       });
-      this.onSkillsUpdate?.(skillsView);
+      this.callbacks?.onSkillsUpdate(skillsView);
     }
 
     if (updatedQuests) {
@@ -558,24 +574,43 @@ export default class Api {
         if (quests === undefined) return;
         questsView.set(name, quests);
       });
-      this.onQuestsUpdate?.(questsView);
+      this.callbacks?.onQuestsUpdate(questsView);
     }
   }
 
-  public onSkillsUpdate?: (skills: SkillsView) => void;
-  public onInventoryUpdate?: (inventory: InventoryView) => void;
-  public onEquipmentUpdate?: (equipment: EquipmentView) => void;
-  public onItemsUpdate?: (items: ItemsView) => void;
-  public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
-  public onStatsUpdate?: (stats: StatsView) => void;
-  public onLastUpdatedUpdate?: (lastUpdated: LastUpdatedView) => void;
-  public onQuestsUpdate?: (quests: QuestsView) => void;
+  private callbacks?: UpdateCallbacks;
+
+  public setUpdateCallbacks(callbacks: UpdateCallbacks): void {
+    this.callbacks = callbacks;
+  }
 
   public getKnownMembers(): MemberName[] {
     return [...this.knownMembers];
   }
 
+  private queueGetGameData(): void {
+    if (this.questData === undefined) {
+      fetchQuestDataJSON()
+        .then((data) => {
+          this.questData = data;
+          this.callbacks?.onQuestDataUpdate(data);
+        })
+        .catch((reason) => console.error("Failed to get quest data for API", reason));
+    }
+    if (this.itemData === undefined) {
+      fetchItemDataJSON()
+        .then((data) => {
+          this.itemData = data;
+          this.callbacks?.onItemDataUpdate(data);
+        })
+        .catch((reason) => console.error("Failed to get item data for API", reason));
+    }
+  }
+
   /**
+   * WARNING: Make sure callbacks (all named `on*****Update`) are set up to receive the data!
+   * Some callbacks may only be called once and data can be missed.
+   *
    * Kicks off fetching the group data once a second from the backend.
    * Only queues a new fetch when the old fetch resolves,
    * so with slow internet speeds the updates will be slower.
@@ -583,6 +618,8 @@ export default class Api {
    */
   public queueGetGroupData(): void {
     if (this.getGroupDataPromise !== undefined) return;
+
+    if (this.questData === undefined || this.itemData === undefined) this.queueGetGameData();
 
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
@@ -621,6 +658,7 @@ export default class Api {
   }
 
   close(): void {
+    this.callbacks = undefined;
     this.closed = true;
   }
   constructor(credentials: ApiCredentials) {
