@@ -55,7 +55,29 @@ const MemberItemsFromBackend = z
       return items;
     }, new Map<ItemID, number>()),
   );
-type MemberItems = z.infer<typeof MemberItemsFromBackend>;
+export type MemberItems = z.infer<typeof MemberItemsFromBackend>;
+
+export interface InventoryItem {
+  itemID: ItemID;
+  quantity: number;
+}
+const INVENTORY_SIZE = 28;
+const InventoryFromBackend = z
+  .array(z.uint32())
+  .length(2 * INVENTORY_SIZE)
+  .transform((flat) =>
+    flat.reduce<(InventoryItem | undefined)[]>((inventory, _, index, flat) => {
+      if (index % 2 !== 0) return inventory;
+
+      const itemID = flat[index] as ItemID;
+      const quantity = flat[index + 1];
+
+      if (quantity === 0) inventory.push(undefined);
+      else inventory.push({ itemID, quantity });
+      return inventory;
+    }, []),
+  );
+export type Inventory = z.infer<typeof InventoryFromBackend>;
 
 const GEPricesFromBackend = z
   .record(
@@ -164,7 +186,7 @@ export type NPCInteraction = z.infer<typeof NPCInteractionFromBackend>;
 export interface MemberData {
   bank: MemberItems;
   equipment: MemberItems;
-  inventory: MemberItems;
+  inventory: Inventory;
   runePouch: MemberItems;
   seedVault: MemberItems;
   interacting?: NPCInteraction;
@@ -172,6 +194,7 @@ export interface MemberData {
   lastUpdated: Date;
 }
 
+export type InventoryView = Map<MemberName, Inventory>;
 export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 export type StatsView = Map<MemberName, Stats>;
@@ -200,7 +223,7 @@ const MemberDataUpdate = z.object({
    * The items in the player's inventory.
    * When defined, it always contains all of the items.
    */
-  inventory: z.optional(MemberItemsFromBackend),
+  inventory: z.optional(InventoryFromBackend),
   /**
    * The items in the player's rune pouch.
    * When defined, it always contains all of the items.
@@ -244,6 +267,7 @@ export default class Api {
   }
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedItems = false;
+    let updatedInventory = false;
     let updatedNPCInteractions = false;
     let updatedStats = false;
     let updatedLastUpdated = false;
@@ -269,7 +293,7 @@ export default class Api {
         this.groupData.set(name, {
           bank: new Map(),
           equipment: new Map(),
-          inventory: new Map(),
+          inventory: [],
           runePouch: new Map(),
           seedVault: new Map(),
           lastUpdated: new Date(0),
@@ -289,8 +313,8 @@ export default class Api {
       }
 
       if (inventory !== undefined) {
-        memberData.inventory = new Map(inventory);
-        updatedItems = true;
+        memberData.inventory = structuredClone(inventory);
+        updatedInventory = true;
       }
 
       if (runePouch !== undefined) {
@@ -319,10 +343,10 @@ export default class Api {
       }
     }
 
-    if (updatedItems) {
+    if (updatedItems || updatedInventory) {
       const itemsView: ItemsView = new Map();
       this.groupData.forEach(({ bank, equipment, inventory, runePouch, seedVault }, memberName) => {
-        [bank, equipment, inventory, runePouch, seedVault].forEach((storageArea) =>
+        [bank, equipment, runePouch, seedVault].forEach((storageArea) =>
           storageArea.forEach((quantity, itemID) => {
             if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
             const itemView = itemsView.get(itemID)!;
@@ -331,9 +355,27 @@ export default class Api {
             itemView.set(memberName, oldQuantity + quantity);
           }),
         );
+        inventory
+          .filter((item) => item !== undefined)
+          .forEach(({ itemID, quantity }) => {
+            if (!itemsView.has(itemID)) itemsView.set(itemID, new Map<MemberName, number>());
+            const itemView = itemsView.get(itemID)!;
+
+            const oldQuantity = itemView.get(memberName) ?? 0;
+            itemView.set(memberName, oldQuantity + quantity);
+          });
       });
 
       this.onItemsUpdate?.(itemsView);
+    }
+
+    if (updatedInventory) {
+      const inventoryView: InventoryView = new Map();
+      this.groupData.forEach(({ inventory }, memberName) => {
+        inventoryView.set(memberName, structuredClone(inventory));
+      });
+
+      this.onInventoryUpdate?.(inventoryView);
     }
 
     if (updatedNPCInteractions) {
@@ -364,6 +406,7 @@ export default class Api {
     }
   }
 
+  public onInventoryUpdate?: (inventory: InventoryView) => void;
   public onItemsUpdate?: (items: ItemsView) => void;
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;
   public onStatsUpdate?: (stats: StatsView) => void;

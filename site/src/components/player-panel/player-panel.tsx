@@ -1,7 +1,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 
 import "./player-panel.css";
-import type { NPCInteraction, Stats } from "../../data/api";
+import type { Inventory, NPCInteraction, Stats } from "../../data/api";
 
 /**
  * cyrb53 (c) 2018 bryc (github.com/bryc)
@@ -182,16 +182,31 @@ const PlayerStats = ({
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Stats", "Quests", "Diaries", "Collection Log"] as const;
 type PlayerPanelSubcategory = (typeof PlayerPanelSubcategories)[number];
 
+const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement => {
+  return (
+    <div className="player-inventory">
+      <div className="player-inventory-background">
+        {items?.map((item) => {
+          if (item === undefined) return <span />;
+          return <img alt="osrs item" className="player-inventory-item-box" src={`/icons/items/${item.itemID}.webp`} />;
+        })}
+      </div>
+    </div>
+  );
+};
+
 export const PlayerPanel = ({
   name,
   stats,
   lastUpdated,
   interacting,
+  inventory,
 }: {
   name: string;
   stats?: Stats;
   lastUpdated?: Date;
   interacting?: NPCInteraction;
+  inventory?: Inventory;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
 
@@ -256,11 +271,18 @@ export const PlayerPanel = ({
     </button>
   ));
 
+  let content = undefined;
+  switch (subcategory) {
+    case "Inventory":
+      content = <PlayerInventory items={inventory} />;
+      break;
+  }
+
   return (
-    <div className="player-panel rsborder rsbackground">
+    <div className={`player-panel rsborder rsbackground ${content !== undefined ? "" : ""}`}>
       <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={name} stats={stats} />
       <div className="player-panel-minibar">{buttons}</div>
-      <div className="player-panel-content"></div>
+      <div className="player-panel-content">{content}</div>
     </div>
   );
 };

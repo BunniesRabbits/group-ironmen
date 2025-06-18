@@ -11,6 +11,7 @@ import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, {
   type GEPrices,
+  type InventoryView,
   type ItemsView,
   type LastUpdatedView,
   loadValidatedCredentials,
@@ -61,10 +62,12 @@ export const App = (): ReactElement => {
   const [npcInteractions, setNPCInteractions] = useState<NPCInteractionsView>();
   const [stats, setStats] = useState<StatsView>();
   const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
+  const [inventoryView, setInventoryView] = useState<InventoryView>();
 
   useEffect(() => {
     if (api === undefined) return;
 
+    api.onInventoryUpdate = setInventoryView;
     api.onItemsUpdate = setItemsView;
     api.onNPCInteractionsUpdate = setNPCInteractions;
     api.onStatsUpdate = setStats;
@@ -97,6 +100,7 @@ export const App = (): ReactElement => {
     .map<ReactElement>((name) => (
       <PlayerPanel
         interacting={npcInteractions?.get(name)}
+        inventory={inventoryView?.get(name)}
         name={name}
         lastUpdated={lastUpdated?.get(name)}
         stats={stats?.get(name)}
