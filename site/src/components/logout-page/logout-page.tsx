@@ -2,9 +2,9 @@ import { Navigate } from "react-router-dom";
 import { wipeCredentials } from "../../data/api";
 import { useEffect, type ReactElement } from "react";
 
-export const LogoutPage = ({ callback }: { callback: () => void }): ReactElement => {
+export const LogoutPage = ({ callback }: { callback?: () => void }): ReactElement => {
   useEffect(() => {
-    callback();
+    callback?.();
     wipeCredentials();
   }, [callback]);
 

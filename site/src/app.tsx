@@ -5,7 +5,7 @@ import { SetupInstructions } from "./components/setup-instructions/setup-instruc
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
 import { Navigate } from "react-router-dom";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
@@ -16,6 +16,7 @@ import Api, {
   type ItemsView,
   type LastUpdatedView,
   loadValidatedCredentials,
+  type MemberName,
   type NPCInteractionsView,
   type SkillsView,
   type StatsView,
@@ -55,10 +56,21 @@ const useItemData = (): { itemData?: ItemData } => {
   return { itemData: data };
 };
 
-export const App = (): ReactElement => {
+interface APIConnectionWithDataViews {
+  close: () => void;
+  itemsView: ItemsView;
+  gePrices: GEPrices;
+  npcInteractions: NPCInteractionsView;
+  stats: StatsView;
+  lastUpdated: LastUpdatedView;
+  inventoryView: InventoryView;
+  equipmentView: EquipmentView;
+  skills: SkillsView;
+  knownMembers: MemberName[];
+}
+const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
-  const { itemData } = useItemData();
   const [itemsView, setItemsView] = useState<ItemsView>();
   const [gePrices, setGEPrices] = useState<GEPrices>();
   const [npcInteractions, setNPCInteractions] = useState<NPCInteractionsView>();
@@ -67,6 +79,8 @@ export const App = (): ReactElement => {
   const [inventoryView, setInventoryView] = useState<InventoryView>();
   const [equipmentView, setEquipmentView] = useState<EquipmentView>();
   const [skills, setSkills] = useState<SkillsView>();
+
+  const knownMembers = api?.getKnownMembers();
 
   useEffect(() => {
     if (api === undefined) return;
@@ -102,10 +116,43 @@ export const App = (): ReactElement => {
 
     setApi(new Api(credentials));
   }, [location, api]);
+  const close = useCallback(() => {
+    setApi(undefined);
+  }, [setApi]);
 
-  const panels = api
-    ?.getKnownMembers()
-    .filter((name) => name !== "@SHARED")
+  return {
+    close,
+    itemsView,
+    gePrices,
+    npcInteractions,
+    stats,
+    lastUpdated,
+    inventoryView,
+    equipmentView,
+    skills,
+    knownMembers,
+  };
+};
+
+export const App = (): ReactElement => {
+  const location = useLocation();
+  const { itemData } = useItemData();
+
+  const {
+    close: closeAPI,
+    itemsView,
+    gePrices,
+    npcInteractions,
+    stats,
+    lastUpdated,
+    inventoryView,
+    equipmentView,
+    skills,
+    knownMembers,
+  } = useAPI();
+
+  const panels = knownMembers
+    ?.filter((name) => name !== "@SHARED")
     .map<ReactElement>((name) => (
       <PlayerPanel
         interacting={npcInteractions?.get(name)}
@@ -151,19 +198,14 @@ export const App = (): ReactElement => {
             </UnauthedLayout>
           }
         />
-        <Route path="/logout" element={<LogoutPage callback={() => setApi(undefined)} />} />
+        <Route path="/logout" element={<LogoutPage callback={closeAPI} />} />
         <Route path="/group">
           <Route index element={<Navigate to="items" replace />} />
           <Route
             path="items"
             element={
               <AuthedLayout panels={panels}>
-                <ItemsPage
-                  memberNames={api?.getKnownMembers()}
-                  items={itemsView}
-                  itemData={itemData}
-                  gePrices={gePrices}
-                />
+                <ItemsPage memberNames={knownMembers} items={itemsView} itemData={itemData} gePrices={gePrices} />
               </AuthedLayout>
             }
           />
