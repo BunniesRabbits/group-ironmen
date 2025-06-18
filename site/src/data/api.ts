@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { type Distinct } from "../util";
 import { fetchItemDataJSON, type ItemData } from "./item-data";
-import { fetchQuestDataJSON, type QuestData } from "./quest-data";
+import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
 
 /*
  * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
@@ -278,7 +278,7 @@ const QuestsFromBackend = z
   .refine((progress) => progress === 0 || progress === 1 || progress === 2)
   .transform((progress) => QuestStatus[progress])
   .array();
-export type Quests = z.infer<typeof QuestsFromBackend>;
+export type Quests = Map<QuestID, QuestStatus>;
 
 export interface MemberData {
   bank: MemberItems;
@@ -478,9 +478,20 @@ export default class Api {
         updatedSkills = true;
       }
 
-      if (quests !== undefined) {
-        memberData.quests = structuredClone(quests);
-        updatedQuests = true;
+      if (quests !== undefined && this.questData !== undefined) {
+        if (this.questData.size !== quests.length) {
+          console.warn(
+            "Quest data and quest progress have mismatched length. This indicates the network sent bad data, or the quest_data.json is out of date.",
+          );
+        } else {
+          const questsByID = new Map();
+          // Resolve the IDs for the flattened quest progress sent by the backend
+          this.questData.entries().forEach(([id, _], index) => {
+            questsByID.set(id, quests[index]);
+          });
+          memberData.quests = questsByID;
+          updatedQuests = true;
+        }
       }
     }
 

@@ -1,7 +1,9 @@
 import { z } from "zod/v4";
+import type { Distinct } from "../util";
 
 const QuestDifficulty = ["Novice", "Intermediate", "Experienced", "Master", "Grandmaster", "Special"] as const;
 export type QuestDifficulty = (typeof QuestDifficulty)[number];
+export type QuestID = Distinct<number, "QuestID">;
 
 const QuestDataEntry = z.object({
   name: z.string(),
@@ -35,7 +37,9 @@ const QuestData = z
     QuestDataEntry,
   )
   .transform((record) =>
-    Object.entries(record).map(([id, quest]) => [Number.parseInt(id), quest] satisfies [number, QuestEntry]),
+    Object.entries(record).map(
+      ([id, quest]) => [Number.parseInt(id) as QuestID, quest] satisfies [QuestID, QuestEntry],
+    ),
   )
   .transform((entries) => entries.sort(([idA], [idB]) => idA - idB))
   .transform((entriesWithNumberAsKey) => new Map(entriesWithNumberAsKey));
