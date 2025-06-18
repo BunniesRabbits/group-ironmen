@@ -183,6 +183,39 @@ const NPCInteractionFromBackend = z
   }));
 export type NPCInteraction = z.infer<typeof NPCInteractionFromBackend>;
 
+export const SkillsInBackendOrder = [
+  "Agility",
+  "Attack",
+  "Construction",
+  "Cooking",
+  "Crafting",
+  "Defence",
+  "Farming",
+  "Firemaking",
+  "Fishing",
+  "Fletching",
+  "Herblore",
+  "Hitpoints",
+  "Hunter",
+  "Magic",
+  "Mining",
+  "Prayer",
+  "Ranged",
+  "Runecraft",
+  "Slayer",
+  "Smithing",
+  "Strength",
+  "Thieving",
+  "Woodcutting",
+] as const;
+export type Skill = (typeof SkillsInBackendOrder)[number];
+
+const SkillsFromBackend = z
+  .array(z.uint32())
+  .length(SkillsInBackendOrder.length)
+  .transform((xpFlat) => new Map(xpFlat.map((xp, index) => [SkillsInBackendOrder[index], xp])));
+export type Skills = z.infer<typeof SkillsFromBackend>;
+
 export interface MemberData {
   bank: MemberItems;
   equipment: MemberItems;
@@ -192,6 +225,7 @@ export interface MemberData {
   interacting?: NPCInteraction;
   stats?: Stats;
   lastUpdated: Date;
+  skills?: Skills;
 }
 
 export type InventoryView = Map<MemberName, Inventory>;
@@ -199,6 +233,7 @@ export type ItemsView = Map<ItemID, Map<MemberName, number>>;
 export type NPCInteractionsView = Map<MemberName, NPCInteraction>;
 export type StatsView = Map<MemberName, Stats>;
 export type LastUpdatedView = Map<MemberName, Date>;
+export type SkillsView = Map<MemberName, Skills>;
 
 const MemberDataUpdate = z.object({
   /**
@@ -242,6 +277,10 @@ const MemberDataUpdate = z.object({
    * Stats of the player, including the last known world they were on.
    */
   stats: StatsFromBackend.optional(),
+  /**
+   * Skills of the player, given in XP amount.
+   */
+  skills: SkillsFromBackend.optional(),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -271,6 +310,7 @@ export default class Api {
     let updatedNPCInteractions = false;
     let updatedStats = false;
     let updatedLastUpdated = false;
+    let updatedSkills = false;
 
     this.knownMembers = [];
 
@@ -288,6 +328,7 @@ export default class Api {
       interacting,
       stats,
       last_updated,
+      skills,
     } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
@@ -340,6 +381,11 @@ export default class Api {
       if (last_updated !== undefined) {
         memberData.lastUpdated = structuredClone(last_updated);
         updatedLastUpdated = true;
+      }
+
+      if (skills !== undefined) {
+        memberData.skills = structuredClone(skills);
+        updatedSkills = true;
       }
     }
 
@@ -404,8 +450,18 @@ export default class Api {
       });
       this.onLastUpdatedUpdate?.(lastUpdatedView);
     }
+
+    if (updatedSkills) {
+      const skillsView: SkillsView = new Map();
+      this.groupData.forEach(({ skills }, name) => {
+        if (skills === undefined) return;
+        skillsView.set(name, skills);
+      });
+      this.onSkillsUpdate?.(skillsView);
+    }
   }
 
+  public onSkillsUpdate?: (skills: SkillsView) => void;
   public onInventoryUpdate?: (inventory: InventoryView) => void;
   public onItemsUpdate?: (items: ItemsView) => void;
   public onNPCInteractionsUpdate?: (interactions: NPCInteractionsView) => void;

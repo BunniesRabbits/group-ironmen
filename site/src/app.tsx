@@ -16,6 +16,7 @@ import Api, {
   type LastUpdatedView,
   loadValidatedCredentials,
   type NPCInteractionsView,
+  type SkillsView,
   type StatsView,
 } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
@@ -63,6 +64,7 @@ export const App = (): ReactElement => {
   const [stats, setStats] = useState<StatsView>();
   const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
   const [inventoryView, setInventoryView] = useState<InventoryView>();
+  const [skills, setSkills] = useState<SkillsView>();
 
   useEffect(() => {
     if (api === undefined) return;
@@ -72,6 +74,7 @@ export const App = (): ReactElement => {
     api.onNPCInteractionsUpdate = setNPCInteractions;
     api.onStatsUpdate = setStats;
     api.onLastUpdatedUpdate = setLastUpdated;
+    api.onSkillsUpdate = setSkills;
     api.queueGetGroupData();
     api
       .fetchGEPrices()
@@ -82,6 +85,7 @@ export const App = (): ReactElement => {
       api.onNPCInteractionsUpdate = undefined;
       api.onStatsUpdate = undefined;
       api.onLastUpdatedUpdate = undefined;
+      api.onSkillsUpdate = undefined;
       api.close();
     };
   }, [api, setItemsView]);
@@ -103,6 +107,7 @@ export const App = (): ReactElement => {
         inventory={inventoryView?.get(name)}
         name={name}
         lastUpdated={lastUpdated?.get(name)}
+        skills={skills?.get(name)}
         stats={stats?.get(name)}
         key={name}
       />
