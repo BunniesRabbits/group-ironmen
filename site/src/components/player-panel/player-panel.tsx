@@ -186,7 +186,7 @@ const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement => {
   return (
     <div className="player-inventory">
       <div className="player-inventory-background">
-        {(items ?? Array(28).fill(undefined)).map((item) => {
+        {(items ?? Array<undefined>(28).fill(undefined)).map((item) => {
           if (item === undefined) return <span />;
           return <img alt="osrs item" className="player-inventory-item-box" src={`/icons/items/${item.itemID}.webp`} />;
         })}
