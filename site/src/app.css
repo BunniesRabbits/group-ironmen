@@ -15,6 +15,27 @@
   --rsbackground-dark: url("/ui/297-0-dark.png");
 }
 
+/* 
+ * This gets rid of default button styling which can be very helpful when you
+ * wish to make a random element a button instead but you aren't ready for all
+ * the default styling. 
+ *
+ * This selection of properties is probably not exhaustive (I haven't checked),
+ * but it covers our usage. 
+ */
+button {
+  cursor: pointer;
+  background-color: unset;
+  border: unset;
+  color: unset;
+  padding: unset;
+  text-align: unset;
+  text-decoration: unset;
+  display: unset;
+  font-size: unset;
+  font-family: rssmall, ui-sans-serif, Arial, sans-serif;
+}
+
 html,
 body {
   width: 100%;

@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from "react";
 
 import "./player-panel.css";
-import type { Diaries, Equipment, Inventory, NPCInteraction, Quests, Skills, Stats } from "../../data/api";
+import type { Diaries, Equipment, Inventory, MemberName, NPCInteraction, Quests, Skills, Stats } from "../../data/api";
 import { PlayerSkills } from "./player-skills";
 import { PlayerInventory } from "./player-inventory";
 import { PlayerEquipment } from "./player-equipment";
@@ -9,13 +9,14 @@ import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
 import type { QuestData } from "../../data/quest-data";
 import { PlayerDiaries } from "./player-diaries";
+import type { DiaryData } from "../../data/diary-data";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
 type PlayerPanelSubcategory = (typeof PlayerPanelSubcategories)[number];
 
 export const PlayerPanel = ({
-  name,
+  player,
   stats,
   lastUpdated,
   interacting,
@@ -25,8 +26,9 @@ export const PlayerPanel = ({
   quests,
   diaries,
   questData,
+  diaryData,
 }: {
-  name: string;
+  player: MemberName;
   stats?: Stats;
   lastUpdated?: Date;
   interacting?: NPCInteraction;
@@ -36,6 +38,7 @@ export const PlayerPanel = ({
   quests?: Quests;
   diaries?: Diaries;
   questData?: QuestData;
+  diaryData?: DiaryData;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
 
@@ -116,13 +119,13 @@ export const PlayerPanel = ({
       content = <PlayerQuests quests={quests} questData={questData} />;
       break;
     case "Diaries":
-      content = <PlayerDiaries diaries={diaries} />;
+      content = <PlayerDiaries diaryData={diaryData} player={player} diaries={diaries} />;
       break;
   }
 
   return (
     <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
-      <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={name} stats={stats} />
+      <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={player} stats={stats} />
       <div className="player-panel-minibar">{buttons}</div>
       <div className="player-panel-content">{content}</div>
     </div>

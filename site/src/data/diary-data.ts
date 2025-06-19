@@ -31,7 +31,22 @@ const DiaryEntry = z.object({
 });
 export type DiaryEntry = z.infer<typeof DiaryEntry>;
 
-const DiaryData = z.record(z.enum(DiaryRegion), z.record(z.enum(DiaryTier), DiaryEntry.array()));
+const DiaryTasksByTier = z
+  .record(z.enum(DiaryTier), DiaryEntry.array())
+  .transform((record) =>
+    Object.entries(record).map(([tier, tasks]) => [tier as DiaryTier, tasks] as [DiaryTier, DiaryEntry[]]),
+  )
+  .transform((entries) => new Map(entries));
+type DiaryTasksByTier = z.infer<typeof DiaryTasksByTier>;
+
+const DiaryData = z
+  .record(z.enum(DiaryRegion), DiaryTasksByTier)
+  .transform((record) =>
+    Object.entries(record).map(
+      ([region, tasksByTier]) => [region as DiaryRegion, tasksByTier] satisfies [DiaryRegion, DiaryTasksByTier],
+    ),
+  )
+  .transform((entries) => new Map(entries));
 export type DiaryData = z.infer<typeof DiaryData>;
 
 export const fetchDiaryDataJSON = (): Promise<DiaryData> =>

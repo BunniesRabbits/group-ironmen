@@ -149,6 +149,7 @@ export const App = (): ReactElement => {
     diaries,
     knownMembers,
     questData,
+    diaryData,
     itemData,
   } = useAPI();
 
@@ -163,7 +164,8 @@ export const App = (): ReactElement => {
         quests={quests?.get(name)}
         diaries={diaries?.get(name)}
         questData={questData}
-        name={name}
+        diaryData={diaryData}
+        player={name}
         lastUpdated={lastUpdated?.get(name)}
         stats={stats?.get(name)}
         key={name}

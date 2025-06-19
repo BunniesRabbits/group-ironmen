@@ -21,12 +21,12 @@
 .diary-completion {
   display: block;
   color: yellow;
-  cursor: pointer;
   padding: 4px;
 }
 
-.diary-completion:hover {
+.diary-completion.clickable:hover {
   background: rgb(0 0 0 / 15%);
+  cursor: pointer;
 }
 
 .diary-completion-top {
@@ -47,4 +47,84 @@
 
 .diary-completion-bottom .stat-bar + .stat-bar {
   border-left: none;
+}
+
+.dialog-container {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  max-height: 90vh;
+  width: 800px;
+  min-width: 70vh;
+  cursor: auto;
+}
+
+.dialog-container h2 {
+  color: var(--orange);
+}
+
+.diary-dialog-scroll-container {
+  overflow-y: scroll;
+}
+
+.diary-dialog-section {
+  text-align: center;
+}
+
+.diary-dialog-task-complete,
+.diary-dialog-requirement-met {
+  text-decoration: underline;
+  text-underline-offset: -40%;
+  text-decoration-skip-ink: none;
+  color: rgb(255 255 255 / 60%) !important;
+}
+
+.diary-dialog-task {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.diary-dialog-task:hover {
+  background: rgb(0 0 0 / 15%);
+}
+
+.diary-dialog-requirements span {
+  color: var(--invalid);
+}
+
+.diary-dialog-requirements img {
+  height: 16px;
+}
+
+.diary-dialog-requirement-met img {
+  opacity: 0.5;
+}
+
+.diary-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.dialog-close:hover {
+  filter: brightness(1.3);
+}
+
+.diary-dialog-tier-complete,
+.diary-dialog-diary-complete .diary-dialog-header {
+  background: rgb(0 200 0 / 10%);
+}
+
+.diary-dialog-section h2 {
+  text-decoration: underline;
+}
+
+.diary-dialog-tier-complete h2,
+.diary-dialog-diary-complete .diary-dialog-header h2 {
+  color: rgb(0 200 0);
 }

@@ -1,9 +1,82 @@
-import type { ReactElement } from "react";
+import { type ReactElement } from "react";
 import { StatBar } from "./stat-bar";
-import type { Diaries } from "../../data/api";
-import { DiaryRegion, DiaryTier } from "../../data/diary-data";
+import type { Diaries, MemberName } from "../../data/api";
+import { DiaryRegion, DiaryTier, type DiaryData, type DiaryEntry } from "../../data/diary-data";
 
 import "./player-diaries.css";
+import { useModal } from "../modal";
+
+const DiaryFull = ({
+  region,
+  player,
+  tasks,
+  onCloseModal,
+}: {
+  region: DiaryRegion;
+  player: MemberName;
+  tasks?: Map<DiaryTier, DiaryEntry[]>;
+  onCloseModal: () => void;
+}): ReactElement => {
+  const entries = DiaryTier.map(
+    (tier) =>
+      [
+        tier,
+        tasks?.get(tier)?.map(({ task, requirements }) => {
+          let requirementsElements = undefined;
+          if (requirements !== undefined) {
+            const skills = Object.entries(requirements.skills ?? {}).map(([skill, level]) => `${skill}:${level}`);
+            const quests = requirements.quests?.map((quest) => quest);
+            requirementsElements = (
+              <div className="diary-dialog-requirements">
+                {"("}
+                {skills}
+                {quests}
+                {")"}
+              </div>
+            );
+          }
+          return (
+            <div className="diary-dialog-section rsborder-tiny">
+              {task}
+              {requirementsElements}
+            </div>
+          );
+        }),
+      ] as [DiaryTier, ReactElement[]],
+  );
+  const elementsByTier = new Map(entries);
+
+  return (
+    <div className="dialog-container rsborder rsbackground">
+      <div className="diary-dialog-header rsborder-tiny">
+        <h2 className="diary-dialog-title">
+          Achievement Diary - {region} - {player}
+        </h2>
+        <button className="dialog-close" onClick={onCloseModal}>
+          <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />
+        </button>
+      </div>
+      <div className="diary-dialog-scroll-container">
+        <div className="diary-dialog-section rsborder-tiny" diary-tier="Easy">
+          <h2>Easy</h2>
+          {elementsByTier.get("Easy")}
+        </div>
+        <div className="diary-dialog-section rsborder-tiny" diary-tier="Medium">
+          <h2>Medium</h2>
+          {elementsByTier.get("Medium")}
+        </div>
+        <div className="diary-dialog-section rsborder-tiny" diary-tier="Hard">
+          <h2>Hard</h2>
+          {elementsByTier.get("Hard")}
+        </div>
+        <div className="diary-dialog-section rsborder-tiny" diary-tier="Elite">
+          <h2>Elite</h2>
+          {elementsByTier.get("Elite")}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const countTrue = (flags: boolean[]): number =>
   flags.reduce((count, flag) => {
@@ -22,7 +95,22 @@ const getDiaryProgressRatio = (flags?: boolean[]): number => {
   return complete / total;
 };
 
-const DiaryCompletion = ({ name, progress }: { name: string; progress: Map<DiaryTier, boolean[]> }): ReactElement => {
+const DiaryCompletion = ({
+  player,
+  region,
+  progress,
+  tasks,
+}: {
+  player: MemberName;
+  region: DiaryRegion;
+  progress: Map<DiaryTier, boolean[]>;
+  tasks?: Map<DiaryTier, DiaryEntry[]>;
+}): ReactElement => {
+  const { open: openModal, modal } = useModal({
+    Children: DiaryFull,
+    otherProps: { region, tasks, player },
+  });
+
   let total = 0;
   let complete = 0;
   progress.forEach((flags) => {
@@ -31,27 +119,44 @@ const DiaryCompletion = ({ name, progress }: { name: string; progress: Map<Diary
   });
 
   return (
-    <div className="rsborder-tiny diary-completion">
-      <div className="diary-completion-top">
-        <span>{name}</span>
-        <span>
-          {total}/{complete}
-        </span>
-      </div>
-      <div className="diary-completion-bottom">
-        {DiaryTier.map((tier) => {
-          const ratio = getDiaryProgressRatio(progress.get(tier));
-          // With CSS's HSL color model, 0-107 is a gradient from red, orange, yellow, then green.
-          // So we can multiply the hue to get the effect of more complete diaries becoming redder.
-          const hue = 107 * ratio;
-          return <StatBar key={tier} color={`hsl(${hue}, 100%, 41%)`} bgColor="rgba(0, 0, 0, 0.5)" ratio={ratio} />;
-        })}
-      </div>
-    </div>
+    <>
+      <button
+        className={`rsborder-tiny diary-completion ${tasks !== undefined ? "clickable" : ""}`}
+        onClick={openModal}
+      >
+        <div className="diary-completion-top">
+          <span>{region}</span>
+          <span>
+            {total}/{complete}
+          </span>
+        </div>
+        <div className="diary-completion-bottom">
+          {DiaryTier.map((tier) => {
+            const ratio = getDiaryProgressRatio(progress.get(tier));
+            /*
+             * With CSS's HSL color model, 0-107 is a gradient from red, orange,
+             * yellow, then green. So we can multiply the hue to get the effect of
+             * more complete diaries becoming redder.
+             */
+            const hue = 107 * ratio;
+            return <StatBar key={tier} color={`hsl(${hue}, 100%, 41%)`} bgColor="rgba(0, 0, 0, 0.5)" ratio={ratio} />;
+          })}
+        </div>
+      </button>
+      {modal}
+    </>
   );
 };
 
-export const PlayerDiaries = ({ diaries }: { diaries?: Diaries }): ReactElement => {
+export const PlayerDiaries = ({
+  player,
+  diaries,
+  diaryData,
+}: {
+  player: MemberName;
+  diaries?: Diaries;
+  diaryData?: DiaryData;
+}): ReactElement => {
   if (diaries === undefined) return <></>;
 
   return (
@@ -61,7 +166,15 @@ export const PlayerDiaries = ({ diaries }: { diaries?: Diaries }): ReactElement 
         {DiaryRegion.map((region) => {
           const progress = diaries.get(region);
           if (progress === undefined) return undefined;
-          return <DiaryCompletion key={region} name={region} progress={progress} />;
+          return (
+            <DiaryCompletion
+              tasks={diaryData?.get(region)}
+              player={player}
+              key={region}
+              region={region}
+              progress={progress}
+            />
+          );
         })}
       </div>
     </div>
