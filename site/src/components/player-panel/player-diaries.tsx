@@ -14,7 +14,10 @@ const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement =
     const skillElements = skills.map(({ skill, required, current }) => {
       const complete = current >= required;
       return (
-        <span className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}>
+        <span
+          key={`${skill} ${required} ${current}`}
+          className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}
+        >
           {` ${current} / ${required} `}
           <img alt={skill} src={SkillIconsBySkill.get(skill)?.href ?? ""} />
         </span>
@@ -22,23 +25,27 @@ const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement =
     });
 
     const questElements = quests.map(({ name, complete }) => (
-      <span className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}>{name}</span>
+      <span
+        key={`${name} ${complete}`}
+        className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}
+      >
+        {name}
+      </span>
     ));
     const allRequirements = [...skillElements, ...questElements];
-    let withSeparators: ReactNode[] = allRequirements.map((element, index) => {
-      if (index < allRequirements.length - 1)
-        return (
-          <>
-            {element}
-            {","}
-          </>
-        );
-      return element;
+    let withSeparators: ReactNode[] = allRequirements.flatMap((element, index) => {
+      if (index < allRequirements.length - 1) {
+        return [element, ","];
+      }
+      return [element];
     });
     if (withSeparators.length > 0) withSeparators = [" (", ...allRequirements, ")"];
 
     return (
-      <div className={`diary-dialog-task ${complete ? "diary-dialog-task-complete" : ""}`}>
+      <div
+        key={`${complete} ${description} ${quests.length} ${skills.length}`}
+        className={`diary-dialog-task ${complete ? "diary-dialog-task-complete" : ""}`}
+      >
         {description}
         {withSeparators}
       </div>
