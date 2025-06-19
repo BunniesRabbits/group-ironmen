@@ -267,8 +267,8 @@ const SkillsFromBackend = z
   .transform((xpFlat) => new Map(xpFlat.map((xp, index) => [SkillsInBackendOrder[index], xp])));
 export type Skills = z.infer<typeof SkillsFromBackend>;
 
-const QuestStatus = ["NOT_STARTED", "IN_PROGRESS", "FINISHED"] as const;
-export type QuestStatus = (typeof QuestStatus)[number];
+const QuestStatusInBackendOrder = ["IN_PROGRESS", "NOT_STARTED", "FINISHED"] as const;
+export type QuestStatus = (typeof QuestStatusInBackendOrder)[number];
 
 /**
  * Quests are sent by the backend without IDs. They are sorted by ascending ID order.
@@ -277,7 +277,7 @@ export type QuestStatus = (typeof QuestStatus)[number];
 const QuestsFromBackend = z
   .uint32()
   .refine((progress) => progress === 0 || progress === 1 || progress === 2)
-  .transform((progress) => QuestStatus[progress])
+  .transform((progress) => QuestStatusInBackendOrder[progress])
   .array();
 export type Quests = Map<QuestID, QuestStatus>;
 
