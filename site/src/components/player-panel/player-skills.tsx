@@ -1,7 +1,8 @@
 import { type ReactElement } from "react";
-import type { Skill, Skills } from "../../data/api";
+import type { Skills } from "../../data/api";
 
 import "./player-skills.css";
+import type { Skill } from "../../data/skill";
 
 const levelLookup = new Map<number, number>();
 {

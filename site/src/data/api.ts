@@ -2,6 +2,8 @@ import { z } from "zod/v4";
 import { type Distinct } from "../util";
 import { fetchItemDataJSON, type ItemData } from "./item-data";
 import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
+import { type Skill } from "./skill";
+import { type DiaryRegion, fetchDiaryDataJSON, type DiaryData, type DiaryTier } from "./diary-data";
 
 /*
  * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
@@ -128,6 +130,7 @@ const EquipmentFromBackend = z
       return equipment;
     }, new Map());
   });
+export type Equipment = z.infer<typeof EquipmentFromBackend>;
 
 const GEPricesFromBackend = z
   .record(
@@ -233,7 +236,7 @@ const NPCInteractionFromBackend = z
   }));
 export type NPCInteraction = z.infer<typeof NPCInteractionFromBackend>;
 
-export const SkillsInBackendOrder = [
+const SkillsInBackendOrder: Skill[] = [
   "Agility",
   "Attack",
   "Construction",
@@ -257,9 +260,7 @@ export const SkillsInBackendOrder = [
   "Strength",
   "Thieving",
   "Woodcutting",
-] as const;
-export type Skill = (typeof SkillsInBackendOrder)[number];
-
+];
 const SkillsFromBackend = z
   .array(z.uint32())
   .length(SkillsInBackendOrder.length)
@@ -291,9 +292,641 @@ export interface MemberData {
   lastUpdated: Date;
   skills?: Skills;
   quests?: Quests;
+  diaries?: Diaries;
 }
 
-export type Equipment = z.infer<typeof EquipmentFromBackend>;
+const isBitSet = (value: number, offset: number): boolean => {
+  return (value & (1 << offset)) !== 0;
+};
+/**
+ * The diaries are stored in a series of 32-bit bitmasks, where different regions/tiers bleed together.
+ * I don't think there's an easy way around this, besides storing things differently in the backend.
+ * It is unfortunate that we have to hardcode this. For now, the backend sends the data as the raw varbits/varps that OSRS uses.
+ */
+const DiariesFromBackend = z
+  .int32()
+  .array()
+  .transform((diaryVars) => {
+    const result = new Map<DiaryRegion, Map<DiaryTier, boolean[]>>();
+
+    const ardougne = new Map<DiaryTier, boolean[]>();
+    const desert = new Map<DiaryTier, boolean[]>();
+    const falador = new Map<DiaryTier, boolean[]>();
+    const fremennik = new Map<DiaryTier, boolean[]>();
+    const kandarin = new Map<DiaryTier, boolean[]>();
+    const karamja = new Map<DiaryTier, boolean[]>();
+    const kourendKebos = new Map<DiaryTier, boolean[]>();
+    const lumbridgeDraynor = new Map<DiaryTier, boolean[]>();
+    const morytania = new Map<DiaryTier, boolean[]>();
+    const varrock = new Map<DiaryTier, boolean[]>();
+    const westernProvinces = new Map<DiaryTier, boolean[]>();
+    const wilderness = new Map<DiaryTier, boolean[]>();
+    result.set("Ardougne", ardougne);
+    result.set("Desert", desert);
+    result.set("Falador", falador);
+    result.set("Fremennik", fremennik);
+    result.set("Kandarin", kandarin);
+    result.set("Karamja", karamja);
+    result.set("Kourend & Kebos", kourendKebos);
+    result.set("Lumbridge & Draynor", lumbridgeDraynor);
+    result.set("Morytania", morytania);
+    result.set("Varrock", varrock);
+    result.set("Western Provinces", westernProvinces);
+    result.set("Wilderness", wilderness);
+
+    // Thank you to the original creator for doing the hard part of this.
+    ardougne.set("Easy", [
+      isBitSet(diaryVars[0], 0),
+      isBitSet(diaryVars[0], 1),
+      isBitSet(diaryVars[0], 2),
+      isBitSet(diaryVars[0], 4),
+      isBitSet(diaryVars[0], 5),
+      isBitSet(diaryVars[0], 6),
+      isBitSet(diaryVars[0], 7),
+      isBitSet(diaryVars[0], 9),
+      isBitSet(diaryVars[0], 11),
+      isBitSet(diaryVars[0], 12),
+    ]);
+    ardougne.set("Medium", [
+      isBitSet(diaryVars[0], 13),
+      isBitSet(diaryVars[0], 14),
+      isBitSet(diaryVars[0], 15),
+      isBitSet(diaryVars[0], 16),
+      isBitSet(diaryVars[0], 17),
+      isBitSet(diaryVars[0], 18),
+      isBitSet(diaryVars[0], 19),
+      isBitSet(diaryVars[0], 20),
+      isBitSet(diaryVars[0], 21),
+      isBitSet(diaryVars[0], 23),
+      isBitSet(diaryVars[0], 24),
+      isBitSet(diaryVars[0], 25),
+    ]);
+    ardougne.set("Hard", [
+      isBitSet(diaryVars[0], 26),
+      isBitSet(diaryVars[0], 27),
+      isBitSet(diaryVars[0], 28),
+      isBitSet(diaryVars[0], 29),
+      isBitSet(diaryVars[0], 30),
+      isBitSet(diaryVars[0], 31),
+      isBitSet(diaryVars[1], 0),
+      isBitSet(diaryVars[1], 1),
+      isBitSet(diaryVars[1], 2),
+      isBitSet(diaryVars[1], 3),
+      isBitSet(diaryVars[1], 4),
+      isBitSet(diaryVars[1], 5),
+    ]);
+    ardougne.set("Elite", [
+      isBitSet(diaryVars[1], 6),
+      isBitSet(diaryVars[1], 7),
+      isBitSet(diaryVars[1], 9),
+      isBitSet(diaryVars[1], 8),
+      isBitSet(diaryVars[1], 10),
+      isBitSet(diaryVars[1], 11),
+      isBitSet(diaryVars[1], 12),
+      isBitSet(diaryVars[1], 13),
+    ]);
+    desert.set("Easy", [
+      isBitSet(diaryVars[2], 1),
+      isBitSet(diaryVars[2], 2),
+      isBitSet(diaryVars[2], 3),
+      isBitSet(diaryVars[2], 4),
+      isBitSet(diaryVars[2], 5),
+      isBitSet(diaryVars[2], 6),
+      isBitSet(diaryVars[2], 7),
+      isBitSet(diaryVars[2], 8),
+      isBitSet(diaryVars[2], 9),
+      isBitSet(diaryVars[2], 10),
+      isBitSet(diaryVars[2], 11),
+    ]);
+    desert.set("Medium", [
+      isBitSet(diaryVars[2], 12),
+      isBitSet(diaryVars[2], 13),
+      isBitSet(diaryVars[2], 14),
+      isBitSet(diaryVars[2], 15),
+      isBitSet(diaryVars[2], 16),
+      isBitSet(diaryVars[2], 17),
+      isBitSet(diaryVars[2], 18),
+      isBitSet(diaryVars[2], 19),
+      isBitSet(diaryVars[2], 20),
+      isBitSet(diaryVars[2], 21),
+      isBitSet(diaryVars[2], 22) || isBitSet(diaryVars[3], 9),
+      isBitSet(diaryVars[2], 23),
+    ]);
+    desert.set("Hard", [
+      isBitSet(diaryVars[2], 24),
+      isBitSet(diaryVars[2], 25),
+      isBitSet(diaryVars[2], 26),
+      isBitSet(diaryVars[2], 27),
+      isBitSet(diaryVars[2], 28),
+      isBitSet(diaryVars[2], 29),
+      isBitSet(diaryVars[2], 30),
+      isBitSet(diaryVars[2], 31),
+      isBitSet(diaryVars[3], 0),
+      isBitSet(diaryVars[3], 1),
+    ]);
+    desert.set("Elite", [
+      isBitSet(diaryVars[3], 2),
+      isBitSet(diaryVars[3], 4),
+      isBitSet(diaryVars[3], 5),
+      isBitSet(diaryVars[3], 6),
+      isBitSet(diaryVars[3], 7),
+      isBitSet(diaryVars[3], 8),
+    ]);
+    falador.set("Easy", [
+      isBitSet(diaryVars[4], 0),
+      isBitSet(diaryVars[4], 1),
+      isBitSet(diaryVars[4], 2),
+      isBitSet(diaryVars[4], 3),
+      isBitSet(diaryVars[4], 4),
+      isBitSet(diaryVars[4], 5),
+      isBitSet(diaryVars[4], 6),
+      isBitSet(diaryVars[4], 7),
+      isBitSet(diaryVars[4], 8),
+      isBitSet(diaryVars[4], 9),
+      isBitSet(diaryVars[4], 10),
+    ]);
+    falador.set("Medium", [
+      isBitSet(diaryVars[4], 11),
+      isBitSet(diaryVars[4], 12),
+      isBitSet(diaryVars[4], 13),
+      isBitSet(diaryVars[4], 14),
+      isBitSet(diaryVars[4], 15),
+      isBitSet(diaryVars[4], 16),
+      isBitSet(diaryVars[4], 17),
+      isBitSet(diaryVars[4], 18),
+      isBitSet(diaryVars[4], 20),
+      isBitSet(diaryVars[4], 21),
+      isBitSet(diaryVars[4], 22),
+      isBitSet(diaryVars[4], 23),
+      isBitSet(diaryVars[4], 24),
+      isBitSet(diaryVars[4], 25),
+    ]);
+    falador.set("Hard", [
+      isBitSet(diaryVars[4], 26),
+      isBitSet(diaryVars[4], 27),
+      isBitSet(diaryVars[4], 28),
+      isBitSet(diaryVars[4], 29),
+      isBitSet(diaryVars[4], 30),
+      isBitSet(diaryVars[4], 31),
+      isBitSet(diaryVars[5], 0),
+      isBitSet(diaryVars[5], 1),
+      isBitSet(diaryVars[5], 2),
+      isBitSet(diaryVars[5], 3),
+      isBitSet(diaryVars[5], 4),
+    ]);
+    falador.set("Elite", [
+      isBitSet(diaryVars[5], 5),
+      isBitSet(diaryVars[5], 6),
+      isBitSet(diaryVars[5], 7),
+      isBitSet(diaryVars[5], 8),
+      isBitSet(diaryVars[5], 9),
+      isBitSet(diaryVars[5], 10),
+    ]);
+    fremennik.set("Easy", [
+      isBitSet(diaryVars[6], 1),
+      isBitSet(diaryVars[6], 2),
+      isBitSet(diaryVars[6], 3),
+      isBitSet(diaryVars[6], 4),
+      isBitSet(diaryVars[6], 5),
+      isBitSet(diaryVars[6], 6),
+      isBitSet(diaryVars[6], 7),
+      isBitSet(diaryVars[6], 8),
+      isBitSet(diaryVars[6], 9),
+      isBitSet(diaryVars[6], 10),
+    ]);
+    fremennik.set("Medium", [
+      isBitSet(diaryVars[6], 11),
+      isBitSet(diaryVars[6], 12),
+      isBitSet(diaryVars[6], 13),
+      isBitSet(diaryVars[6], 14),
+      isBitSet(diaryVars[6], 15),
+      isBitSet(diaryVars[6], 17),
+      isBitSet(diaryVars[6], 18),
+      isBitSet(diaryVars[6], 19),
+      isBitSet(diaryVars[6], 20),
+    ]);
+    fremennik.set("Hard", [
+      isBitSet(diaryVars[6], 21),
+      isBitSet(diaryVars[6], 23),
+      isBitSet(diaryVars[6], 24),
+      isBitSet(diaryVars[6], 25),
+      isBitSet(diaryVars[6], 26),
+      isBitSet(diaryVars[6], 27),
+      isBitSet(diaryVars[6], 28),
+      isBitSet(diaryVars[6], 29),
+      isBitSet(diaryVars[6], 30),
+    ]);
+    fremennik.set("Elite", [
+      isBitSet(diaryVars[6], 31),
+      isBitSet(diaryVars[7], 0),
+      isBitSet(diaryVars[7], 1),
+      isBitSet(diaryVars[7], 2),
+      isBitSet(diaryVars[7], 3),
+      isBitSet(diaryVars[7], 4),
+    ]);
+    kandarin.set("Easy", [
+      isBitSet(diaryVars[8], 1),
+      isBitSet(diaryVars[8], 2),
+      isBitSet(diaryVars[8], 3),
+      isBitSet(diaryVars[8], 4),
+      isBitSet(diaryVars[8], 5),
+      isBitSet(diaryVars[8], 6),
+      isBitSet(diaryVars[8], 7),
+      isBitSet(diaryVars[8], 8),
+      isBitSet(diaryVars[8], 9),
+      isBitSet(diaryVars[8], 10),
+      isBitSet(diaryVars[8], 11),
+    ]);
+    kandarin.set("Medium", [
+      isBitSet(diaryVars[8], 12),
+      isBitSet(diaryVars[8], 13),
+      isBitSet(diaryVars[8], 14),
+      isBitSet(diaryVars[8], 15),
+      isBitSet(diaryVars[8], 16),
+      isBitSet(diaryVars[8], 17),
+      isBitSet(diaryVars[8], 18),
+      isBitSet(diaryVars[8], 19),
+      isBitSet(diaryVars[8], 20),
+      isBitSet(diaryVars[8], 21),
+      isBitSet(diaryVars[8], 22),
+      isBitSet(diaryVars[8], 23),
+      isBitSet(diaryVars[8], 24),
+      isBitSet(diaryVars[8], 25),
+    ]);
+    kandarin.set("Hard", [
+      isBitSet(diaryVars[8], 26),
+      isBitSet(diaryVars[8], 27),
+      isBitSet(diaryVars[8], 28),
+      isBitSet(diaryVars[8], 29),
+      isBitSet(diaryVars[8], 30),
+      isBitSet(diaryVars[8], 31),
+      isBitSet(diaryVars[9], 0),
+      isBitSet(diaryVars[9], 1),
+      isBitSet(diaryVars[9], 2),
+      isBitSet(diaryVars[9], 3),
+      isBitSet(diaryVars[9], 4),
+    ]);
+    kandarin.set("Elite", [
+      isBitSet(diaryVars[9], 5),
+      isBitSet(diaryVars[9], 6),
+      isBitSet(diaryVars[9], 7),
+      isBitSet(diaryVars[9], 8),
+      isBitSet(diaryVars[9], 9),
+      isBitSet(diaryVars[9], 10),
+      isBitSet(diaryVars[9], 11),
+    ]);
+    karamja.set("Easy", [
+      diaryVars[23] === 5,
+      diaryVars[24] === 1,
+      diaryVars[25] === 1,
+      diaryVars[26] === 1,
+      diaryVars[27] === 1,
+      diaryVars[28] === 1,
+      diaryVars[29] === 1,
+      diaryVars[30] === 5,
+      diaryVars[31] === 1,
+      diaryVars[32] === 1,
+    ]);
+    karamja.set("Medium", [
+      diaryVars[33] === 1,
+      diaryVars[34] === 1,
+      diaryVars[35] === 1,
+      diaryVars[36] === 1,
+      diaryVars[37] === 1,
+      diaryVars[38] === 1,
+      diaryVars[39] === 1,
+      diaryVars[40] === 1,
+      diaryVars[41] === 1,
+      diaryVars[42] === 1,
+      diaryVars[43] === 1,
+      diaryVars[44] === 1,
+      diaryVars[45] === 1,
+      diaryVars[46] === 1,
+      diaryVars[47] === 1,
+      diaryVars[48] === 1,
+      diaryVars[49] === 1,
+      diaryVars[50] === 1,
+      diaryVars[51] === 1,
+    ]);
+    karamja.set("Hard", [
+      diaryVars[52] === 1,
+      diaryVars[53] === 1,
+      diaryVars[54] === 1,
+      diaryVars[55] === 1,
+      diaryVars[56] === 1,
+      diaryVars[57] === 1,
+      diaryVars[58] === 1,
+      diaryVars[59] === 5,
+      diaryVars[60] === 1,
+      diaryVars[61] === 1,
+    ]);
+    karamja.set("Elite", [
+      isBitSet(diaryVars[10], 1),
+      isBitSet(diaryVars[10], 2),
+      isBitSet(diaryVars[10], 3),
+      isBitSet(diaryVars[10], 4),
+      isBitSet(diaryVars[10], 5),
+    ]);
+    kourendKebos.set("Easy", [
+      isBitSet(diaryVars[11], 1),
+      isBitSet(diaryVars[11], 2),
+      isBitSet(diaryVars[11], 3),
+      isBitSet(diaryVars[11], 4),
+      isBitSet(diaryVars[11], 5),
+      isBitSet(diaryVars[11], 6),
+      isBitSet(diaryVars[11], 7),
+      isBitSet(diaryVars[11], 8),
+      isBitSet(diaryVars[11], 9),
+      isBitSet(diaryVars[11], 10),
+      isBitSet(diaryVars[11], 11),
+      isBitSet(diaryVars[11], 12),
+    ]);
+    kourendKebos.set("Medium", [
+      isBitSet(diaryVars[11], 25),
+      isBitSet(diaryVars[11], 13),
+      isBitSet(diaryVars[11], 14),
+      isBitSet(diaryVars[11], 15),
+      isBitSet(diaryVars[11], 21),
+      isBitSet(diaryVars[11], 16),
+      isBitSet(diaryVars[11], 17),
+      isBitSet(diaryVars[11], 18),
+      isBitSet(diaryVars[11], 19),
+      isBitSet(diaryVars[11], 22),
+      isBitSet(diaryVars[11], 20),
+      isBitSet(diaryVars[11], 23),
+      isBitSet(diaryVars[11], 24),
+    ]);
+    kourendKebos.set("Hard", [
+      isBitSet(diaryVars[11], 26),
+      isBitSet(diaryVars[11], 27),
+      isBitSet(diaryVars[11], 28),
+      isBitSet(diaryVars[11], 29),
+      isBitSet(diaryVars[11], 31),
+      isBitSet(diaryVars[11], 30),
+      isBitSet(diaryVars[12], 0),
+      isBitSet(diaryVars[12], 1),
+      isBitSet(diaryVars[12], 2),
+      isBitSet(diaryVars[12], 3),
+    ]);
+    kourendKebos.set("Elite", [
+      isBitSet(diaryVars[12], 4),
+      isBitSet(diaryVars[12], 5),
+      isBitSet(diaryVars[12], 6),
+      isBitSet(diaryVars[12], 7),
+      isBitSet(diaryVars[12], 8),
+      isBitSet(diaryVars[12], 9),
+      isBitSet(diaryVars[12], 10),
+      isBitSet(diaryVars[12], 11),
+    ]);
+    lumbridgeDraynor.set("Easy", [
+      isBitSet(diaryVars[13], 1),
+      isBitSet(diaryVars[13], 2),
+      isBitSet(diaryVars[13], 3),
+      isBitSet(diaryVars[13], 4),
+      isBitSet(diaryVars[13], 5),
+      isBitSet(diaryVars[13], 6),
+      isBitSet(diaryVars[13], 7),
+      isBitSet(diaryVars[13], 8),
+      isBitSet(diaryVars[13], 9),
+      isBitSet(diaryVars[13], 10),
+      isBitSet(diaryVars[13], 11),
+      isBitSet(diaryVars[13], 12),
+    ]);
+    lumbridgeDraynor.set("Medium", [
+      isBitSet(diaryVars[13], 13),
+      isBitSet(diaryVars[13], 14),
+      isBitSet(diaryVars[13], 15),
+      isBitSet(diaryVars[13], 16),
+      isBitSet(diaryVars[13], 17),
+      isBitSet(diaryVars[13], 18),
+      isBitSet(diaryVars[13], 19),
+      isBitSet(diaryVars[13], 20),
+      isBitSet(diaryVars[13], 21),
+      isBitSet(diaryVars[13], 22),
+      isBitSet(diaryVars[13], 23),
+      isBitSet(diaryVars[13], 24),
+    ]);
+    lumbridgeDraynor.set("Hard", [
+      isBitSet(diaryVars[13], 25),
+      isBitSet(diaryVars[13], 26),
+      isBitSet(diaryVars[13], 27),
+      isBitSet(diaryVars[13], 28),
+      isBitSet(diaryVars[13], 29),
+      isBitSet(diaryVars[13], 30),
+      isBitSet(diaryVars[13], 31),
+      isBitSet(diaryVars[14], 0),
+      isBitSet(diaryVars[14], 1),
+      isBitSet(diaryVars[14], 2),
+      isBitSet(diaryVars[14], 3),
+    ]);
+    lumbridgeDraynor.set("Elite", [
+      isBitSet(diaryVars[14], 4),
+      isBitSet(diaryVars[14], 5),
+      isBitSet(diaryVars[14], 6),
+      isBitSet(diaryVars[14], 7),
+      isBitSet(diaryVars[14], 8),
+      isBitSet(diaryVars[14], 9),
+    ]);
+    morytania.set("Easy", [
+      isBitSet(diaryVars[15], 1),
+      isBitSet(diaryVars[15], 2),
+      isBitSet(diaryVars[15], 3),
+      isBitSet(diaryVars[15], 4),
+      isBitSet(diaryVars[15], 5),
+      isBitSet(diaryVars[15], 6),
+      isBitSet(diaryVars[15], 7),
+      isBitSet(diaryVars[15], 8),
+      isBitSet(diaryVars[15], 9),
+      isBitSet(diaryVars[15], 10),
+      isBitSet(diaryVars[15], 11),
+    ]);
+    morytania.set("Medium", [
+      isBitSet(diaryVars[15], 12),
+      isBitSet(diaryVars[15], 13),
+      isBitSet(diaryVars[15], 14),
+      isBitSet(diaryVars[15], 15),
+      isBitSet(diaryVars[15], 16),
+      isBitSet(diaryVars[15], 17),
+      isBitSet(diaryVars[15], 18),
+      isBitSet(diaryVars[15], 19),
+      isBitSet(diaryVars[15], 20),
+      isBitSet(diaryVars[15], 21),
+      isBitSet(diaryVars[15], 22),
+    ]);
+    morytania.set("Hard", [
+      isBitSet(diaryVars[15], 23),
+      isBitSet(diaryVars[15], 24),
+      isBitSet(diaryVars[15], 25),
+      isBitSet(diaryVars[15], 26),
+      isBitSet(diaryVars[15], 27),
+      isBitSet(diaryVars[15], 28),
+      isBitSet(diaryVars[15], 29),
+      isBitSet(diaryVars[15], 30),
+      isBitSet(diaryVars[16], 1),
+      isBitSet(diaryVars[16], 2),
+    ]);
+    morytania.set("Elite", [
+      isBitSet(diaryVars[16], 3),
+      isBitSet(diaryVars[16], 4),
+      isBitSet(diaryVars[16], 5),
+      isBitSet(diaryVars[16], 6),
+      isBitSet(diaryVars[16], 7),
+      isBitSet(diaryVars[16], 8),
+    ]);
+    varrock.set("Easy", [
+      isBitSet(diaryVars[17], 1),
+      isBitSet(diaryVars[17], 2),
+      isBitSet(diaryVars[17], 3),
+      isBitSet(diaryVars[17], 4),
+      isBitSet(diaryVars[17], 5),
+      isBitSet(diaryVars[17], 6),
+      isBitSet(diaryVars[17], 7),
+      isBitSet(diaryVars[17], 8),
+      isBitSet(diaryVars[17], 9),
+      isBitSet(diaryVars[17], 10),
+      isBitSet(diaryVars[17], 11),
+      isBitSet(diaryVars[17], 12),
+      isBitSet(diaryVars[17], 13),
+      isBitSet(diaryVars[17], 14),
+    ]);
+    varrock.set("Medium", [
+      isBitSet(diaryVars[17], 15),
+      isBitSet(diaryVars[17], 16),
+      isBitSet(diaryVars[17], 18),
+      isBitSet(diaryVars[17], 19),
+      isBitSet(diaryVars[17], 20),
+      isBitSet(diaryVars[17], 21),
+      isBitSet(diaryVars[17], 22),
+      isBitSet(diaryVars[17], 23),
+      isBitSet(diaryVars[17], 24),
+      isBitSet(diaryVars[17], 25),
+      isBitSet(diaryVars[17], 26),
+      isBitSet(diaryVars[17], 27),
+      isBitSet(diaryVars[17], 28),
+    ]);
+    varrock.set("Hard", [
+      isBitSet(diaryVars[17], 29),
+      isBitSet(diaryVars[17], 30),
+      isBitSet(diaryVars[17], 31),
+      isBitSet(diaryVars[18], 0),
+      isBitSet(diaryVars[18], 1),
+      isBitSet(diaryVars[18], 2),
+      isBitSet(diaryVars[18], 3),
+      isBitSet(diaryVars[18], 4),
+      isBitSet(diaryVars[18], 5),
+      isBitSet(diaryVars[18], 6),
+    ]);
+    varrock.set("Elite", [
+      isBitSet(diaryVars[18], 7),
+      isBitSet(diaryVars[18], 8),
+      isBitSet(diaryVars[18], 9),
+      isBitSet(diaryVars[18], 10),
+      isBitSet(diaryVars[18], 11),
+    ]);
+    westernProvinces.set("Easy", [
+      isBitSet(diaryVars[19], 1),
+      isBitSet(diaryVars[19], 2),
+      isBitSet(diaryVars[19], 3),
+      isBitSet(diaryVars[19], 4),
+      isBitSet(diaryVars[19], 5),
+      isBitSet(diaryVars[19], 6),
+      isBitSet(diaryVars[19], 7),
+      isBitSet(diaryVars[19], 8),
+      isBitSet(diaryVars[19], 9),
+      isBitSet(diaryVars[19], 10),
+      isBitSet(diaryVars[19], 11),
+    ]);
+    westernProvinces.set("Medium", [
+      isBitSet(diaryVars[19], 12),
+      isBitSet(diaryVars[19], 13),
+      isBitSet(diaryVars[19], 14),
+      isBitSet(diaryVars[19], 15),
+      isBitSet(diaryVars[19], 16),
+      isBitSet(diaryVars[19], 17),
+      isBitSet(diaryVars[19], 18),
+      isBitSet(diaryVars[19], 19),
+      isBitSet(diaryVars[19], 20),
+      isBitSet(diaryVars[19], 21),
+      isBitSet(diaryVars[19], 22),
+      isBitSet(diaryVars[19], 23),
+      isBitSet(diaryVars[19], 24),
+    ]);
+    westernProvinces.set("Hard", [
+      isBitSet(diaryVars[19], 25),
+      isBitSet(diaryVars[19], 26),
+      isBitSet(diaryVars[19], 27),
+      isBitSet(diaryVars[19], 28),
+      isBitSet(diaryVars[19], 29),
+      isBitSet(diaryVars[19], 30),
+      isBitSet(diaryVars[19], 31),
+      isBitSet(diaryVars[20], 0),
+      isBitSet(diaryVars[20], 1),
+      isBitSet(diaryVars[20], 2),
+      isBitSet(diaryVars[20], 3),
+      isBitSet(diaryVars[20], 4),
+      isBitSet(diaryVars[20], 5),
+    ]);
+    westernProvinces.set("Elite", [
+      isBitSet(diaryVars[20], 6),
+      isBitSet(diaryVars[20], 7),
+      isBitSet(diaryVars[20], 8),
+      isBitSet(diaryVars[20], 9),
+      isBitSet(diaryVars[20], 12),
+      isBitSet(diaryVars[20], 13),
+      isBitSet(diaryVars[20], 14),
+    ]);
+    wilderness.set("Easy", [
+      isBitSet(diaryVars[21], 1),
+      isBitSet(diaryVars[21], 2),
+      isBitSet(diaryVars[21], 3),
+      isBitSet(diaryVars[21], 4),
+      isBitSet(diaryVars[21], 5),
+      isBitSet(diaryVars[21], 6),
+      isBitSet(diaryVars[21], 7),
+      isBitSet(diaryVars[21], 8),
+      isBitSet(diaryVars[21], 9),
+      isBitSet(diaryVars[21], 10),
+      isBitSet(diaryVars[21], 11),
+      isBitSet(diaryVars[21], 12),
+    ]);
+    wilderness.set("Medium", [
+      isBitSet(diaryVars[21], 13),
+      isBitSet(diaryVars[21], 14),
+      isBitSet(diaryVars[21], 15),
+      isBitSet(diaryVars[21], 16),
+      isBitSet(diaryVars[21], 18),
+      isBitSet(diaryVars[21], 19),
+      isBitSet(diaryVars[21], 20),
+      isBitSet(diaryVars[21], 21),
+      isBitSet(diaryVars[21], 22),
+      isBitSet(diaryVars[21], 23),
+      isBitSet(diaryVars[21], 24),
+    ]);
+    wilderness.set("Hard", [
+      isBitSet(diaryVars[21], 25),
+      isBitSet(diaryVars[21], 26),
+      isBitSet(diaryVars[21], 27),
+      isBitSet(diaryVars[21], 28),
+      isBitSet(diaryVars[21], 29),
+      isBitSet(diaryVars[21], 30),
+      isBitSet(diaryVars[21], 31),
+      isBitSet(diaryVars[22], 0),
+      isBitSet(diaryVars[22], 1),
+      isBitSet(diaryVars[22], 2),
+    ]);
+    wilderness.set("Elite", [
+      isBitSet(diaryVars[22], 3),
+      isBitSet(diaryVars[22], 5),
+      isBitSet(diaryVars[22], 7),
+      isBitSet(diaryVars[22], 8),
+      isBitSet(diaryVars[22], 9),
+      isBitSet(diaryVars[22], 10),
+      isBitSet(diaryVars[22], 11),
+    ]);
+
+    return result;
+  });
+export type Diaries = z.infer<typeof DiariesFromBackend>;
 
 export type InventoryView = Map<MemberName, Inventory>;
 export type EquipmentView = Map<MemberName, Equipment>;
@@ -303,6 +936,7 @@ export type StatsView = Map<MemberName, Stats>;
 export type LastUpdatedView = Map<MemberName, Date>;
 export type SkillsView = Map<MemberName, Skills>;
 export type QuestsView = Map<MemberName, Quests>;
+export type DiariesView = Map<MemberName, Diaries>;
 
 const MemberDataUpdate = z.object({
   /**
@@ -354,6 +988,10 @@ const MemberDataUpdate = z.object({
    * Quest progress/completion status per quest.
    */
   quests: QuestsFromBackend.optional(),
+  /**
+   * Achievement diary progression
+   */
+  diary_vars: DiariesFromBackend.optional(),
 });
 type MemberDataUpdate = z.infer<typeof MemberDataUpdate>;
 
@@ -369,8 +1007,10 @@ interface UpdateCallbacks {
   onStatsUpdate: (stats: StatsView) => void;
   onLastUpdatedUpdate: (lastUpdated: LastUpdatedView) => void;
   onQuestsUpdate: (quests: QuestsView) => void;
+  onDiariesUpdate: (diaries: DiariesView) => void;
   onItemDataUpdate: (itemData: ItemData) => void;
   onQuestDataUpdate: (questData: QuestData) => void;
+  onDiaryDataUpdate: (diaryData: DiaryData) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -382,6 +1022,7 @@ export default class Api {
   private knownMembers: MemberName[];
   private itemData?: ItemData;
   private questData?: QuestData;
+  private diaryData?: DiaryData;
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {
     return response.reduce<Date>((previousNewest, { last_updated }) => {
@@ -400,6 +1041,7 @@ export default class Api {
     let updatedLastUpdated = false;
     let updatedSkills = false;
     let updatedQuests = false;
+    let updatedDiaries = false;
 
     this.knownMembers = [];
 
@@ -419,6 +1061,7 @@ export default class Api {
       last_updated,
       skills,
       quests,
+      diary_vars,
     } of response) {
       if (!this.groupData.has(name))
         this.groupData.set(name, {
@@ -492,6 +1135,11 @@ export default class Api {
           memberData.quests = questsByID;
           updatedQuests = true;
         }
+      }
+
+      if (diary_vars !== undefined) {
+        memberData.diaries = new Map(diary_vars);
+        updatedDiaries = true;
       }
     }
 
@@ -587,6 +1235,15 @@ export default class Api {
       });
       this.callbacks?.onQuestsUpdate(questsView);
     }
+
+    if (updatedDiaries) {
+      const diariesView: DiariesView = new Map();
+      this.groupData.forEach(({ diaries }, name) => {
+        if (diaries === undefined) return;
+        diariesView.set(name, diaries);
+      });
+      this.callbacks?.onDiariesUpdate(diariesView);
+    }
   }
 
   private callbacks?: UpdateCallbacks;
@@ -615,6 +1272,14 @@ export default class Api {
           this.callbacks?.onItemDataUpdate(data);
         })
         .catch((reason) => console.error("Failed to get item data for API", reason));
+    }
+    if (this.diaryData === undefined) {
+      fetchDiaryDataJSON()
+        .then((data) => {
+          this.diaryData = data;
+          this.callbacks?.onDiaryDataUpdate(data);
+        })
+        .catch((reason) => console.error("Failed to get diary data for API", reason));
     }
   }
 

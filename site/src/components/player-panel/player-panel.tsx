@@ -1,13 +1,14 @@
 import { useState, type ReactElement } from "react";
 
 import "./player-panel.css";
-import type { Equipment, Inventory, NPCInteraction, Quests, Skills, Stats } from "../../data/api";
+import type { Diaries, Equipment, Inventory, NPCInteraction, Quests, Skills, Stats } from "../../data/api";
 import { PlayerSkills } from "./player-skills";
 import { PlayerInventory } from "./player-inventory";
 import { PlayerEquipment } from "./player-equipment";
 import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
 import type { QuestData } from "../../data/quest-data";
+import { PlayerDiaries } from "./player-diaries";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
@@ -22,6 +23,7 @@ export const PlayerPanel = ({
   equipment,
   skills,
   quests,
+  diaries,
   questData,
 }: {
   name: string;
@@ -32,6 +34,7 @@ export const PlayerPanel = ({
   equipment?: Equipment;
   skills?: Skills;
   quests?: Quests;
+  diaries?: Diaries;
   questData?: QuestData;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
@@ -111,6 +114,9 @@ export const PlayerPanel = ({
       break;
     case "Quests":
       content = <PlayerQuests quests={quests} questData={questData} />;
+      break;
+    case "Diaries":
+      content = <PlayerDiaries diaries={diaries} />;
       break;
   }
 

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState, type ReactElement } from "react";
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, {
+  type DiariesView,
   type EquipmentView,
   type GEPrices,
   type InventoryView,
@@ -26,6 +27,7 @@ import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { type ItemData } from "./data/item-data";
 import { type QuestData } from "./data/quest-data";
+import { type DiaryData } from "./data/diary-data";
 
 interface APIConnectionWithDataViews {
   close: () => void;
@@ -38,8 +40,10 @@ interface APIConnectionWithDataViews {
   equipmentView: EquipmentView;
   skills: SkillsView;
   quests: QuestsView;
+  diaries: DiariesView;
   questData: QuestData;
   itemData: ItemData;
+  diaryData: DiaryData;
   knownMembers: MemberName[];
 }
 
@@ -63,8 +67,10 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const [equipmentView, setEquipmentView] = useState<EquipmentView>();
   const [skills, setSkills] = useState<SkillsView>();
   const [quests, setQuests] = useState<QuestsView>();
+  const [diaries, setDiaries] = useState<DiariesView>();
   const [itemData, setItemData] = useState<ItemData>();
   const [questData, setQuestData] = useState<QuestData>();
+  const [diaryData, setDiaryData] = useState<DiaryData>();
 
   const knownMembers = api?.getKnownMembers();
 
@@ -80,8 +86,10 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
       onLastUpdatedUpdate: setLastUpdated,
       onSkillsUpdate: setSkills,
       onQuestsUpdate: setQuests,
+      onDiariesUpdate: setDiaries,
       onItemDataUpdate: setItemData,
       onQuestDataUpdate: setQuestData,
+      onDiaryDataUpdate: setDiaryData,
     });
 
     api.queueGetGroupData();
@@ -117,8 +125,10 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
     skills,
     knownMembers,
     quests,
+    diaries,
     questData,
     itemData,
+    diaryData,
   };
 };
 
@@ -136,6 +146,7 @@ export const App = (): ReactElement => {
     equipmentView,
     skills,
     quests,
+    diaries,
     knownMembers,
     questData,
     itemData,
@@ -150,6 +161,7 @@ export const App = (): ReactElement => {
         equipment={equipmentView?.get(name)}
         skills={skills?.get(name)}
         quests={quests?.get(name)}
+        diaries={diaries?.get(name)}
         questData={questData}
         name={name}
         lastUpdated={lastUpdated?.get(name)}

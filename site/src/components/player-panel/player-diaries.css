@@ -1,0 +1,50 @@
+.player-diaries {
+  display: block;
+  max-height: 300px;
+  width: 100%;
+  padding: 4px;
+  overflow-y: scroll;
+}
+
+.player-diaries-title {
+  margin: 0;
+  text-align: center;
+  color: var(--orange);
+}
+
+.player-diaries-completions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diary-completion {
+  display: block;
+  color: yellow;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.diary-completion:hover {
+  background: rgb(0 0 0 / 15%);
+}
+
+.diary-completion-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.diary-completion-bottom {
+  display: flex;
+}
+
+.diary-completion-bottom .stat-bar {
+  height: 8px;
+  flex-grow: 1;
+  border: 1px solid black;
+}
+
+.diary-completion-bottom .stat-bar + .stat-bar {
+  border-left: none;
+}
