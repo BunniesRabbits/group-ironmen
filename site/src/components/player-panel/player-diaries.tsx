@@ -10,18 +10,20 @@ const DiaryFull = ({
   region,
   player,
   tasks,
+  progress,
   onCloseModal,
 }: {
   region: DiaryRegion;
   player: MemberName;
   tasks?: Map<DiaryTier, DiaryEntry[]>;
+  progress?: Map<DiaryTier, boolean[]>;
   onCloseModal: () => void;
 }): ReactElement => {
   const entries = DiaryTier.map(
     (tier) =>
       [
         tier,
-        tasks?.get(tier)?.map(({ task, requirements }) => {
+        tasks?.get(tier)?.map(({ task, requirements }, index) => {
           let requirementsElements = undefined;
           if (requirements !== undefined) {
             const skills = Object.entries(requirements.skills ?? {}).map(([skill, level]) => `${skill}:${level}`);
@@ -35,8 +37,11 @@ const DiaryFull = ({
               </div>
             );
           }
+
+          const complete = progress?.get(tier)?.[index];
+
           return (
-            <div className="diary-dialog-section rsborder-tiny">
+            <div className={`diary-dialog-task ${complete ? "diary-dialog-task-complete" : ""}`}>
               {task}
               {requirementsElements}
             </div>
@@ -108,7 +113,7 @@ const DiaryCompletion = ({
 }): ReactElement => {
   const { open: openModal, modal } = useModal({
     Children: DiaryFull,
-    otherProps: { region, tasks, player },
+    otherProps: { region, tasks, player, progress },
   });
 
   let total = 0;
