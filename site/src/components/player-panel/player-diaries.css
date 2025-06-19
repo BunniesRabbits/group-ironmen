@@ -115,6 +115,12 @@
 
 .diary-dialog-section h2 {
   text-decoration: underline;
+  margin: 0;
+  padding: 0;
+}
+
+.diary-dialog-section a:hover {
+  filter: brightness(0.7);
 }
 
 .diary-dialog-tier-complete h2,

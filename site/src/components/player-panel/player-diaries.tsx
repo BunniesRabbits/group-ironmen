@@ -70,7 +70,9 @@ const DiaryRegionWindow = ({
     <div className="dialog-container rsborder rsbackground">
       <div className="diary-dialog-header rsborder-tiny">
         <h2 className="diary-dialog-title">
-          Achievement Diary - {region} - {player}
+          <a href="">
+            Achievement Diary - {region} - {player}
+          </a>
         </h2>
         <button className="dialog-close" onClick={onCloseModal}>
           <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />
@@ -79,6 +81,7 @@ const DiaryRegionWindow = ({
       <div className="diary-dialog-scroll-container">
         {[
           ...progress.entries().map(([tier, tierProgress]) => {
+            const href = `https://oldschool.runescape.wiki/w/${region.replace(/ /g, "_")}_Diary#${tier}`;
             const complete = tierProgress.reduce((complete, task) => {
               return (complete &&= task.complete);
             }, true);
@@ -87,7 +90,9 @@ const DiaryRegionWindow = ({
                 key={tier}
                 className={`diary-dialog-section rsborder-tiny ${complete ? "diary-dialog-tier-complete" : ""}`}
               >
-                <h2>{tier}</h2>
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  <h2>{tier}</h2>
+                </a>
                 <TierTasksDisplay tasks={tierProgress} />
               </div>
             );
