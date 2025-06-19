@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+
+import "./modal.css";
 
 /**
  * Children for a modal that receive a callback to close the parent modal.
@@ -36,7 +38,6 @@ export const useModal = <OtherPropsT,>({
    */
 
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const modalRef = useRef<HTMLDivElement>(null);
 
   // We toggle inert on the rest of the DOM so that only our modal can be interacted with.
   const close = useCallback(() => {
@@ -58,24 +59,37 @@ export const useModal = <OtherPropsT,>({
     return (): void => window.removeEventListener("keydown", closeOnEsc);
   }, [close]);
 
-  const MODAL_Z_INDEX = 100;
+  useEffect(() => {
+    if (!isOpen) return;
+
+    /*
+     * I don't really know why, but even if we .blur() the activeElement, inert
+     * elements in the background still get keyboard events. However, if we
+     * .focus() then .blur() an interactive element from the new interactive
+     * modal, the background stops getting keyboard events. So we do that, even
+     * if it is kinda hacky. I don't know what else to do right now.
+     *
+     * I noticed the behavior on Chrome and Firefox.
+     *
+     * TODO: Figure out why focus + blur is needed for modal.
+     */
+    const focusableElements = document.querySelectorAll(
+      '#modal button, #modal [href], #modal input, #modal select, #modal textarea, #modal [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusableElements.length > 0) {
+      const firstFocusable = focusableElements[0] as Partial<HTMLElement>;
+      firstFocusable.focus?.();
+      firstFocusable.blur?.();
+    }
+  }, [isOpen]);
+
   const modal = isOpen ? (
-    <div
-      id="modal"
-      ref={modalRef}
-      style={{
-        zIndex: MODAL_Z_INDEX,
-        position: "absolute",
-        inset: "0",
-        display: "flex",
-        justifyContent: "space-around",
-        background: "rgb(0 0 0 / 60%)",
-        alignItems: "center",
-        backdropFilter: "blur(2px)",
-      }}
-    >
-      <Children onCloseModal={close} {...otherProps} />
-    </div>
+    <>
+      <div id="modal-clickbox" onClick={close} />
+      <div id="modal">
+        <Children onCloseModal={close} {...otherProps} />
+      </div>
+    </>
   ) : undefined;
   return { open, close, modal: createPortal(modal, document.body) };
 };

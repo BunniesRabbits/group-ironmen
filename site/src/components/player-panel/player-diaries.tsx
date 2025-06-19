@@ -4,7 +4,7 @@ import type { Diaries, MemberName } from "../../data/api";
 import { DiaryRegion, DiaryTier, type DiaryData, type DiaryEntry } from "../../data/diary-data";
 
 import "./player-diaries.css";
-import { useModal } from "../modal";
+import { useModal } from "../modal/modal.tsx";
 
 const DiaryFull = ({
   region,
