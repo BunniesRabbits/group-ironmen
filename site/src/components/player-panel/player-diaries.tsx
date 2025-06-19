@@ -77,22 +77,22 @@ const DiaryRegionWindow = ({
         </button>
       </div>
       <div className="diary-dialog-scroll-container">
-        <div className="diary-dialog-section rsborder-tiny">
-          <h2>Easy</h2>
-          <TierTasksDisplay tasks={progress.get("Easy") ?? []} />
-        </div>
-        <div className="diary-dialog-section rsborder-tiny">
-          <h2>Medium</h2>
-          <TierTasksDisplay tasks={progress.get("Medium") ?? []} />
-        </div>
-        <div className="diary-dialog-section rsborder-tiny">
-          <h2>Hard</h2>
-          <TierTasksDisplay tasks={progress.get("Hard") ?? []} />
-        </div>
-        <div className="diary-dialog-section rsborder-tiny">
-          <h2>Elite</h2>
-          <TierTasksDisplay tasks={progress.get("Elite") ?? []} />
-        </div>
+        {[
+          ...progress.entries().map(([tier, tierProgress]) => {
+            const complete = tierProgress.reduce((complete, task) => {
+              return (complete &&= task.complete);
+            }, true);
+            return (
+              <div
+                key={tier}
+                className={`diary-dialog-section rsborder-tiny ${complete ? "diary-dialog-tier-complete" : ""}`}
+              >
+                <h2>{tier}</h2>
+                <TierTasksDisplay tasks={tierProgress} />
+              </div>
+            );
+          }),
+        ]}
       </div>
     </div>
   );
