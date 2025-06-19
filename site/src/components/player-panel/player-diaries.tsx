@@ -135,7 +135,7 @@ const DiarySummary = ({
         <div className="diary-completion-top">
           <span>{region}</span>
           <span>
-            {total}/{completeTotal}
+            {completeTotal}/{total}
           </span>
         </div>
         <div className="diary-completion-bottom">
