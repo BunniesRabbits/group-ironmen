@@ -10,6 +10,7 @@ import { PlayerQuests } from "./player-quests";
 import type { QuestData } from "../../data/quest-data";
 import { PlayerDiaries } from "./player-diaries";
 import type { DiaryData } from "../../data/diary-data";
+import type { ItemData } from "../../data/item-data";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
@@ -27,6 +28,7 @@ export const PlayerPanel = ({
   diaries,
   questData,
   diaryData,
+  itemData,
 }: {
   player: MemberName;
   stats?: Stats;
@@ -39,6 +41,7 @@ export const PlayerPanel = ({
   diaries?: Diaries;
   questData?: QuestData;
   diaryData?: DiaryData;
+  itemData?: ItemData;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
 
@@ -107,7 +110,7 @@ export const PlayerPanel = ({
   let content = undefined;
   switch (subcategory) {
     case "Inventory":
-      content = <PlayerInventory items={inventory} />;
+      content = <PlayerInventory itemData={itemData} items={inventory} />;
       break;
     case "Equipment":
       content = <PlayerEquipment items={equipment} />;

@@ -28,6 +28,7 @@ import { PlayerPanel } from "./components/player-panel/player-panel";
 import { type ItemData } from "./data/item-data";
 import { type QuestData } from "./data/quest-data";
 import { type DiaryData } from "./data/diary-data";
+import { Tooltip } from "./components/tooltip/tooltip";
 
 interface APIConnectionWithDataViews {
   close: () => void;
@@ -165,6 +166,7 @@ export const App = (): ReactElement => {
         diaries={diaries?.get(name)}
         questData={questData}
         diaryData={diaryData}
+        itemData={itemData}
         player={name}
         lastUpdated={lastUpdated?.get(name)}
         stats={stats?.get(name)}
@@ -230,6 +232,7 @@ export const App = (): ReactElement => {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Tooltip />
     </>
   );
 };
