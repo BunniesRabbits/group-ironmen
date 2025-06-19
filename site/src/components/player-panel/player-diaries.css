@@ -111,6 +111,12 @@
   background: rgb(255 255 255 / 5%);
 }
 
+.dialog-close > img {
+  width: 42px;
+  height: 42px;
+  image-rendering: pixelated;
+}
+
 .dialog-close:hover {
   filter: brightness(1.3);
 }
