@@ -11,7 +11,7 @@ export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement 
           if (item === undefined) return <span className="player-inventory-item-box" key={index} />;
           return (
             <img
-              key={`${item.itemID} ${item.quantity}`}
+              key={`${item.itemID} ${item.quantity} ${index}`}
               alt="osrs item"
               className="player-inventory-item-box"
               src={`/icons/items/${item.itemID}.webp`}
