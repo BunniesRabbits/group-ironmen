@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { type Distinct } from "../util";
 import { fetchItemDataJSON, type ItemData } from "./item-data";
 import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
-import { type Skill } from "./skill";
+import { type Experience, type Skill } from "./skill";
 import { type DiaryRegion, fetchDiaryDataJSON, type DiaryData, type DiaryTier } from "./diary-data";
 
 /*
@@ -264,7 +264,7 @@ const SkillsInBackendOrder: Skill[] = [
 const SkillsFromBackend = z
   .array(z.uint32())
   .length(SkillsInBackendOrder.length)
-  .transform((xpFlat) => new Map(xpFlat.map((xp, index) => [SkillsInBackendOrder[index], xp])));
+  .transform((xpFlat) => new Map(xpFlat.map((xp, index) => [SkillsInBackendOrder[index], xp as Experience])));
 export type Skills = z.infer<typeof SkillsFromBackend>;
 
 const QuestStatusInBackendOrder = ["IN_PROGRESS", "NOT_STARTED", "FINISHED"] as const;

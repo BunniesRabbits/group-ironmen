@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
-import { Skills } from "./skill";
+import { Skills, type Skill } from "./skill";
+import type { QuestID } from "./quest-data";
 
 export const DiaryTier = ["Easy", "Medium", "Hard", "Elite"] as const;
 export type DiaryTier = (typeof DiaryTier)[number];
@@ -24,10 +25,26 @@ const DiaryEntry = z.object({
   task: z.string(),
   requirements: z
     .object({
-      quests: z.string().array().optional(),
-      skills: z.partialRecord(z.enum(Skills), z.uint32()).optional(),
+      quests: z
+        .uint32()
+        .array()
+        .optional()
+        .transform((quests) => quests ?? [])
+        .transform((quests) => quests.map((id) => id as QuestID)),
+      skills: z
+        .partialRecord(z.enum(Skills), z.uint32())
+        .optional()
+        .transform((record) =>
+          Object.entries(record ?? []).map(([skill, level]) => ({
+            skill: skill as Skill,
+            level,
+          })),
+        ),
     })
-    .optional(),
+    .optional()
+    .transform((requirements) => {
+      return requirements ?? { quests: [], skills: [] };
+    }),
 });
 export type DiaryEntry = z.infer<typeof DiaryEntry>;
 

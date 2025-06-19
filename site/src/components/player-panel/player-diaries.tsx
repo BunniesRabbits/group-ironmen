@@ -1,56 +1,64 @@
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { StatBar } from "./stat-bar";
-import type { Diaries, MemberName } from "../../data/api";
-import { DiaryRegion, DiaryTier, type DiaryData, type DiaryEntry } from "../../data/diary-data";
+import type { Diaries, MemberName, Quests, Skills } from "../../data/api";
+import { DiaryRegion, DiaryTier, type DiaryData } from "../../data/diary-data";
 
 import "./player-diaries.css";
 import { useModal } from "../modal/modal.tsx";
+import { computeVirtualLevelFromXP, type Level, type Skill } from "../../data/skill.ts";
+import { SkillIconsBySkill } from "./player-skills.tsx";
+import type { QuestData } from "../../data/quest-data.ts";
 
-const DiaryFull = ({
+const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement => {
+  const elements = tasks.map(({ complete, description, quests, skills }) => {
+    const skillElements = skills.map(({ skill, required, current }) => {
+      const complete = current >= required;
+      return (
+        <span className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}>
+          {` ${current} / ${required} `}
+          <img alt={skill} src={SkillIconsBySkill.get(skill)?.href ?? ""} />
+        </span>
+      );
+    });
+
+    const questElements = quests.map(({ name, complete }) => (
+      <span className={`diary-dialog-skill-icon ${complete ? "diary-dialog-skill-complete" : ""}`}>{name}</span>
+    ));
+    const allRequirements = [...skillElements, ...questElements];
+    let withSeparators: ReactNode[] = allRequirements.map((element, index) => {
+      if (index < allRequirements.length - 1)
+        return (
+          <>
+            {element}
+            {","}
+          </>
+        );
+      return element;
+    });
+    if (withSeparators.length > 0) withSeparators = [" (", ...allRequirements, ")"];
+
+    return (
+      <div className={`diary-dialog-task ${complete ? "diary-dialog-task-complete" : ""}`}>
+        {description}
+        {withSeparators}
+      </div>
+    );
+  });
+
+  return <>{elements}</>;
+};
+
+const DiaryRegionWindow = ({
   region,
   player,
-  tasks,
   progress,
   onCloseModal,
 }: {
-  region: DiaryRegion;
   player: MemberName;
-  tasks?: Map<DiaryTier, DiaryEntry[]>;
-  progress?: Map<DiaryTier, boolean[]>;
+  region: DiaryRegion;
+  progress: DiaryRegionView;
   onCloseModal: () => void;
 }): ReactElement => {
-  const entries = DiaryTier.map(
-    (tier) =>
-      [
-        tier,
-        tasks?.get(tier)?.map(({ task, requirements }, index) => {
-          let requirementsElements = undefined;
-          if (requirements !== undefined) {
-            const skills = Object.entries(requirements.skills ?? {}).map(([skill, level]) => `${skill}:${level}`);
-            const quests = requirements.quests?.map((quest) => quest);
-            requirementsElements = (
-              <div className="diary-dialog-requirements">
-                {"("}
-                {skills}
-                {quests}
-                {")"}
-              </div>
-            );
-          }
-
-          const complete = progress?.get(tier)?.[index];
-
-          return (
-            <div className={`diary-dialog-task ${complete ? "diary-dialog-task-complete" : ""}`}>
-              {task}
-              {requirementsElements}
-            </div>
-          );
-        }),
-      ] as [DiaryTier, ReactElement[]],
-  );
-  const elementsByTier = new Map(entries);
-
   return (
     <div className="dialog-container rsborder rsbackground">
       <div className="diary-dialog-header rsborder-tiny">
@@ -62,87 +70,75 @@ const DiaryFull = ({
         </button>
       </div>
       <div className="diary-dialog-scroll-container">
-        <div className="diary-dialog-section rsborder-tiny" diary-tier="Easy">
+        <div className="diary-dialog-section rsborder-tiny">
           <h2>Easy</h2>
-          {elementsByTier.get("Easy")}
+          <TierTasksDisplay tasks={progress.get("Easy") ?? []} />
         </div>
-        <div className="diary-dialog-section rsborder-tiny" diary-tier="Medium">
+        <div className="diary-dialog-section rsborder-tiny">
           <h2>Medium</h2>
-          {elementsByTier.get("Medium")}
+          <TierTasksDisplay tasks={progress.get("Medium") ?? []} />
         </div>
-        <div className="diary-dialog-section rsborder-tiny" diary-tier="Hard">
+        <div className="diary-dialog-section rsborder-tiny">
           <h2>Hard</h2>
-          {elementsByTier.get("Hard")}
+          <TierTasksDisplay tasks={progress.get("Hard") ?? []} />
         </div>
-        <div className="diary-dialog-section rsborder-tiny" diary-tier="Elite">
+        <div className="diary-dialog-section rsborder-tiny">
           <h2>Elite</h2>
-          {elementsByTier.get("Elite")}
+          <TierTasksDisplay tasks={progress.get("Elite") ?? []} />
         </div>
       </div>
     </div>
   );
 };
 
-const countTrue = (flags: boolean[]): number =>
-  flags.reduce((count, flag) => {
-    if (flag) return count + 1;
-    return count;
-  }, 0);
-
-const getDiaryProgressRatio = (flags?: boolean[]): number => {
-  if (flags === undefined) return 1;
-
-  const total = flags.length;
-  const complete = flags.reduce((count, flag) => {
-    if (flag) return count + 1;
-    return count;
-  }, 0);
-  return complete / total;
-};
-
-const DiaryCompletion = ({
+const DiarySummary = ({
   player,
   region,
   progress,
-  tasks,
 }: {
   player: MemberName;
   region: DiaryRegion;
-  progress: Map<DiaryTier, boolean[]>;
-  tasks?: Map<DiaryTier, DiaryEntry[]>;
+  progress: DiaryRegionView;
 }): ReactElement => {
   const { open: openModal, modal } = useModal({
-    Children: DiaryFull,
-    otherProps: { region, tasks, player, progress },
+    Children: DiaryRegionWindow,
+    otherProps: { region, player, progress },
   });
 
   let total = 0;
-  let complete = 0;
-  progress.forEach((flags) => {
-    total += flags.length;
-    complete += countTrue(flags);
+  let completeTotal = 0;
+  const ratioPerTier = new Map<DiaryTier, number>();
+
+  progress.forEach((tasks, tier) => {
+    let totalForTier = 0;
+    let completeTotalForTier = 0;
+    tasks.forEach(({ complete }) => {
+      if (complete) completeTotalForTier += 1;
+      totalForTier += 1;
+    });
+
+    ratioPerTier.set(tier, completeTotalForTier / totalForTier);
+    total += totalForTier;
+    completeTotal += completeTotalForTier;
   });
 
   return (
     <>
-      <button
-        className={`rsborder-tiny diary-completion ${tasks !== undefined ? "clickable" : ""}`}
-        onClick={openModal}
-      >
+      <button className={`rsborder-tiny diary-completion`} onClick={openModal}>
         <div className="diary-completion-top">
           <span>{region}</span>
           <span>
-            {total}/{complete}
+            {total}/{completeTotal}
           </span>
         </div>
         <div className="diary-completion-bottom">
           {DiaryTier.map((tier) => {
-            const ratio = getDiaryProgressRatio(progress.get(tier));
             /*
              * With CSS's HSL color model, 0-107 is a gradient from red, orange,
              * yellow, then green. So we can multiply the hue to get the effect of
              * more complete diaries becoming redder.
              */
+            const ratio = ratioPerTier.get(tier) ?? 0;
             const hue = 107 * ratio;
             return <StatBar key={tier} color={`hsl(${hue}, 100%, 41%)`} bgColor="rgba(0, 0, 0, 0.5)" ratio={ratio} />;
           })}
@@ -153,35 +149,65 @@ const DiaryCompletion = ({
   );
 };
 
+interface DiaryTaskView {
+  complete: boolean;
+  description: string;
+  skills: { skill: Skill; required: Level; current: Level }[];
+  quests: { name: string; complete: boolean }[];
+}
+type DiaryRegionView = Map<DiaryTier, DiaryTaskView[]>;
+
 export const PlayerDiaries = ({
   player,
+  playerSkills,
   diaries,
+  questProgress,
   diaryData,
+  questData,
 }: {
   player: MemberName;
-  diaries?: Diaries;
-  diaryData?: DiaryData;
+  playerSkills: Skills;
+  diaries: Diaries | undefined;
+  questProgress: Quests | undefined;
+  diaryData: DiaryData | undefined;
+  questData: QuestData | undefined;
 }): ReactElement => {
-  if (diaries === undefined) return <></>;
+  if (diaries === undefined || diaryData === undefined) return <></>;
+
+  const display = diaryData.entries().map(([region, tasksByTier]) => {
+    const progressForRegion = diaries.get(region);
+    if (!progressForRegion) return;
+
+    const displayForRegion = new Map<DiaryTier, DiaryTaskView[]>();
+
+    tasksByTier.forEach((tasks, tier) => {
+      const progressForTier = progressForRegion.get(tier);
+      if (!progressForTier) return;
+
+      const progressForTasks = tasks.map<DiaryTaskView>(({ task, requirements: { quests, skills } }, index) => ({
+        complete: progressForTier.at(index) ?? false,
+        description: task,
+        quests: quests.map((id) => ({
+          name: questData?.get(id)?.name ?? "Summer's End",
+          complete: questProgress?.get(id) === "FINISHED",
+        })),
+        skills: skills.map(({ skill, level }) => ({
+          skill,
+          required: level as Level,
+          current: computeVirtualLevelFromXP(playerSkills.get(skill) ?? 0),
+        })),
+      }));
+
+      displayForRegion.set(tier, progressForTasks);
+    });
+
+    return <DiarySummary player={player} key={region} region={region} progress={displayForRegion} />;
+  });
 
   return (
     <div className="player-diaries">
       <h2 className="player-diaries-title">Achievement Diaries</h2>
-      <div className="player-diaries-completions">
-        {DiaryRegion.map((region) => {
-          const progress = diaries.get(region);
-          if (progress === undefined) return undefined;
-          return (
-            <DiaryCompletion
-              tasks={diaryData?.get(region)}
-              player={player}
-              key={region}
-              region={region}
-              progress={progress}
-            />
-          );
-        })}
-      </div>
+      <div className="player-diaries-completions">{[...display]}</div>
     </div>
   );
 };

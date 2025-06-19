@@ -119,7 +119,16 @@ export const PlayerPanel = ({
       content = <PlayerQuests quests={quests} questData={questData} />;
       break;
     case "Diaries":
-      content = <PlayerDiaries diaryData={diaryData} player={player} diaries={diaries} />;
+      content = (
+        <PlayerDiaries
+          questProgress={quests}
+          diaryData={diaryData}
+          questData={questData}
+          player={player}
+          playerSkills={skills ?? new Map()}
+          diaries={diaries}
+        />
+      );
       break;
   }
 

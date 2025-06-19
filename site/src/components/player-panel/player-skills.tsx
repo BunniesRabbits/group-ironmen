@@ -2,17 +2,7 @@ import { type ReactElement } from "react";
 import type { Skills } from "../../data/api";
 
 import "./player-skills.css";
-import type { Skill } from "../../data/skill";
-
-const levelLookup = new Map<number, number>();
-{
-  let xp = 0;
-  for (let L = 1; L <= 126; L++) {
-    // https://oldschool.runescape.wiki/w/Experience
-    levelLookup.set(L, Math.floor(xp));
-    xp += 0.25 * Math.floor(L + 300 * 2 ** (L / 7));
-  }
-}
+import { type Experience, type Skill, computeVirtualLevelFromXP } from "../../data/skill";
 
 // Row-major order, like how the skills are laid out in OSRS
 const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
@@ -40,14 +30,15 @@ const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
   { skill: "Construction", iconURL: "/ui/221-0.png" },
   { skill: "Hunter", iconURL: "/ui/220-0.png" },
 ];
+export const SkillIconsBySkill = new Map<Skill, URL>(
+  SkillIconsInOSRSOrder.map(({ skill, iconURL }) => [skill, new URL(iconURL, import.meta.url)] as [Skill, URL]),
+);
 export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
   let totalLevel = 0;
   return (
     <div className="player-skills">
       {SkillIconsInOSRSOrder.map(({ skill, iconURL }) => {
-        const xp = skills?.get(skill) ?? 0;
-        let virtualLevel = 1;
-        while (xp >= (levelLookup.get(virtualLevel + 1) ?? Infinity)) virtualLevel += 1;
+        const virtualLevel = computeVirtualLevelFromXP(skills?.get(skill) ?? (0 as Experience));
         const realLevel = Math.min(99, virtualLevel);
         totalLevel += realLevel;
 
