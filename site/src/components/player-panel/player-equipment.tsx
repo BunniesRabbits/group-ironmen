@@ -1,9 +1,9 @@
-import { type ReactElement } from "react";
+import { useContext, type ReactElement } from "react";
 import type { Equipment, EquipmentSlot } from "../../data/api";
 
 import "./player-equipment.css";
-import type { ItemData } from "../../data/item-data";
 import { useItemTooltip } from "../tooltip/item-tooltip";
+import { GameDataContext } from "../../data/game-data";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",
@@ -35,8 +35,9 @@ const EquipmentSlotEmptyIcons = new Map<EquipmentSlot, string>([
   ["Ammo", "166-0.png"],
 ]);
 
-export const PlayerEquipment = ({ items, itemData }: { items?: Equipment; itemData?: ItemData }): ReactElement => {
+export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
+  const { items: itemData } = useContext(GameDataContext);
 
   return (
     <div className="player-equipment">

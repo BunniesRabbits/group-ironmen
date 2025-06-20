@@ -5,14 +5,13 @@ import { SetupInstructions } from "./components/setup-instructions/setup-instruc
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
 import { Navigate } from "react-router-dom";
-import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import Api, {
   type DiariesView,
   type EquipmentView,
-  type GEPrices,
   type InventoryView,
   type ItemsView,
   type LastUpdatedView,
@@ -25,15 +24,12 @@ import Api, {
 } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
-import { type ItemData } from "./data/item-data";
-import { type QuestData } from "./data/quest-data";
-import { type DiaryData } from "./data/diary-data";
 import { Tooltip } from "./components/tooltip/tooltip";
+import { GameDataContext, type GameData } from "./data/game-data";
 
 interface APIConnectionWithDataViews {
   close: () => void;
   itemsView: ItemsView;
-  gePrices: GEPrices;
   npcInteractions: NPCInteractionsView;
   stats: StatsView;
   lastUpdated: LastUpdatedView;
@@ -42,9 +38,6 @@ interface APIConnectionWithDataViews {
   skills: SkillsView;
   quests: QuestsView;
   diaries: DiariesView;
-  questData: QuestData;
-  itemData: ItemData;
-  diaryData: DiaryData;
   knownMembers: MemberName[];
 }
 
@@ -56,11 +49,10 @@ interface APIConnectionWithDataViews {
  *
  * Data is only provided when it is ready to be used.
  */
-const useAPI = (): Partial<APIConnectionWithDataViews> => {
+const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
   const [itemsView, setItemsView] = useState<ItemsView>();
-  const [gePrices, setGEPrices] = useState<GEPrices>();
   const [npcInteractions, setNPCInteractions] = useState<NPCInteractionsView>();
   const [stats, setStats] = useState<StatsView>();
   const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
@@ -69,9 +61,8 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
   const [skills, setSkills] = useState<SkillsView>();
   const [quests, setQuests] = useState<QuestsView>();
   const [diaries, setDiaries] = useState<DiariesView>();
-  const [itemData, setItemData] = useState<ItemData>();
-  const [questData, setQuestData] = useState<QuestData>();
-  const [diaryData, setDiaryData] = useState<DiaryData>();
+
+  const gameDataRef = useRef<GameData>({});
 
   const knownMembers = api?.getKnownMembers();
 
@@ -88,16 +79,22 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
       onSkillsUpdate: setSkills,
       onQuestsUpdate: setQuests,
       onDiariesUpdate: setDiaries,
-      onItemDataUpdate: setItemData,
-      onQuestDataUpdate: setQuestData,
-      onDiaryDataUpdate: setDiaryData,
+      onItemDataUpdate: (data) => {
+        gameDataRef.current.items = data;
+      },
+      onQuestDataUpdate: (data) => {
+        gameDataRef.current.quests = data;
+      },
+      onDiaryDataUpdate: (data) => {
+        gameDataRef.current.diaries = data;
+      },
+      onGEDataUpdate: (data) => {
+        gameDataRef.current.gePrices = data;
+      },
     });
 
-    api.queueGetGroupData();
-    api
-      .fetchGEPrices()
-      .then(setGEPrices)
-      .catch((error) => console.error(error));
+    api.startFetchingEverything();
+
     return (): void => {
       api.close();
     };
@@ -117,7 +114,6 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
   return {
     close,
     itemsView,
-    gePrices,
     npcInteractions,
     stats,
     lastUpdated,
@@ -127,9 +123,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> => {
     knownMembers,
     quests,
     diaries,
-    questData,
-    itemData,
-    diaryData,
+    gameData: gameDataRef.current,
   };
 };
 
@@ -139,7 +133,6 @@ export const App = (): ReactElement => {
   const {
     close: closeAPI,
     itemsView,
-    gePrices,
     npcInteractions,
     stats,
     lastUpdated,
@@ -149,9 +142,7 @@ export const App = (): ReactElement => {
     quests,
     diaries,
     knownMembers,
-    questData,
-    diaryData,
-    itemData,
+    gameData,
   } = useAPI();
 
   const panels = knownMembers
@@ -164,9 +155,6 @@ export const App = (): ReactElement => {
         skills={skills?.get(name)}
         quests={quests?.get(name)}
         diaries={diaries?.get(name)}
-        questData={questData}
-        diaryData={diaryData}
-        itemData={itemData}
         player={name}
         lastUpdated={lastUpdated?.get(name)}
         stats={stats?.get(name)}
@@ -181,58 +169,60 @@ export const App = (): ReactElement => {
   return (
     <>
       {backgroundMap}
-      <Routes>
-        <Route
-          index
-          element={
-            <UnauthedLayout>
-              <MenHomepage />
-            </UnauthedLayout>
-          }
-        />
-        <Route
-          path="/setup-instructions"
-          element={
-            <UnauthedLayout>
-              <SetupInstructions />
-            </UnauthedLayout>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <UnauthedLayout>
-              <LoginPage />
-            </UnauthedLayout>
-          }
-        />
-        <Route path="/logout" element={<LogoutPage callback={closeAPI} />} />
-        <Route path="/group">
-          <Route index element={<Navigate to="items" replace />} />
+      <GameDataContext value={gameData}>
+        <Routes>
           <Route
-            path="items"
+            index
             element={
-              <AuthedLayout panels={panels}>
-                <ItemsPage memberNames={knownMembers} items={itemsView} itemData={itemData} gePrices={gePrices} />
-              </AuthedLayout>
+              <UnauthedLayout>
+                <MenHomepage />
+              </UnauthedLayout>
             }
           />
           <Route
-            path="map"
+            path="/setup-instructions"
             element={
-              <AuthedLayout panels={panels}>
-                {planeSelect}
-                {coordinateIndicator}
-              </AuthedLayout>
+              <UnauthedLayout>
+                <SetupInstructions />
+              </UnauthedLayout>
             }
           />
-          <Route path="graphs" element={<AuthedLayout panels={panels} />} />
-          <Route path="panels" element={<AuthedLayout panels={undefined}>{panels}</AuthedLayout>} />
-          <Route path="settings" element={<AuthedLayout panels={panels} />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <Tooltip />
+          <Route
+            path="/login"
+            element={
+              <UnauthedLayout>
+                <LoginPage />
+              </UnauthedLayout>
+            }
+          />
+          <Route path="/logout" element={<LogoutPage callback={closeAPI} />} />
+          <Route path="/group">
+            <Route index element={<Navigate to="items" replace />} />
+            <Route
+              path="items"
+              element={
+                <AuthedLayout panels={panels}>
+                  <ItemsPage memberNames={knownMembers} items={itemsView} />
+                </AuthedLayout>
+              }
+            />
+            <Route
+              path="map"
+              element={
+                <AuthedLayout panels={panels}>
+                  {planeSelect}
+                  {coordinateIndicator}
+                </AuthedLayout>
+              }
+            />
+            <Route path="graphs" element={<AuthedLayout panels={panels} />} />
+            <Route path="panels" element={<AuthedLayout panels={undefined}>{panels}</AuthedLayout>} />
+            <Route path="settings" element={<AuthedLayout panels={panels} />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <Tooltip />
+      </GameDataContext>
     </>
   );
 };

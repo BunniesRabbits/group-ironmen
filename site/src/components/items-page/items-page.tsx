@@ -1,8 +1,8 @@
-import { type ReactElement, Fragment, useState } from "react";
+import { type ReactElement, Fragment, useContext, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type { GEPrices, ItemID, ItemsView, MemberName } from "../../data/api";
-import type { ItemData } from "../../data/item-data";
+import type { ItemID, ItemsView, MemberName } from "../../data/api";
+import { GameDataContext } from "../../data/game-data";
 
 type ItemFilter = "All" | MemberName;
 const ItemSortCategory = [
@@ -129,21 +129,12 @@ const usePageSelection = ({
   return { pageNumber: pageCurrent, resetPage: () => setPageCurrent(0), element };
 };
 
-export const ItemsPage = ({
-  items,
-  itemData,
-  gePrices,
-  memberNames,
-}: {
-  items?: ItemsView;
-  itemData?: ItemData;
-  gePrices?: GEPrices;
-  memberNames?: MemberName[];
-}): ReactElement => {
+export const ItemsPage = ({ items, memberNames }: { items?: ItemsView; memberNames?: MemberName[] }): ReactElement => {
   // const [itemCount, setItemCount] = useState<number>(0);
   const [filter, setFilter] = useState<ItemFilter>("All");
   const [searchString, setSearchString] = useState<string>("");
   const [sortCategory, setSortCategory] = useState<ItemSortCategory>("GE Unit Price");
+  const { gePrices: geData, items: itemData } = useContext(GameDataContext);
 
   interface ItemAggregates {
     totalHighAlch: number;
@@ -174,7 +165,7 @@ export const ItemsPage = ({
       if (filteredTotalQuantity <= 0) return previousValue;
 
       const highAlch = item?.highalch ?? 0;
-      const gePrice = gePrices?.get(itemID) ?? 0;
+      const gePrice = geData?.get(itemID) ?? 0;
       previousValue.totalHighAlch += filteredTotalQuantity * highAlch;
       previousValue.totalGEPrice += filteredTotalQuantity * gePrice;
 

@@ -1,13 +1,13 @@
-import { type ReactElement, type ReactNode } from "react";
+import { useContext, type ReactElement, type ReactNode } from "react";
 import { StatBar } from "./stat-bar";
 import type { Diaries, MemberName, Quests, Skills } from "../../data/api";
-import { DiaryRegion, DiaryTier, type DiaryData } from "../../data/diary-data";
+import { DiaryRegion, DiaryTier } from "../../data/diary-data";
 
 import "./player-diaries.css";
 import { useModal } from "../modal/modal.tsx";
 import { computeVirtualLevelFromXP, type Level, type Skill } from "../../data/skill.ts";
 import { SkillIconsBySkill } from "./player-skills.tsx";
-import type { QuestData } from "../../data/quest-data.ts";
+import { GameDataContext } from "../../data/game-data.ts";
 
 const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement => {
   const elements = tasks.map(({ complete, description, quests, skills }) => {
@@ -171,19 +171,17 @@ type DiaryRegionView = Map<DiaryTier, DiaryTaskView[]>;
 
 export const PlayerDiaries = ({
   player,
-  playerSkills,
+  skills,
   diaries,
-  questProgress,
-  diaryData,
-  questData,
+  quests,
 }: {
   player: MemberName;
-  playerSkills: Skills;
+  skills: Skills | undefined;
   diaries: Diaries | undefined;
-  questProgress: Quests | undefined;
-  diaryData: DiaryData | undefined;
-  questData: QuestData | undefined;
+  quests: Quests | undefined;
 }): ReactElement => {
+  const { quests: questData, diaries: diaryData } = useContext(GameDataContext);
+
   if (diaries === undefined || diaryData === undefined) return <></>;
 
   const display = diaryData.entries().map(([region, tasksByTier]) => {
@@ -196,19 +194,21 @@ export const PlayerDiaries = ({
       const progressForTier = progressForRegion.get(tier);
       if (!progressForTier) return;
 
-      const progressForTasks = tasks.map<DiaryTaskView>(({ task, requirements: { quests, skills } }, index) => ({
-        complete: progressForTier.at(index) ?? false,
-        description: task,
-        quests: quests.map((id) => ({
-          name: questData?.get(id)?.name ?? "Summer's End",
-          complete: questProgress?.get(id) === "FINISHED",
-        })),
-        skills: skills.map(({ skill, level }) => ({
-          skill,
-          required: level as Level,
-          current: computeVirtualLevelFromXP(playerSkills.get(skill) ?? 0),
-        })),
-      }));
+      const progressForTasks = tasks.map<DiaryTaskView>(
+        ({ task, requirements: { quests: taskQuests, skills: taskSkills } }, index) => ({
+          complete: progressForTier.at(index) ?? false,
+          description: task,
+          quests: taskQuests.map((id) => ({
+            name: questData?.get(id)?.name ?? "Summer's End",
+            complete: quests?.get(id) === "FINISHED",
+          })),
+          skills: taskSkills.map(({ skill, level }) => ({
+            skill,
+            required: level as Level,
+            current: computeVirtualLevelFromXP(skills?.get(skill) ?? 0),
+          })),
+        }),
+      );
 
       displayForRegion.set(tier, progressForTasks);
     });

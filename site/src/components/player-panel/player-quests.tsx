@@ -1,9 +1,10 @@
-import { useState, type ReactElement } from "react";
-import type { QuestData, QuestDifficulty } from "../../data/quest-data";
+import { useContext, useState, type ReactElement } from "react";
+import type { QuestDifficulty } from "../../data/quest-data";
 import type { Quests, QuestStatus } from "../../data/api";
 import { SearchElement } from "../search-element/search-element";
 
 import "./player-quests.css";
+import { GameDataContext } from "../../data/game-data";
 
 const getDifficultyIconURL = (difficulty: QuestDifficulty): string => {
   switch (difficulty) {
@@ -38,8 +39,9 @@ const getClassForQuestStatus = (status: QuestStatus): string => {
   }
 };
 
-export const PlayerQuests = ({ questData, quests }: { questData?: QuestData; quests?: Quests }): ReactElement => {
+export const PlayerQuests = ({ quests }: { quests?: Quests }): ReactElement => {
   const [nameFilter, setNameFilter] = useState<string>("");
+  const { quests: questData } = useContext(GameDataContext);
 
   let possiblePoints = 0;
   questData?.forEach(({ points }) => (possiblePoints += points));

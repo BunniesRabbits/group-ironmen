@@ -7,10 +7,7 @@ import { PlayerInventory } from "./player-inventory";
 import { PlayerEquipment } from "./player-equipment";
 import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
-import type { QuestData } from "../../data/quest-data";
 import { PlayerDiaries } from "./player-diaries";
-import type { DiaryData } from "../../data/diary-data";
-import type { ItemData } from "../../data/item-data";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
@@ -26,9 +23,6 @@ export const PlayerPanel = ({
   skills,
   quests,
   diaries,
-  questData,
-  diaryData,
-  itemData,
 }: {
   player: MemberName;
   stats?: Stats;
@@ -39,9 +33,6 @@ export const PlayerPanel = ({
   skills?: Skills;
   quests?: Quests;
   diaries?: Diaries;
-  questData?: QuestData;
-  diaryData?: DiaryData;
-  itemData?: ItemData;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
 
@@ -110,28 +101,19 @@ export const PlayerPanel = ({
   let content = undefined;
   switch (subcategory) {
     case "Inventory":
-      content = <PlayerInventory itemData={itemData} items={inventory} />;
+      content = <PlayerInventory items={inventory} />;
       break;
     case "Equipment":
-      content = <PlayerEquipment itemData={itemData} items={equipment} />;
+      content = <PlayerEquipment items={equipment} />;
       break;
     case "Skills":
       content = <PlayerSkills skills={skills} />;
       break;
     case "Quests":
-      content = <PlayerQuests quests={quests} questData={questData} />;
+      content = <PlayerQuests quests={quests} />;
       break;
     case "Diaries":
-      content = (
-        <PlayerDiaries
-          questProgress={quests}
-          diaryData={diaryData}
-          questData={questData}
-          player={player}
-          playerSkills={skills ?? new Map()}
-          diaries={diaries}
-        />
-      );
+      content = <PlayerDiaries {...{ quests, player, diaries, skills }} />;
       break;
   }
 

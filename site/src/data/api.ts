@@ -1011,6 +1011,7 @@ interface UpdateCallbacks {
   onItemDataUpdate: (itemData: ItemData) => void;
   onQuestDataUpdate: (questData: QuestData) => void;
   onDiaryDataUpdate: (diaryData: DiaryData) => void;
+  onGEDataUpdate: (geData: GEPrices) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -1023,6 +1024,7 @@ export default class Api {
   private itemData?: ItemData;
   private questData?: QuestData;
   private diaryData?: DiaryData;
+  private geData?: GEPrices;
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {
     return response.reduce<Date>((previousNewest, { last_updated }) => {
@@ -1281,6 +1283,20 @@ export default class Api {
         })
         .catch((reason) => console.error("Failed to get diary data for API", reason));
     }
+    if (this.geData === undefined) {
+      fetch(makeGetGEPricesURL({ baseURL: this.baseURL }))
+        .then((response) => response.json())
+        .then((json) => GEPricesFromBackend.safeParseAsync(json))
+        .then((parseResult) => {
+          if (!parseResult.success) throw new Error("Failed to parse GEPrices response", { cause: parseResult.error });
+          return parseResult.data;
+        })
+        .then((data) => {
+          this.geData = data;
+          this.callbacks?.onGEDataUpdate(data);
+        })
+        .catch((reason) => console.error("Failed to get grand exchange data for API", reason));
+    }
   }
 
   /**
@@ -1292,7 +1308,7 @@ export default class Api {
    * so with slow internet speeds the updates will be slower.
    * Call close() to stop further queuing.
    */
-  public queueGetGroupData(): void {
+  public startFetchingEverything(): void {
     if (this.getGroupDataPromise !== undefined) return;
 
     if (this.questData === undefined || this.itemData === undefined) this.queueGetGameData();
@@ -1328,7 +1344,7 @@ export default class Api {
 
         window.setTimeout(() => {
           this.getGroupDataPromise = undefined;
-          this.queueGetGroupData();
+          this.startFetchingEverything();
         }, 1000);
       });
   }
@@ -1352,16 +1368,5 @@ export default class Api {
     return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.groupName }), {
       headers: { Authorization: this.credentials.groupToken },
     });
-  }
-  async fetchGEPrices(): Promise<GEPrices> {
-    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
-
-    return fetch(makeGetGEPricesURL({ baseURL: this.baseURL }))
-      .then((response) => response.json())
-      .then((json) => GEPricesFromBackend.safeParseAsync(json))
-      .then((parseResult) => {
-        if (!parseResult.success) throw new Error("Failed to parse GEPrices response", { cause: parseResult.error });
-        return parseResult.data;
-      });
   }
 }
