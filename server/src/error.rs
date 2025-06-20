@@ -27,6 +27,8 @@ pub enum ApiError {
     GetSkillsDataError(tokio_postgres::error::Error),
     #[from(ignore)]
     GetCollectionLogError(tokio_postgres::error::Error),
+    #[from(ignore)]
+    PushMemberSkillsSampleError(tokio_postgres::error::Error),
     GroupFullError,
     ReqwestError(reqwest::Error),
     GroupMemberValidationError(String)
@@ -67,6 +69,9 @@ impl ResponseError for ApiError {
             ApiError::SerdeJsonError(ref err) => {
                 log::error!("SerdeJsonError: {}", err);
                 HttpResponse::InternalServerError().body(format!("SerdeJsonError: {}", err))
+            }
+            ApiError::PushMemberSkillsSampleError(ref err) => {
+                handle_pg_error(err, "PushMemberSkillsSampleError")
             }
             ApiError::GroupFullError => HttpResponse::BadRequest()
                 .body("Group has already reached the maximum amount of players"),

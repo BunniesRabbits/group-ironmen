@@ -267,6 +267,51 @@ UPDATE groupironman.members SET
         .await
         .map_err(ApiError::UpdateGroupMemberError)?;
 
+    // Store sample of all skills if the member's newest sample is old enough
+    match group_member.skills {
+        Some(skills) => {
+            /*
+             * TODO: technically we should get this timestamp from the network request, but the incoming data
+             * shouldn't possibly be stale since the RuneLite plugin sends updates ASAP. A few seconds of drift
+             * is OK since we have a 5-minute sample frequency.
+             */
+            let timestamp = chrono::Utc::now();
+            let member_id= get_member_id(client, group_id, &group_member.name).await?;
+            /*
+             * The insertion will return a nonzero-number of rows changed if we updated the timestamp.
+             * Since our insertion is conditional on the age of the timestamp, we can branch on that return
+             * value and only store a sample in the big table if the existing samples are stale enough.
+             */
+            let last_updated_stmt = client.prepare_cached(r#"
+INSERT INTO groupironman.skills_all_samples_last_updated (member_id, last_updated)
+VALUES ($1, date_bin('5 minutes', $2::TIMESTAMPTZ, '2020-01-01 00:00:00+00'))            
+ON CONFLICT (member_id) 
+    DO UPDATE SET last_updated = excluded.last_updated 
+    WHERE skills_all_samples_last_updated.last_updated != excluded.last_updated
+"#
+            ).await?;
+            let update_count = client.execute(&last_updated_stmt, &[&member_id, &timestamp]).await.map_err(ApiError::PushMemberSkillsSampleError)?;
+
+            if update_count > 0
+            {
+                let stmt = client.prepare_cached(r#"
+INSERT INTO groupironman.skills_all_samples (member_id, sample_time, skills) 
+VALUES ($1, date_bin('5 minutes', $2::TIMESTAMPTZ, '2020-01-01 00:00:00+00'), $3)
+"#
+                ).await?;
+                client.execute(
+                    &stmt, 
+                    &[
+                        &member_id, 
+                        &timestamp,
+                        &skills
+                    ],
+                ).await.map_err(ApiError::PushMemberSkillsSampleError)?;
+            }
+        }
+        None => (),
+    }
+
     // Merge deposited items into bank
     match group_member.deposited {
         Some(deposited) => {
@@ -837,6 +882,12 @@ pub async fn commit_migration(transaction: &Transaction<'_>, name: &str) -> Resu
     Ok(())
 }
 
+/*
+ * Add additional tables/columns that are not present in the original schema, 
+ * in a way that ensures old data can be migrated.
+ * 
+ * Table groupironman.migrations stores which migrations have occurred for the given db, and when.
+ */
 pub async fn update_schema(client: &mut Client) -> Result<(), ApiError> {
     client.execute(
         r#"
@@ -1152,6 +1203,35 @@ ON CONFLICT (tab_id, page_name) DO NOTHING
             }
         }
 
+        transaction.commit().await?;
+    }
+
+    let migration_add_all_skills = "add_skills_all_samples_table";
+    // Add a table that stores consistent samples of skills.
+    if !has_migration_run(client, migration_add_all_skills).await? {
+        let transaction = client.transaction().await?;
+
+        // Time-series samples of members' experience
+        transaction
+            .execute(r#"
+CREATE TABLE IF NOT EXISTS groupironman.skills_all_samples ( 
+    sample_id BIGSERIAL
+,   member_id BIGINT REFERENCES groupironman.members(member_id)
+,   sample_time TIMESTAMPTZ
+,   skills INTEGER[24]
+,   PRIMARY KEY (sample_id, member_id)
+)
+"#, &[],).await?;
+
+        // A tiny table that is quick to query the age of the newest sample for each member
+        transaction.execute(r#"
+CREATE TABLE IF NOT EXISTS groupironman.skills_all_samples_last_updated (
+    member_id BIGINT REFERENCES groupironman.members(member_id) PRIMARY KEY
+,   last_updated TIMESTAMPTZ
+)
+"#, &[],).await?;
+
+        commit_migration(&transaction, migration_add_all_skills).await?;
         transaction.commit().await?;
     }
 
