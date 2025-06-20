@@ -37,7 +37,7 @@ const EquipmentSlotEmptyIcons = new Map<EquipmentSlot, string>([
 
 export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
-  const { items: itemData } = useContext(GameDataContext);
+  const { items: itemData, gePrices: geData } = useContext(GameDataContext);
 
   return (
     <div className="player-equipment">
@@ -53,7 +53,12 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
             const itemDatum = itemData?.get(item.itemID);
             if (!itemDatum) return;
 
-            showTooltip({ name: itemDatum.name, quantity: item.quantity, highalch: itemDatum.highalch });
+            showTooltip({
+              name: itemDatum.name,
+              quantity: item.quantity,
+              highAlch: itemDatum.highalch,
+              gePrice: geData?.get(item.itemID) ?? 0,
+            });
           };
         }
         return (

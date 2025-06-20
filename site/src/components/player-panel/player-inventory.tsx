@@ -7,7 +7,7 @@ import "./player-inventory.css";
 
 export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
-  const { items: itemData } = useContext(GameDataContext);
+  const { items: itemData, gePrices: geData } = useContext(GameDataContext);
 
   return (
     <div className="player-inventory">
@@ -21,7 +21,12 @@ export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement 
                 const itemDatum = itemData?.get(item.itemID);
                 if (!itemDatum) return;
 
-                showTooltip({ name: itemDatum.name, quantity: item.quantity, highalch: itemDatum.highalch });
+                showTooltip({
+                  name: itemDatum.name,
+                  quantity: item.quantity,
+                  highAlch: itemDatum.highalch,
+                  gePrice: geData?.get(item.itemID) ?? 0,
+                });
               }}
               key={`${item.itemID} ${item.quantity} ${index}`}
               alt="osrs item"
