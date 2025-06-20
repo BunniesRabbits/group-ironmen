@@ -43,18 +43,11 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
     <div className="player-equipment">
       {VisibleEquipmentSlots.map((slot) => {
         const item = items?.get(slot);
-        let className = "equipment-slot-empty";
-        let iconURL = `/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`;
-        let onPointerEnter = undefined;
-
-        let wikiLink = "";
-
         if (item !== undefined) {
-          wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
-          className = "equipment-slot-item";
-          iconURL = `/icons/items/${item.itemID}.webp`;
-          onPointerEnter = (): void => {
-            const itemDatum = itemData?.get(item.itemID);
+          const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
+          const iconURL = `/icons/items/${item.itemID}.webp`;
+          const itemDatum = itemData?.get(item.itemID);
+          const onPointerEnter = (): void => {
             if (!itemDatum) return;
 
             showTooltip({
@@ -64,24 +57,33 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
               gePrice: geData?.get(item.itemID) ?? 0,
             });
           };
+          return (
+            <a
+              href={wikiLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              key={slot}
+              onPointerEnter={onPointerEnter}
+              onPointerLeave={hideTooltip}
+              className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+            >
+              <img alt={itemDatum?.name ?? "equipment"} className="equipment-slot-item" src={iconURL} />
+            </a>
+          );
+        } else {
+          return (
+            <div
+              key={slot}
+              className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+            >
+              <img
+                alt={`empty equipment ${slot} slot`}
+                className="equipment-slot-empty"
+                src={`/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`}
+              />
+            </div>
+          );
         }
-        return (
-          <a
-            href={wikiLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            key={slot}
-            onPointerEnter={onPointerEnter}
-            onPointerLeave={hideTooltip}
-            className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
-          >
-            <img
-              alt="osrs item" // TODO: get name of item
-              className={className}
-              src={iconURL}
-            />
-          </a>
-        );
       })}
       {tooltipElement}
     </div>
