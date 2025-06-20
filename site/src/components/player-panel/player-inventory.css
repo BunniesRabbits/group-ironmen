@@ -7,11 +7,15 @@
 }
 
 .player-inventory-item-box {
-  height: 100%;
   padding-left: 4px;
 }
 
-img.player-inventory-item-box:hover {
+.player-inventory-item-box > img {
+  object-fit: contain;
+  width: 100%;
+}
+
+.player-inventory-item-box-filled:hover {
   background: rgb(255 255 255 / 10%);
 }
 

@@ -46,7 +46,11 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
         let className = "equipment-slot-empty";
         let iconURL = `/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`;
         let onPointerEnter = undefined;
+
+        let wikiLink = "";
+
         if (item !== undefined) {
+          wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
           className = "equipment-slot-item";
           iconURL = `/icons/items/${item.itemID}.webp`;
           onPointerEnter = (): void => {
@@ -62,7 +66,10 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
           };
         }
         return (
-          <div
+          <a
+            href={wikiLink}
+            target="_blank"
+            rel="noopener noreferrer"
             key={slot}
             onPointerEnter={onPointerEnter}
             onPointerLeave={hideTooltip}
@@ -73,7 +80,7 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
               className={className}
               src={iconURL}
             />
-          </div>
+          </a>
         );
       })}
       {tooltipElement}

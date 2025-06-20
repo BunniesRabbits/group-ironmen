@@ -60,7 +60,7 @@ const ItemPanel = ({
       <div className="inventory-item-top rsborder-tiny">
         <div className="inventory-item-top-right">
           <div className="inventory-item-name">
-            <a className="rstext" href={wikiLink} target="_blank">
+            <a className="rstext" href={wikiLink} target="_blank" rel="noopener noreferrer">
               {itemName}
             </a>
           </div>

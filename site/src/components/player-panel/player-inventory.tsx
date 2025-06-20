@@ -15,24 +15,33 @@ export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement 
         {(items ?? Array<undefined>(28).fill(undefined)).map((item, index) => {
           if (item === undefined)
             return <span onPointerEnter={hideTooltip} className="player-inventory-item-box" key={index} />;
-          return (
-            <img
-              onPointerEnter={() => {
-                const itemDatum = itemData?.get(item.itemID);
-                if (!itemDatum) return;
 
-                showTooltip({
-                  name: itemDatum.name,
-                  quantity: item.quantity,
-                  highAlch: itemDatum.highalch,
-                  gePrice: geData?.get(item.itemID) ?? 0,
-                });
-              }}
-              key={`${item.itemID} ${item.quantity} ${index}`}
-              alt="osrs item"
-              className="player-inventory-item-box"
-              src={`/icons/items/${item.itemID}.webp`}
-            />
+          const href = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
+
+          return (
+            <a
+              href={href}
+              className="player-inventory-item-box player-inventory-item-box-filled"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                onPointerEnter={() => {
+                  const itemDatum = itemData?.get(item.itemID);
+                  if (!itemDatum) return;
+
+                  showTooltip({
+                    name: itemDatum.name,
+                    quantity: item.quantity,
+                    highAlch: itemDatum.highalch,
+                    gePrice: geData?.get(item.itemID) ?? 0,
+                  });
+                }}
+                key={`${item.itemID} ${item.quantity} ${index}`}
+                alt="osrs item"
+                src={`/icons/items/${item.itemID}.webp`}
+              />
+            </a>
           );
         })}
       </div>
