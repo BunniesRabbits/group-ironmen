@@ -20,6 +20,7 @@ export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement 
 
           return (
             <a
+              key={`${item.itemID} ${item.quantity} ${index}`}
               href={href}
               className="player-inventory-item-box player-inventory-item-box-filled"
               target="_blank"
@@ -37,7 +38,6 @@ export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement 
                     gePrice: geData?.get(item.itemID) ?? 0,
                   });
                 }}
-                key={`${item.itemID} ${item.quantity} ${index}`}
                 alt="osrs item"
                 src={`/icons/items/${item.itemID}.webp`}
               />
