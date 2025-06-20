@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactElement } from "react";
 
 import "./tooltip.css";
-
 export const Tooltip = (): ReactElement => {
   const elementRef = useRef<HTMLDivElement>(null);
 

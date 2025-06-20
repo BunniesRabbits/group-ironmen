@@ -2,6 +2,8 @@ import { type ReactElement } from "react";
 import type { Equipment, EquipmentSlot } from "../../data/api";
 
 import "./player-equipment.css";
+import type { ItemData } from "../../data/item-data";
+import { useItemTooltip } from "../tooltip/item-tooltip";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",
@@ -33,20 +35,31 @@ const EquipmentSlotEmptyIcons = new Map<EquipmentSlot, string>([
   ["Ammo", "166-0.png"],
 ]);
 
-export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement => {
+export const PlayerEquipment = ({ items, itemData }: { items?: Equipment; itemData?: ItemData }): ReactElement => {
+  const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
+
   return (
     <div className="player-equipment">
       {VisibleEquipmentSlots.map((slot) => {
         const item = items?.get(slot);
         let className = "equipment-slot-empty";
         let iconURL = `/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`;
+        let onPointerEnter = undefined;
         if (item !== undefined) {
           className = "equipment-slot-item";
           iconURL = `/icons/items/${item.itemID}.webp`;
+          onPointerEnter = (): void => {
+            const itemDatum = itemData?.get(item.itemID);
+            if (!itemDatum) return;
+
+            showTooltip({ name: itemDatum.name, quantity: item.quantity, highalch: itemDatum.highalch });
+          };
         }
         return (
           <div
             key={slot}
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={hideTooltip}
             className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
           >
             <img
@@ -57,6 +70,7 @@ export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement 
           </div>
         );
       })}
+      {tooltipElement}
     </div>
   );
 };

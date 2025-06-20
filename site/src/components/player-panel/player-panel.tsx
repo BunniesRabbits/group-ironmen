@@ -113,7 +113,7 @@ export const PlayerPanel = ({
       content = <PlayerInventory itemData={itemData} items={inventory} />;
       break;
     case "Equipment":
-      content = <PlayerEquipment items={equipment} />;
+      content = <PlayerEquipment itemData={itemData} items={equipment} />;
       break;
     case "Skills":
       content = <PlayerSkills skills={skills} />;
