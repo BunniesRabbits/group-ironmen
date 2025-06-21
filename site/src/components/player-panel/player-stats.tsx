@@ -105,7 +105,7 @@ export const PlayerStats = ({
       </>
     );
   } else if (!online && lastUpdated !== undefined) {
-    status = <> - {lastUpdated.toISOString()}</>;
+    status = <> - {lastUpdated.toLocaleString()}</>;
   }
 
   const healthRatio = (stats?.health?.current ?? 0) / (stats?.health?.max ?? 1);
