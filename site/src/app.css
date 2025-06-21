@@ -379,7 +379,7 @@ ul {
   flex-direction: column;
   padding: 1em;
   list-style: none;
-  overflow-y: scroll;
+  overflow-y: auto;
   box-sizing: border-box;
   height: 100%;
 }

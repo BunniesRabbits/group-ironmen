@@ -5,7 +5,7 @@
   padding: 12px;
   gap: 12px;
   align-items: flex-start;
-  overflow: scroll;
+  overflow-y: auto;
   -webkit-font-smoothing: antialiased;
   justify-content: center;
 }
