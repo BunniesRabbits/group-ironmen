@@ -8,10 +8,8 @@ const root = document.getElementById("root")!;
 
 createRoot(root).render(
   <StrictMode>
-    <div className="wrap-routes unauthed-section" style={{ display: "flex", flexDirection: "column" }}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </div>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </StrictMode>,
 );
