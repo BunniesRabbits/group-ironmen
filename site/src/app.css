@@ -377,8 +377,6 @@ ul {
 #side-panels-container {
   display: flex;
   flex-direction: column;
-  flex: 0;
-  min-width: 320px;
   padding: 1em;
   list-style: none;
   overflow-y: scroll;

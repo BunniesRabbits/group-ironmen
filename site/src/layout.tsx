@@ -22,12 +22,7 @@ export const AuthedLayout = ({
 
   if (credentials === undefined) return <Navigate to="/" />;
 
-  const sidePanels =
-    panels !== undefined ? (
-      <div id="side-panels-container" className="pointer-passthrough">
-        {panels}
-      </div>
-    ) : undefined;
+  const sidePanels = panels !== undefined ? <div id="side-panels-container">{panels}</div> : undefined;
 
   return (
     <>
