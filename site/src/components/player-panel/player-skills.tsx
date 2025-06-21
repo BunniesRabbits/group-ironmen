@@ -21,8 +21,13 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
         const realLevel = Math.min(99, virtualLevel);
         totalLevel += realLevel;
 
+        const wikiURLRaw = `https://oldschool.runescape.wiki/w/${skill}`;
+
         return (
-          <div
+          <a
+            href={URL.parse(wikiURLRaw)?.href ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
             key={skill}
             className="skill-box"
             onPointerEnter={() => showTooltip({ style: "Individual", totalXP: xpInSkill })}
@@ -37,7 +42,7 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
             <div className="skill-box-progress">
               <div className="skill-box-progress-bar" style={{}}></div>
             </div>
-          </div>
+          </a>
         );
       })}
       <div
