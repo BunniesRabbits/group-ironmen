@@ -323,6 +323,8 @@ class CanvasMapRenderer {
   private iconsByRegion: MapIconGrid;
   private labelsByRegion: MapLabelGrid;
 
+  public forceRenderNextFrame = false;
+
   /**
    * This stores which plane of the runescape world to render.
    * Only 4 of them (index 0 to 3) have valid images.
@@ -578,7 +580,7 @@ class CanvasMapRenderer {
     const currentUpdateTime = performance.now();
     const elapsed = currentUpdateTime - this.lastUpdateTime;
 
-    if (elapsed < 0.001) return;
+    if (!this.forceRenderNextFrame && elapsed < 0.001) return;
 
     this.updateCursorVelocity(elapsed);
 
@@ -623,7 +625,8 @@ class CanvasMapRenderer {
     const anyVisibleRegionUpdatedAlpha = this.updateRegionsAlpha(context, elapsed);
 
     this.loadVisibleAll(context);
-    if (anyVisibleRegionUpdatedAlpha || transformHasChanged) {
+    if (anyVisibleRegionUpdatedAlpha || transformHasChanged || this.forceRenderNextFrame) {
+      this.forceRenderNextFrame = false;
       this.drawAll(context);
     }
 
@@ -892,7 +895,16 @@ export const useCanvasMap = ({
     pixelRatioRef.current = devicePixelRatio;
     canvas.width = Math.max(canvas.offsetWidth * devicePixelRatio, 1);
     canvas.height = Math.max(canvas.offsetHeight * devicePixelRatio, 1);
-  }, []);
+
+    const context = new Context2DScaledWrapper({
+      pixelRatio: pixelRatioRef.current,
+      context: canvas.getContext("2d")!,
+    });
+    if (renderer) {
+      renderer.forceRenderNextFrame = true;
+      renderer.update(context);
+    }
+  }, [renderer]);
 
   useEffect(() => {
     resizeCanvas();
@@ -946,17 +958,10 @@ export const useCanvasMap = ({
     if (renderer === undefined) return;
 
     renderer.onCursorCoordinatesUpdate = setCoordinates;
-
-    return (): void => {
-      renderer.onCursorCoordinatesUpdate = undefined;
-    };
-  }, [renderer]);
-  useEffect(() => {
-    if (renderer === undefined) return;
-
     renderer.onDraggingUpdate = setDragging;
 
     return (): void => {
+      renderer.onCursorCoordinatesUpdate = undefined;
       renderer.onDraggingUpdate = undefined;
     };
   }, [renderer]);
@@ -967,7 +972,6 @@ export const useCanvasMap = ({
     if (animationFrameHandleRef.current) {
       window.cancelAnimationFrame(animationFrameHandleRef.current);
     }
-    console.info("Kicking off new render.");
 
     render();
   }, [render]);
