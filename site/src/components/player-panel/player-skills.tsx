@@ -2,48 +2,31 @@ import { type ReactElement } from "react";
 import type { Skills } from "../../data/api";
 
 import "./player-skills.css";
-import { type Experience, type Skill, computeVirtualLevelFromXP } from "../../data/skill";
+import { type Experience, SkillIconsInOSRSOrder, computeVirtualLevelFromXP } from "../../data/skill";
+import { useSkillTooltip } from "../tooltip/skill-tooltip";
 
-// Row-major order, like how the skills are laid out in OSRS
-const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
-  { skill: "Attack", iconURL: "/ui/197-0.png" },
-  { skill: "Hitpoints", iconURL: "/ui/203-0.png" },
-  { skill: "Mining", iconURL: "/ui/209-0.png" },
-  { skill: "Strength", iconURL: "/ui/198-0.png" },
-  { skill: "Agility", iconURL: "/ui/204-0.png" },
-  { skill: "Smithing", iconURL: "/ui/210-0.png" },
-  { skill: "Defence", iconURL: "/ui/199-0.png" },
-  { skill: "Herblore", iconURL: "/ui/205-0.png" },
-  { skill: "Fishing", iconURL: "/ui/211-0.png" },
-  { skill: "Ranged", iconURL: "/ui/200-0.png" },
-  { skill: "Thieving", iconURL: "/ui/206-0.png" },
-  { skill: "Cooking", iconURL: "/ui/212-0.png" },
-  { skill: "Prayer", iconURL: "/ui/201-0.png" },
-  { skill: "Crafting", iconURL: "/ui/207-0.png" },
-  { skill: "Firemaking", iconURL: "/ui/213-0.png" },
-  { skill: "Magic", iconURL: "/ui/202-0.png" },
-  { skill: "Fletching", iconURL: "/ui/208-0.png" },
-  { skill: "Woodcutting", iconURL: "/ui/214-0.png" },
-  { skill: "Runecraft", iconURL: "/ui/215-0.png" },
-  { skill: "Slayer", iconURL: "/ui/216-0.png" },
-  { skill: "Farming", iconURL: "/ui/217-0.png" },
-  { skill: "Construction", iconURL: "/ui/221-0.png" },
-  { skill: "Hunter", iconURL: "/ui/220-0.png" },
-];
-export const SkillIconsBySkill = new Map<Skill, URL>(
-  SkillIconsInOSRSOrder.map(({ skill, iconURL }) => [skill, new URL(iconURL, import.meta.url)] as [Skill, URL]),
-);
 export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
   let totalLevel = 0;
+  const { tooltipElement, hideTooltip, showTooltip } = useSkillTooltip();
+
+  let totalXP = 0;
+
   return (
-    <div className="player-skills">
+    <div className="player-skills" onPointerLeave={hideTooltip}>
+      {tooltipElement}
       {SkillIconsInOSRSOrder.map(({ skill, iconURL }) => {
-        const virtualLevel = computeVirtualLevelFromXP(skills?.get(skill) ?? (0 as Experience));
+        const xpInSkill = skills?.get(skill) ?? (0 as Experience);
+        totalXP += xpInSkill;
+        const virtualLevel = computeVirtualLevelFromXP(xpInSkill);
         const realLevel = Math.min(99, virtualLevel);
         totalLevel += realLevel;
 
         return (
-          <div key={skill} className="skill-box">
+          <div
+            key={skill}
+            className="skill-box"
+            onPointerEnter={() => showTooltip({ style: "Individual", totalXP: xpInSkill })}
+          >
             <div className="skill-box-left">
               <img alt={`osrs ${skill} icon`} className="skill-box__icon" src={iconURL} />
             </div>
@@ -57,7 +40,10 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
           </div>
         );
       })}
-      <div className="total-level-box">
+      <div
+        className="total-level-box"
+        onPointerEnter={() => showTooltip({ style: "Total", totalXP: totalXP as Experience })}
+      >
         <img alt="osrs total level" className="total-level-box-image" src="/ui/183-0.png" />
         <img alt="osrs total level" className="total-level-box-image" src="/ui/184-0.png" />
         <div className="total-level-box-content">

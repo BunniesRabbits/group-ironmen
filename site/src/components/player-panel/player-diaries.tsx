@@ -5,8 +5,7 @@ import { DiaryRegion, DiaryTier } from "../../data/diary-data";
 
 import "./player-diaries.css";
 import { useModal } from "../modal/modal.tsx";
-import { computeVirtualLevelFromXP, type Level, type Skill } from "../../data/skill.ts";
-import { SkillIconsBySkill } from "./player-skills.tsx";
+import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill.ts";
 import { GameDataContext } from "../../data/game-data.ts";
 
 const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement => {
