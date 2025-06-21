@@ -43,10 +43,7 @@
 }
 
 #canvas-map-plane-select-container {
-  margin-top: 5em;
-  margin-left: 1em;
-  position: absolute;
-  top: 0;
+  align-self: baseline;
 }
 
 #canvas-map-plane-select {

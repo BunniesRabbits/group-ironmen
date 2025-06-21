@@ -393,3 +393,10 @@ ul {
 .greyscale {
   filter: grayscale(100%);
 }
+
+#panels-page-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}

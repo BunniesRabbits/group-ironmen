@@ -216,7 +216,14 @@ export const App = (): ReactElement => {
               }
             />
             <Route path="graphs" element={<AuthedLayout panels={panels} />} />
-            <Route path="panels" element={<AuthedLayout panels={undefined}>{panels}</AuthedLayout>} />
+            <Route
+              path="panels"
+              element={
+                <AuthedLayout panels={undefined}>
+                  <div id="panels-page-container">{panels}</div>
+                </AuthedLayout>
+              }
+            />
             <Route path="settings" element={<AuthedLayout panels={panels} />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
