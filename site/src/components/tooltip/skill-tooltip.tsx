@@ -2,13 +2,22 @@ import { useRef, useState, type ReactElement } from "react";
 
 import "./tooltip.css";
 import { createPortal } from "react-dom";
-import { decomposeExperience, type Experience } from "../../data/skill";
+import { type Experience } from "../../data/skill";
 import { StatBar } from "../player-panel/stat-bar";
 
-export interface SkillTooltipProps {
-  style: "Individual" | "Total";
-  totalXP: Experience;
-}
+export type SkillTooltipProps =
+  | {
+      style: "Total";
+      xp: Experience;
+    }
+  | {
+      style: "Individual";
+      xp: Experience;
+      untilNextRatio: number;
+      untilNext: Experience;
+      untilMaxRatio: number;
+      untilMax: Experience;
+    };
 
 /**
  * A hook to utilize the global tooltip with experience data, such as name, current level, remaining xp, etc.
@@ -32,23 +41,24 @@ export const useSkillTooltip = (): {
 
   let element = undefined;
   if (skillProps?.style === "Total") {
-    element = <>Total XP: {skillProps.totalXP.toLocaleString()}</>;
+    element = <>Total XP: {skillProps.xp.toLocaleString()}</>;
   } else if (skillProps?.style === "Individual") {
-    const { xpUntilMax, xpUntilLevelFromFresh, xpOverLevel, xpRequiredForMax, xpUntilLevel } = decomposeExperience(
-      skillProps.totalXP,
-    );
-
-    const ratioUntilCurrent = xpOverLevel / xpUntilLevelFromFresh;
-    const ratioUntilMax = skillProps.totalXP / xpRequiredForMax;
-
     element = (
       <>
-        Total XP: {skillProps.totalXP.toLocaleString()}
+        Total XP: {skillProps.xp.toLocaleString()}
         <br />
-        Until Level: {xpUntilLevel.toLocaleString()}
-        <StatBar color={`hsl(${107 * ratioUntilCurrent}, 100%, 41%)`} bgColor="#222222" ratio={ratioUntilCurrent} />
-        Until Max: {xpUntilMax.toLocaleString()}
-        <StatBar color={`hsl(${107 * ratioUntilMax}, 100%, 41%)`} bgColor="#222222" ratio={ratioUntilMax} />
+        Until Level: {skillProps.untilNext.toLocaleString()}
+        <StatBar
+          color={`hsl(${107 * skillProps.untilNextRatio}, 100%, 41%)`}
+          bgColor="#222222"
+          ratio={skillProps.untilNextRatio}
+        />
+        Until Max: {skillProps.untilMax.toLocaleString()}
+        <StatBar
+          color={`hsl(${107 * skillProps.untilMaxRatio}, 100%, 41%)`}
+          bgColor="#222222"
+          ratio={skillProps.untilMaxRatio}
+        />
       </>
     );
   }

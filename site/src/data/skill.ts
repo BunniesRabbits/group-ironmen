@@ -76,29 +76,32 @@ export const computeVirtualLevelFromXP = (xp: Experience | 0): Level => {
   return virtualLevel as Level;
 };
 
-export const decomposeExperience = (
-  xp: Experience | 0,
-): {
-  virtualLevel: Level;
-  xpUntilLevelFromFresh: Experience;
-  xpUntilMax: Experience;
-  xpRequiredForMax: Experience;
-  xpOverLevel: Experience;
-  xpUntilLevel: Experience;
-} => {
-  let virtualLevel = 1;
-  while (xp >= (levelLookup.get(virtualLevel + 1) ?? Infinity)) virtualLevel += 1;
+export interface ExperienceDecomposition {
+  // The level a player would have if levels were not capped at 99.
+  levelVirtual: Level;
+  // The level of a player from 1 to 99.
+  levelReal: Level;
+  // The experience total that gave the current level.
+  xpMilestoneOfCurrent: Experience;
+  // The experience total that when hit, will give the next level.
+  xpMilestoneOfNext: Experience;
+  // The experience total needed to hit max level.
+  xpDeltaFromMax: Experience;
+}
 
-  const xpRequiredForCurrent = levelLookup.get(virtualLevel) ?? 0;
-  const xpRequiredForNext = levelLookup.get(virtualLevel + 1) ?? 0;
-  const xpRequiredForMax = levelLookup.get(99) ?? 0;
+const LEVEL_MAX = 99;
+
+export const decomposeExperience = (xp: Experience | 0): ExperienceDecomposition => {
+  const levelVirtual = computeVirtualLevelFromXP(xp);
+  const levelReal = Math.min(levelVirtual, LEVEL_MAX);
+  const xpMilestoneOfCurrent = levelLookup.get(levelVirtual) ?? 0;
+  const xpMilestoneOfNext = levelLookup.get(levelVirtual + 1) ?? 0;
 
   return {
-    virtualLevel: virtualLevel as Level,
-    xpUntilLevelFromFresh: (xpRequiredForNext - xpRequiredForCurrent) as Experience,
-    xpUntilMax: Math.max(0, xpRequiredForMax - xp) as Experience,
-    xpRequiredForMax: xpRequiredForMax as Experience,
-    xpOverLevel: (xp - xpRequiredForCurrent) as Experience,
-    xpUntilLevel: (xpRequiredForNext - xp) as Experience,
+    levelVirtual: levelVirtual,
+    levelReal: levelReal as Level,
+    xpMilestoneOfCurrent: xpMilestoneOfCurrent as Experience,
+    xpMilestoneOfNext: xpMilestoneOfNext as Experience,
+    xpDeltaFromMax: levelLookup.get(LEVEL_MAX)! as Experience,
   };
 };
