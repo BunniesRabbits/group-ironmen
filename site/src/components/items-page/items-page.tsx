@@ -1,8 +1,9 @@
 import { type ReactElement, Fragment, useContext, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type { ItemID, ItemsView, MemberName } from "../../data/api";
+import type { ItemsView, MemberName } from "../../data/api";
 import { GameDataContext } from "../../data/game-data";
+import { type ItemID } from "../../data/items";
 
 type ItemFilter = "All" | MemberName;
 const ItemSortCategory = [

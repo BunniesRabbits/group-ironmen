@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { type Distinct } from "../util";
-import { fetchItemDataJSON, type ItemData } from "./item-data";
+import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "./items";
 import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
 import { type Experience, type Skill } from "./skill";
 import { type DiaryRegion, fetchDiaryDataJSON, type DiaryData, type DiaryTier } from "./diary-data";
@@ -42,7 +42,6 @@ function makeGetGEPricesURL(args: { baseURL: string }): string {
   return `${args.baseURL}/ge-prices`;
 }
 
-export type ItemID = Distinct<number, "ItemID">;
 export type MemberName = Distinct<string, "MemberName">;
 
 const MemberItemsFromBackend = z
@@ -65,11 +64,6 @@ const MemberItemsFromBackend = z
     }, new Map<ItemID, number>()),
   );
 export type MemberItems = z.infer<typeof MemberItemsFromBackend>;
-
-export interface ItemStack {
-  itemID: ItemID;
-  quantity: number;
-}
 
 const INVENTORY_SIZE = 28;
 const InventoryFromBackend = z
@@ -1008,7 +1002,7 @@ interface UpdateCallbacks {
   onLastUpdatedUpdate: (lastUpdated: LastUpdatedView) => void;
   onQuestsUpdate: (quests: QuestsView) => void;
   onDiariesUpdate: (diaries: DiariesView) => void;
-  onItemDataUpdate: (itemData: ItemData) => void;
+  onItemDataUpdate: (itemData: ItemsDatabase) => void;
   onQuestDataUpdate: (questData: QuestData) => void;
   onDiaryDataUpdate: (diaryData: DiaryData) => void;
   onGEDataUpdate: (geData: GEPrices) => void;
@@ -1021,7 +1015,7 @@ export default class Api {
   private closed: boolean;
   private groupData: Map<MemberName, MemberData>;
   private knownMembers: MemberName[];
-  private itemData?: ItemData;
+  private itemDatabase?: ItemsDatabase;
   private questData?: QuestData;
   private diaryData?: DiaryData;
   private geData?: GEPrices;
@@ -1267,10 +1261,10 @@ export default class Api {
         })
         .catch((reason) => console.error("Failed to get quest data for API", reason));
     }
-    if (this.itemData === undefined) {
+    if (this.itemDatabase === undefined) {
       fetchItemDataJSON()
         .then((data) => {
-          this.itemData = data;
+          this.itemDatabase = data;
           this.callbacks?.onItemDataUpdate(data);
         })
         .catch((reason) => console.error("Failed to get item data for API", reason));
@@ -1311,7 +1305,7 @@ export default class Api {
   public startFetchingEverything(): void {
     if (this.getGroupDataPromise !== undefined) return;
 
-    if (this.questData === undefined || this.itemData === undefined) this.queueGetGameData();
+    if (this.questData === undefined || this.itemDatabase === undefined) this.queueGetGameData();
 
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
