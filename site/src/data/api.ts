@@ -5,6 +5,7 @@ import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
 import { type Experience, type Skill } from "./skill";
 import { type DiaryRegion, fetchDiaryDataJSON, type DiaryDatabase, type DiaryTier } from "./diaries";
 import type { GroupCredentials } from "./credentials";
+import { EquipmentSlot } from "./equipment";
 
 /*
  * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
@@ -67,7 +68,7 @@ export type Inventory = z.infer<typeof InventoryFromBackend>;
  * https://github.com/runelite/runelite/blob/a8bdd510971fc8974959e2c9b34b6b88b46bb0fd/runelite-api/src/main/java/net/runelite/api/EquipmentInventorySlot.java#L37
  * We use the names from runelite source.
  */
-const EquipmentSlotInBackendOrder = [
+const EquipmentSlotInBackendOrder: EquipmentSlot[] = [
   "Head",
   "Cape",
   "Amulet",
@@ -83,12 +84,10 @@ const EquipmentSlotInBackendOrder = [
   "Ring",
   "Ammo",
 ] as const;
-export type EquipmentSlot = (typeof EquipmentSlotInBackendOrder)[number];
 
-const NUMBER_OF_EQUIPMENT_SLOTS = EquipmentSlotInBackendOrder.length;
 const EquipmentFromBackend = z
   .array(z.uint32())
-  .length(2 * NUMBER_OF_EQUIPMENT_SLOTS)
+  .length(2 * EquipmentSlot.length)
   .transform((equipmentFlat) => {
     return equipmentFlat.reduce<Map<EquipmentSlot, ItemStack>>((equipment, _, index, equipmentFlat) => {
       if (index % 2 !== 0 || index + 1 >= equipmentFlat.length) return equipment;
