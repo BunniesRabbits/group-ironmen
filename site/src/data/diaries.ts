@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { Skills, type Skill } from "./skill";
-import type { QuestID } from "./quest-data";
+import type { QuestID } from "./quests";
 
 export const DiaryTier = ["Easy", "Medium", "Hard", "Elite"] as const;
 export type DiaryTier = (typeof DiaryTier)[number];

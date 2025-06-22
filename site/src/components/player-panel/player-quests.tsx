@@ -1,5 +1,5 @@
 import { useContext, useState, type ReactElement } from "react";
-import type { QuestDifficulty } from "../../data/quest-data";
+import type { QuestDifficulty } from "../../data/quests";
 import type { Quests, QuestStatus } from "../../data/api";
 import { SearchElement } from "../search-element/search-element";
 

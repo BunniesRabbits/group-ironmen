@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { type Distinct } from "../util";
 import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "./items";
-import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
+import { fetchQuestDataJSON, type QuestDatabase, type QuestID } from "./quests";
 import { type Experience, type Skill } from "./skill";
 import { type DiaryRegion, fetchDiaryDataJSON, type DiaryDatabase, type DiaryTier } from "./diaries";
 import type { GroupCredentials } from "./credentials";
@@ -981,7 +981,7 @@ interface UpdateCallbacks {
   onQuestsUpdate: (quests: QuestsView) => void;
   onDiariesUpdate: (diaries: DiariesView) => void;
   onItemDataUpdate: (itemData: ItemsDatabase) => void;
-  onQuestDataUpdate: (questData: QuestData) => void;
+  onQuestDataUpdate: (questData: QuestDatabase) => void;
   onDiaryDataUpdate: (diaryData: DiaryDatabase) => void;
   onGEDataUpdate: (geData: GEPrices) => void;
 }
@@ -994,7 +994,7 @@ export default class Api {
   private groupData: Map<MemberName, MemberData>;
   private knownMembers: MemberName[];
   private itemDatabase?: ItemsDatabase;
-  private questData?: QuestData;
+  private questData?: QuestDatabase;
   private diaryData?: DiaryDatabase;
   private geData?: GEPrices;
 
