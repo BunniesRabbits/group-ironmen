@@ -1,7 +1,7 @@
 import { useContext, type ReactElement, type ReactNode } from "react";
 import { StatBar } from "./stat-bar";
 import type { Diaries, MemberName, Quests, Skills } from "../../data/api";
-import { DiaryRegion, DiaryTier } from "../../data/diary-data";
+import { DiaryRegion, DiaryTier } from "../../data/diaries.ts";
 
 import "./player-diaries.css";
 import { useModal } from "../modal/modal.tsx";

@@ -3,7 +3,7 @@ import { type Distinct } from "../util";
 import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "./items";
 import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
 import { type Experience, type Skill } from "./skill";
-import { type DiaryRegion, fetchDiaryDataJSON, type DiaryData, type DiaryTier } from "./diary-data";
+import { type DiaryRegion, fetchDiaryDataJSON, type DiaryDatabase, type DiaryTier } from "./diaries";
 import type { GroupCredentials } from "./credentials";
 
 /*
@@ -983,7 +983,7 @@ interface UpdateCallbacks {
   onDiariesUpdate: (diaries: DiariesView) => void;
   onItemDataUpdate: (itemData: ItemsDatabase) => void;
   onQuestDataUpdate: (questData: QuestData) => void;
-  onDiaryDataUpdate: (diaryData: DiaryData) => void;
+  onDiaryDataUpdate: (diaryData: DiaryDatabase) => void;
   onGEDataUpdate: (geData: GEPrices) => void;
 }
 export default class Api {
@@ -996,7 +996,7 @@ export default class Api {
   private knownMembers: MemberName[];
   private itemDatabase?: ItemsDatabase;
   private questData?: QuestData;
-  private diaryData?: DiaryData;
+  private diaryData?: DiaryDatabase;
   private geData?: GEPrices;
 
   private getDateOfNewestMemberUpdate(response: GetGroupDataResponse): Date {

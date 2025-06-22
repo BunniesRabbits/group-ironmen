@@ -21,7 +21,20 @@ export const DiaryRegion = [
 ] as const;
 export type DiaryRegion = (typeof DiaryRegion)[number];
 
-const DiaryEntry = z.object({
+export type DiaryDatabase = z.infer<typeof DiaryDatabaseSchema>;
+
+export const fetchDiaryDataJSON = (): Promise<DiaryDatabase> =>
+  import("/src/assets/diary_data.json")
+    .then((data) => {
+      return DiaryDatabaseSchema.safeParseAsync(data.default);
+    })
+    .then((parseResult) => {
+      if (!parseResult.success) throw new Error("Failed to parse diary_data.json", { cause: parseResult.error });
+
+      return parseResult.data;
+    });
+
+const DiaryTaskSchema = z.object({
   task: z.string(),
   requirements: z
     .object({
@@ -46,33 +59,21 @@ const DiaryEntry = z.object({
       return requirements ?? { quests: [], skills: [] };
     }),
 });
-export type DiaryEntry = z.infer<typeof DiaryEntry>;
+export type DiaryTask = z.infer<typeof DiaryTaskSchema>;
 
-const DiaryTasksByTier = z
-  .record(z.enum(DiaryTier), DiaryEntry.array())
+const DiaryRegionTasksSchema = z
+  .record(z.enum(DiaryTier), DiaryTaskSchema.array())
   .transform((record) =>
-    Object.entries(record).map(([tier, tasks]) => [tier as DiaryTier, tasks] as [DiaryTier, DiaryEntry[]]),
+    Object.entries(record).map(([tier, tasks]) => [tier as DiaryTier, tasks] as [DiaryTier, DiaryTask[]]),
   )
   .transform((entries) => new Map(entries));
-type DiaryTasksByTier = z.infer<typeof DiaryTasksByTier>;
+type DiaryRegionTasks = z.infer<typeof DiaryRegionTasksSchema>;
 
-const DiaryData = z
-  .record(z.enum(DiaryRegion), DiaryTasksByTier)
+const DiaryDatabaseSchema = z
+  .record(z.enum(DiaryRegion), DiaryRegionTasksSchema)
   .transform((record) =>
     Object.entries(record).map(
-      ([region, tasksByTier]) => [region as DiaryRegion, tasksByTier] satisfies [DiaryRegion, DiaryTasksByTier],
+      ([region, tasksByTier]) => [region as DiaryRegion, tasksByTier] satisfies [DiaryRegion, DiaryRegionTasks],
     ),
   )
   .transform((entries) => new Map(entries));
-export type DiaryData = z.infer<typeof DiaryData>;
-
-export const fetchDiaryDataJSON = (): Promise<DiaryData> =>
-  import("/src/assets/diary_data.json")
-    .then((data) => {
-      return DiaryData.safeParseAsync(data.default);
-    })
-    .then((parseResult) => {
-      if (!parseResult.success) throw new Error("Failed to parse diary_data.json", { cause: parseResult.error });
-
-      return parseResult.data;
-    });
