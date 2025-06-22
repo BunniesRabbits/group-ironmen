@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { Skills, type Skill } from "./skill";
+import { Skill } from "./skill";
 import type { QuestID } from "./quests";
 
 export const DiaryTier = ["Easy", "Medium", "Hard", "Elite"] as const;
@@ -45,7 +45,7 @@ const DiaryTaskSchema = z.object({
         .transform((quests) => quests ?? [])
         .transform((quests) => quests.map((id) => id as QuestID)),
       skills: z
-        .partialRecord(z.enum(Skills), z.uint32())
+        .partialRecord(z.enum(Skill), z.uint32())
         .optional()
         .transform((record) =>
           Object.entries(record ?? []).map(([skill, level]) => ({

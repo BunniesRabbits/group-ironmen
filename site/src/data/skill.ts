@@ -1,6 +1,6 @@
 import type { Distinct } from "../util";
 
-export const Skills = [
+export const Skill = [
   "Agility",
   "Attack",
   "Construction",
@@ -25,10 +25,11 @@ export const Skills = [
   "Thieving",
   "Woodcutting",
 ] as const;
-export type Skill = (typeof Skills)[number];
+export type Skill = (typeof Skill)[number];
+export type Experience = Distinct<number, "Experience">;
+export type Level = Distinct<number, "Level">;
 
-// Row-major order, like how the skills are laid out in OSRS
-export const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
+const SkillIcons: { skill: Skill; iconURL: string }[] = [
   { skill: "Attack", iconURL: "/ui/197-0.png" },
   { skill: "Hitpoints", iconURL: "/ui/203-0.png" },
   { skill: "Mining", iconURL: "/ui/209-0.png" },
@@ -54,7 +55,7 @@ export const SkillIconsInOSRSOrder: { skill: Skill; iconURL: string }[] = [
   { skill: "Hunter", iconURL: "/ui/220-0.png" },
 ];
 export const SkillIconsBySkill = new Map<Skill, URL>(
-  SkillIconsInOSRSOrder.map(({ skill, iconURL }) => [skill, new URL(iconURL, import.meta.url)] as [Skill, URL]),
+  SkillIcons.map(({ skill, iconURL }) => [skill, new URL(iconURL, import.meta.url)] as [Skill, URL]),
 );
 
 const levelLookup = new Map<number, number>();
@@ -66,9 +67,6 @@ const levelLookup = new Map<number, number>();
     xp += 0.25 * Math.floor(L + 300 * 2 ** (L / 7));
   }
 }
-
-export type Experience = Distinct<number, "Experience">;
-export type Level = Distinct<number, "Level">;
 
 export const computeVirtualLevelFromXP = (xp: Experience | 0): Level => {
   let virtualLevel = 1;

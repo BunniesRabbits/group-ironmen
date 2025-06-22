@@ -2,8 +2,34 @@ import { type ReactElement } from "react";
 import type { Skills } from "../../data/api";
 
 import "./player-skills.css";
-import { type Experience, SkillIconsInOSRSOrder, decomposeExperience } from "../../data/skill";
+import { type Experience, Skill, SkillIconsBySkill, decomposeExperience } from "../../data/skill";
 import { useSkillTooltip } from "../tooltip/skill-tooltip";
+
+const SkillsInOSRSDisplayOrder: Skill[] = [
+  "Attack",
+  "Hitpoints",
+  "Mining",
+  "Strength",
+  "Agility",
+  "Smithing",
+  "Defence",
+  "Herblore",
+  "Fishing",
+  "Ranged",
+  "Thieving",
+  "Cooking",
+  "Prayer",
+  "Crafting",
+  "Firemaking",
+  "Magic",
+  "Fletching",
+  "Woodcutting",
+  "Runecraft",
+  "Slayer",
+  "Farming",
+  "Construction",
+  "Hunter",
+];
 
 export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useSkillTooltip();
@@ -14,7 +40,7 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
   return (
     <div className="player-skills" onPointerLeave={hideTooltip}>
       {tooltipElement}
-      {SkillIconsInOSRSOrder.map(({ skill, iconURL }) => {
+      {SkillsInOSRSDisplayOrder.map((skill) => {
         const xp = skills?.get(skill) ?? (0 as Experience);
         xpTotal += xp;
 
@@ -23,6 +49,7 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
         levelTotal += levelReal;
 
         const wikiURLRaw = `https://oldschool.runescape.wiki/w/${skill}`;
+        const iconURLRaw = SkillIconsBySkill.get(skill)?.href;
 
         return (
           <a
@@ -43,7 +70,7 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
             }
           >
             <div className="skill-box-left">
-              <img alt={`osrs ${skill} icon`} className="skill-box__icon" src={iconURL} />
+              <img alt={`osrs ${skill} icon`} className="skill-box__icon" src={iconURLRaw} />
             </div>
             <div className="skill-box-right">
               <div className="skill-box-current-level">{levelReal}</div>
