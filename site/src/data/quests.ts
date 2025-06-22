@@ -7,6 +7,9 @@ export type QuestID = Distinct<number, "QuestID">;
 export type Quest = z.infer<typeof QuestSchema>;
 export type QuestDatabase = z.infer<typeof QuestDatabaseSchema>;
 
+const QuestStatus = ["IN_PROGRESS", "NOT_STARTED", "FINISHED"] as const;
+export type QuestStatus = (typeof QuestStatus)[number];
+
 export const fetchQuestDataJSON = (): Promise<QuestDatabase> =>
   import("/src/assets/quest_data.json")
     .then((data) => {

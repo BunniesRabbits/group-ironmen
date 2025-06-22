@@ -1,10 +1,10 @@
 import { useContext, type ReactElement } from "react";
-import type { Equipment } from "../../data/api";
-
-import "./player-equipment.css";
 import { useItemTooltip } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../data/game-data";
 import { EquipmentSlot } from "../../data/equipment";
+
+import "./player-equipment.css";
+import type { Equipment } from "../../data/member";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",

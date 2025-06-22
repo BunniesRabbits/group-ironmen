@@ -1,8 +1,8 @@
 import { type ReactElement, type ReactNode } from "react";
-import type { NPCInteraction, Stats } from "../../data/api";
 
 import "./player-stats.css";
 import { StatBar } from "./stat-bar";
+import type { NPCInteraction, Stats } from "../../data/member";
 
 /**
  * cyrb53 (c) 2018 bryc (github.com/bryc)
@@ -91,7 +91,7 @@ export const PlayerStats = ({
 
   let interactionBar: ReactNode = undefined;
   if (online && interacting !== undefined) {
-    if (now.getTime() - interacting.last_updated.getTime() < INTERACTION_TIMER_MS) {
+    if (now.getTime() - interacting.lastUpdated.getTime() < INTERACTION_TIMER_MS) {
       const { healthRatio, name } = interacting;
       interactionBar = <PlayerInteracting healthRatio={healthRatio} npcName={name} />;
     }

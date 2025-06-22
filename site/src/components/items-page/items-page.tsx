@@ -1,11 +1,11 @@
 import { type ReactElement, Fragment, useContext, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type { ItemsView, MemberName } from "../../data/api";
+import type * as Member from "../../data/member";
 import { GameDataContext } from "../../data/game-data";
 import { type ItemID } from "../../data/items";
 
-type ItemFilter = "All" | MemberName;
+type ItemFilter = "All" | Member.Name;
 const ItemSortCategory = [
   "Total Quantity",
   "HA Total Value",
@@ -33,9 +33,9 @@ const ItemPanel = ({
   imageURL: string;
   totalQuantity: number;
   filter: ItemFilter;
-  quantities: Map<MemberName, number>;
+  quantities: Map<Member.Name, number>;
 }): ReactElement => {
-  const quantityBreakdown = [...quantities].map(([name, quantity]: [MemberName, number]) => {
+  const quantityBreakdown = [...quantities].map(([name, quantity]: [Member.Name, number]) => {
     if (filter !== "All" && filter !== name) return;
 
     const quantityPercent = (quantity / totalQuantity) * 100;
@@ -130,7 +130,13 @@ const usePageSelection = ({
   return { pageNumber: pageCurrent, resetPage: () => setPageCurrent(0), element };
 };
 
-export const ItemsPage = ({ items, memberNames }: { items?: ItemsView; memberNames?: MemberName[] }): ReactElement => {
+export const ItemsPage = ({
+  items,
+  memberNames,
+}: {
+  items?: Map<ItemID, Map<Member.Name, number>>;
+  memberNames?: Member.Name[];
+}): ReactElement => {
   // const [itemCount, setItemCount] = useState<number>(0);
   const [filter, setFilter] = useState<ItemFilter>("All");
   const [searchString, setSearchString] = useState<string>("");
@@ -143,7 +149,7 @@ export const ItemsPage = ({ items, memberNames }: { items?: ItemsView; memberNam
     filteredItems: {
       itemID: ItemID;
       itemName: string;
-      quantityByMemberName: Map<MemberName, number>;
+      quantityByMemberName: Map<Member.Name, number>;
       totalQuantity: number;
       gePrice: number;
       highAlch: number;
@@ -155,7 +161,7 @@ export const ItemsPage = ({ items, memberNames }: { items?: ItemsView; memberNam
       if (!item?.name.toLocaleLowerCase().includes(searchString)) return previousValue;
 
       let filteredTotalQuantity = 0;
-      const filteredQuantities = new Map<MemberName, number>();
+      const filteredQuantities = new Map<Member.Name, number>();
       quantityByMemberName.forEach((quantity, name) => {
         if (filter !== "All" && filter !== name) return;
 

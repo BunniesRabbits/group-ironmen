@@ -1,9 +1,9 @@
 import { type ReactElement } from "react";
-import type { Skills } from "../../data/api";
-
-import "./player-skills.css";
 import { type Experience, Skill, SkillIconsBySkill, decomposeExperience } from "../../data/skill";
 import { useSkillTooltip } from "../tooltip/skill-tooltip";
+
+import "./player-skills.css";
+import type { Skills } from "../../data/member";
 
 const SkillsInOSRSDisplayOrder: Skill[] = [
   "Attack",
@@ -41,7 +41,7 @@ export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
     <div className="player-skills" onPointerLeave={hideTooltip}>
       {tooltipElement}
       {SkillsInOSRSDisplayOrder.map((skill) => {
-        const xp = skills?.get(skill) ?? (0 as Experience);
+        const xp = skills?.[skill] ?? (0 as Experience);
         xpTotal += xp;
 
         const { xpDeltaFromMax, levelReal, levelVirtual, xpMilestoneOfNext } = decomposeExperience(xp);

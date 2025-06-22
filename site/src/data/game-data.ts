@@ -1,8 +1,8 @@
 import { type QuestDatabase } from "./quests";
 import { type DiaryDatabase } from "./diaries";
 import { createContext } from "react";
-import type { GEPrices } from "./api";
 import type { ItemsDatabase } from "./items";
+import type { GEPrices } from "./requests/ge-prices";
 
 export interface GameData {
   items?: ItemsDatabase;

@@ -9,18 +9,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 
 import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
-import Api, {
-  type DiariesView,
-  type EquipmentView,
-  type InventoryView,
-  type ItemsView,
-  type LastUpdatedView,
-  type MemberName,
-  type NPCInteractionsView,
-  type QuestsView,
-  type SkillsView,
-  type StatsView,
-} from "./data/api";
+import Api, { type GroupState } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
@@ -29,16 +18,7 @@ import { loadValidatedCredentials } from "./data/credentials";
 
 interface APIConnectionWithDataViews {
   close: () => void;
-  itemsView: ItemsView;
-  npcInteractions: NPCInteractionsView;
-  stats: StatsView;
-  lastUpdated: LastUpdatedView;
-  inventoryView: InventoryView;
-  equipmentView: EquipmentView;
-  skills: SkillsView;
-  quests: QuestsView;
-  diaries: DiariesView;
-  knownMembers: MemberName[];
+  group: GroupState;
 }
 
 /**
@@ -52,33 +32,15 @@ interface APIConnectionWithDataViews {
 const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
-  const [itemsView, setItemsView] = useState<ItemsView>();
-  const [npcInteractions, setNPCInteractions] = useState<NPCInteractionsView>();
-  const [stats, setStats] = useState<StatsView>();
-  const [lastUpdated, setLastUpdated] = useState<LastUpdatedView>();
-  const [inventoryView, setInventoryView] = useState<InventoryView>();
-  const [equipmentView, setEquipmentView] = useState<EquipmentView>();
-  const [skills, setSkills] = useState<SkillsView>();
-  const [quests, setQuests] = useState<QuestsView>();
-  const [diaries, setDiaries] = useState<DiariesView>();
+  const [group, setGroup] = useState<GroupState>();
 
   const gameDataRef = useRef<GameData>({});
-
-  const knownMembers = api?.getKnownMembers();
 
   useEffect(() => {
     if (api === undefined) return;
 
     api.setUpdateCallbacks({
-      onInventoryUpdate: setInventoryView,
-      onEquipmentUpdate: setEquipmentView,
-      onItemsUpdate: setItemsView,
-      onNPCInteractionsUpdate: setNPCInteractions,
-      onStatsUpdate: setStats,
-      onLastUpdatedUpdate: setLastUpdated,
-      onSkillsUpdate: setSkills,
-      onQuestsUpdate: setQuests,
-      onDiariesUpdate: setDiaries,
+      onGroupUpdate: (group) => setGroup(structuredClone(group)),
       onItemDataUpdate: (data) => {
         gameDataRef.current.items = data;
       },
@@ -98,7 +60,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
     return (): void => {
       api.close();
     };
-  }, [api, setItemsView]);
+  }, [api]);
 
   useEffect(() => {
     if (api !== undefined) return;
@@ -115,16 +77,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
 
   return {
     close,
-    itemsView,
-    npcInteractions,
-    stats,
-    lastUpdated,
-    inventoryView,
-    equipmentView,
-    skills,
-    knownMembers,
-    quests,
-    diaries,
+    group,
     gameData: gameDataRef.current,
   };
 };
@@ -132,37 +85,27 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
 export const App = (): ReactElement => {
   const location = useLocation();
 
-  const {
-    close: closeAPI,
-    itemsView,
-    npcInteractions,
-    stats,
-    lastUpdated,
-    inventoryView,
-    equipmentView,
-    skills,
-    quests,
-    diaries,
-    knownMembers,
-    gameData,
-  } = useAPI();
+  const { close: closeAPI, group, gameData } = useAPI();
 
-  const panels = knownMembers
-    ?.filter((name) => name !== "@SHARED")
-    .map<ReactElement>((name) => (
-      <PlayerPanel
-        interacting={npcInteractions?.get(name)}
-        inventory={inventoryView?.get(name)}
-        equipment={equipmentView?.get(name)}
-        skills={skills?.get(name)}
-        quests={quests?.get(name)}
-        diaries={diaries?.get(name)}
-        player={name}
-        lastUpdated={lastUpdated?.get(name)}
-        stats={stats?.get(name)}
-        key={name}
-      />
-    ));
+  const panels = Array.from(
+    group?.members
+      .entries()
+      .filter(([name]) => name !== "@SHARED")
+      .map<ReactElement>(([name, state]) => (
+        <PlayerPanel
+          interacting={state.interacting}
+          inventory={state.inventory}
+          equipment={state.equipment}
+          skills={state.skills}
+          quests={state.quests}
+          diaries={state.diaries}
+          player={name}
+          lastUpdated={state.lastUpdated}
+          stats={state.stats}
+          key={name}
+        />
+      )) ?? [],
+  );
 
   const { coordinateIndicator, planeSelect, backgroundMap } = useCanvasMap({
     interactive: location.pathname === "/group/map",
@@ -204,7 +147,7 @@ export const App = (): ReactElement => {
               path="items"
               element={
                 <AuthedLayout panels={panels}>
-                  <ItemsPage memberNames={knownMembers} items={itemsView} />
+                  <ItemsPage memberNames={[...(group?.members.keys() ?? [])]} items={group?.items} />
                 </AuthedLayout>
               }
             />

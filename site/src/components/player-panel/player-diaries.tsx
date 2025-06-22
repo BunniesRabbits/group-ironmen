@@ -1,12 +1,12 @@
 import { useContext, type ReactElement, type ReactNode } from "react";
 import { StatBar } from "./stat-bar";
-import type { Diaries, MemberName, Quests, Skills } from "../../data/api";
-import { DiaryRegion, DiaryTier } from "../../data/diaries.ts";
+import { DiaryRegion, DiaryTier } from "../../data/diaries";
+import { useModal } from "../modal/modal";
+import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill";
+import { GameDataContext } from "../../data/game-data";
+import type * as Member from "../../data/member";
 
 import "./player-diaries.css";
-import { useModal } from "../modal/modal.tsx";
-import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill.ts";
-import { GameDataContext } from "../../data/game-data.ts";
 
 const TierTasksDisplay = ({ tasks }: { tasks: DiaryTaskView[] }): ReactElement => {
   const elements = tasks.map(({ complete, description, quests, skills }) => {
@@ -60,7 +60,7 @@ const DiaryRegionWindow = ({
   progress,
   onCloseModal,
 }: {
-  player: MemberName;
+  player: Member.Name;
   region: DiaryRegion;
   progress: DiaryRegionView;
   onCloseModal: () => void;
@@ -111,7 +111,7 @@ const DiarySummary = ({
   region,
   progress,
 }: {
-  player: MemberName;
+  player: Member.Name;
   region: DiaryRegion;
   progress: DiaryRegionView;
 }): ReactElement => {
@@ -178,23 +178,23 @@ export const PlayerDiaries = ({
   diaries,
   quests,
 }: {
-  player: MemberName;
-  skills: Skills | undefined;
-  diaries: Diaries | undefined;
-  quests: Quests | undefined;
+  player: Member.Name;
+  skills: Member.Skills | undefined;
+  diaries: Member.Diaries | undefined;
+  quests: Member.Quests | undefined;
 }): ReactElement => {
   const { quests: questData, diaries: diaryData } = useContext(GameDataContext);
 
   if (diaries === undefined || diaryData === undefined) return <></>;
 
   const display = diaryData.entries().map(([region, tasksByTier]) => {
-    const progressForRegion = diaries.get(region);
+    const progressForRegion = diaries[region];
     if (!progressForRegion) return;
 
     const displayForRegion = new Map<DiaryTier, DiaryTaskView[]>();
 
     tasksByTier.forEach((tasks, tier) => {
-      const progressForTier = progressForRegion.get(tier);
+      const progressForTier = progressForRegion[tier];
       if (!progressForTier) return;
 
       const progressForTasks = tasks.map<DiaryTaskView>(
@@ -208,7 +208,7 @@ export const PlayerDiaries = ({
           skills: taskSkills.map(({ skill, level }) => ({
             skill,
             required: level as Level,
-            current: computeVirtualLevelFromXP(skills?.get(skill) ?? 0),
+            current: computeVirtualLevelFromXP(skills?.[skill] ?? 0),
           })),
         }),
       );

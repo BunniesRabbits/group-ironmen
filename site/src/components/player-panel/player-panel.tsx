@@ -1,13 +1,13 @@
 import { useState, type ReactElement } from "react";
 
 import "./player-panel.css";
-import type { Diaries, Equipment, Inventory, MemberName, NPCInteraction, Quests, Skills, Stats } from "../../data/api";
 import { PlayerSkills } from "./player-skills";
 import { PlayerInventory } from "./player-inventory";
 import { PlayerEquipment } from "./player-equipment";
 import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
 import { PlayerDiaries } from "./player-diaries";
+import * as Member from "../../data/member";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
@@ -24,15 +24,15 @@ export const PlayerPanel = ({
   quests,
   diaries,
 }: {
-  player: MemberName;
-  stats?: Stats;
+  player: Member.Name;
+  stats?: Member.Stats;
   lastUpdated?: Date;
-  interacting?: NPCInteraction;
-  inventory?: Inventory;
-  equipment?: Equipment;
-  skills?: Skills;
-  quests?: Quests;
-  diaries?: Diaries;
+  interacting?: Member.NPCInteraction;
+  inventory?: Member.Inventory;
+  equipment?: Member.Equipment;
+  skills?: Member.Skills;
+  quests?: Member.Quests;
+  diaries?: Member.Diaries;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
 

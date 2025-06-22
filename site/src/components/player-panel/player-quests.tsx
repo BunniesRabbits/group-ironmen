@@ -1,10 +1,10 @@
 import { useContext, useState, type ReactElement } from "react";
-import type { QuestDifficulty } from "../../data/quests";
-import type { Quests, QuestStatus } from "../../data/api";
+import type { QuestDifficulty, QuestStatus } from "../../data/quests";
 import { SearchElement } from "../search-element/search-element";
 
 import "./player-quests.css";
 import { GameDataContext } from "../../data/game-data";
+import type { Quests } from "../../data/member";
 
 const getDifficultyIconURL = (difficulty: QuestDifficulty): string => {
   switch (difficulty) {

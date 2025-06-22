@@ -1,7 +1,7 @@
 import { useContext, type ReactElement } from "react";
-import type { Inventory } from "../../data/api";
 import { useItemTooltip } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../data/game-data";
+import type { Inventory } from "../../data/member";
 
 import "./player-inventory.css";
 
