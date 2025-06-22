@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
-import { wipeCredentials } from "../../data/api";
 import { useEffect, type ReactElement } from "react";
+import { wipeCredentials } from "../../data/credentials";
 
 export const LogoutPage = ({ callback }: { callback?: () => void }): ReactElement => {
   useEffect(() => {

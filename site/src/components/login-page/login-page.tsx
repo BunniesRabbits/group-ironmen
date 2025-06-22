@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 
 import "./login-page.css";
-import Api, { loadValidatedCredentials } from "../../data/api";
+import Api from "../../data/api";
 import { useNavigate } from "react-router-dom";
+import { loadValidatedCredentials } from "../../data/credentials";
 
 export const LoginPage = (): ReactElement => {
   const [error, setError] = useState<string>();
@@ -28,7 +29,7 @@ export const LoginPage = (): ReactElement => {
 
       setFetching(true);
       setError(undefined);
-      return new Api({ groupName, groupToken })
+      return new Api({ name: groupName, token: groupToken })
         .fetchAmILoggedIn()
         .then((response) => {
           if (response.ok) {

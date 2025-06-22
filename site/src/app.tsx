@@ -15,7 +15,6 @@ import Api, {
   type InventoryView,
   type ItemsView,
   type LastUpdatedView,
-  loadValidatedCredentials,
   type MemberName,
   type NPCInteractionsView,
   type QuestsView,
@@ -26,6 +25,7 @@ import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
 import { GameDataContext, type GameData } from "./data/game-data";
+import { loadValidatedCredentials } from "./data/credentials";
 
 interface APIConnectionWithDataViews {
   close: () => void;
@@ -99,6 +99,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
       api.close();
     };
   }, [api, setItemsView]);
+
   useEffect(() => {
     if (api !== undefined) return;
 
@@ -107,6 +108,7 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
 
     setApi(new Api(credentials));
   }, [location, api]);
+
   const close = useCallback(() => {
     setApi(undefined);
   }, [setApi]);

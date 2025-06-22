@@ -1,11 +1,11 @@
-import { storage } from "../../data/storage";
 import { useState, type ReactElement } from "react";
 import { MenLink } from "../men-link/men-link";
 import "./setup-instructions.css";
+import { loadValidatedCredentials } from "../../data/credentials";
 
 export const SetupInstructions = (): ReactElement => {
   const [tokenVisible, setTokenVisible] = useState(false);
-  const group = storage.getGroup();
+  const credentials = loadValidatedCredentials();
   return (
     <div id="setup-instructions-container">
       <div id="setup-instructions" className="rsbackground rsborder">
@@ -14,14 +14,14 @@ export const SetupInstructions = (): ReactElement => {
           <p>Only share these with your group. You can't recover it so keep it safe!</p>
           <div className="setup-block">
             <h4>Group Name</h4>
-            <div className="setup-credential rsborder-tiny rsbackground">{group.groupName ?? "NULL"}</div>
+            <div className="setup-credential rsborder-tiny rsbackground">{credentials?.name ?? "NULL"}</div>
           </div>
 
           <div className="setup-block">
             <h4>Group Token</h4>
             <div className="setup-credential rsborder-tiny rsbackground">
               {tokenVisible ? (
-                (group.groupToken ?? "00000000-0000-0000-0000-000000000000")
+                (credentials?.token ?? "00000000-0000-0000-0000-000000000000")
               ) : (
                 <>
                   <div

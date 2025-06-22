@@ -4,33 +4,12 @@ import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } fr
 import { fetchQuestDataJSON, type QuestData, type QuestID } from "./quest-data";
 import { type Experience, type Skill } from "./skill";
 import { type DiaryRegion, fetchDiaryDataJSON, type DiaryData, type DiaryTier } from "./diary-data";
+import type { GroupCredentials } from "./credentials";
 
 /*
  * TODO: This entire file is a bit of a behemoth, and needs to be broken up.
  * Disparate types are all entangled.
  */
-
-export interface ApiCredentials {
-  groupName: string;
-  groupToken: string;
-}
-
-const LOCAL_STORAGE_KEY_GROUP_NAME = "groupName";
-const LOCAL_STORAGE_KEY_GROUP_TOKEN = "groupToken";
-
-export const loadValidatedCredentials = (): ApiCredentials | undefined => {
-  const name = localStorage.getItem(LOCAL_STORAGE_KEY_GROUP_NAME);
-  const token = localStorage.getItem(LOCAL_STORAGE_KEY_GROUP_TOKEN);
-
-  if (!name || name === "") return undefined;
-  if (!token || token === "") return undefined;
-
-  return { groupName: name, groupToken: token };
-};
-export const wipeCredentials = (): void => {
-  localStorage.removeItem(LOCAL_STORAGE_KEY_GROUP_NAME);
-  localStorage.removeItem(LOCAL_STORAGE_KEY_GROUP_TOKEN);
-};
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -1009,7 +988,7 @@ interface UpdateCallbacks {
 }
 export default class Api {
   private baseURL: string;
-  private credentials: ApiCredentials;
+  private credentials: GroupCredentials;
   private groupDataValidUpToDate?: Date;
   private getGroupDataPromise?: Promise<void>;
   private closed: boolean;
@@ -1310,9 +1289,9 @@ export default class Api {
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
     this.getGroupDataPromise = fetch(
-      makeGetGroupDataURL({ baseURL: this.baseURL, groupName: this.credentials.groupName, fromTime: fetchDate }),
+      makeGetGroupDataURL({ baseURL: this.baseURL, groupName: this.credentials.name, fromTime: fetchDate }),
       {
-        headers: { Authorization: this.credentials.groupToken },
+        headers: { Authorization: this.credentials.token },
       },
     )
       .then((response) => {
@@ -1347,7 +1326,7 @@ export default class Api {
     this.callbacks = undefined;
     this.closed = true;
   }
-  constructor(credentials: ApiCredentials) {
+  constructor(credentials: GroupCredentials) {
     this.baseURL = __API_URL__;
     this.credentials = credentials;
     this.closed = false;
@@ -1359,8 +1338,8 @@ export default class Api {
   async fetchAmILoggedIn(): Promise<Response> {
     if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
 
-    return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.groupName }), {
-      headers: { Authorization: this.credentials.groupToken },
+    return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.name }), {
+      headers: { Authorization: this.credentials.token },
     });
   }
 }
