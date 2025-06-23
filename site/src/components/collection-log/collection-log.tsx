@@ -77,6 +77,11 @@ const CollectionLogPage = ({
       </div>
       <div onPointerLeave={hideTooltip} className="collection-log-page-items">
         {drops}
+        {/* The outer div is rectangular. Thus, when the item grid is not
+         *  rectangular, the empty section at the end wouldn't hide the cursor.
+         *  So we insert this span, and that hides the cursor.
+         */}
+        <span onPointerEnter={hideTooltip} style={{ flex: 1 }} />
       </div>
       {tooltipElement}
     </>
