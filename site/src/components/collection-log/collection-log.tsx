@@ -2,9 +2,10 @@ import { useContext, useState, type ReactElement } from "react";
 import { GameDataContext } from "../../data/game-data";
 import * as CollectionLog from "../../data/collection-log";
 import type * as Member from "../../data/member";
+import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 
 import "./collection-log.css";
-import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
+import { PlayerIcon } from "../player-icon/player-icon";
 
 const CollectionLogPage = ({
   page,
@@ -51,6 +52,13 @@ const CollectionLogPage = ({
         quantity: progress.items.get(itemID) ?? 0,
       }))
       .filter(({ quantity }) => quantity > 0);
+    const otherMemberHaveItemLabel = (
+      <span style={{ position: "absolute", bottom: 0, left: 0 }}>
+        {otherMemberQuantities.map(({ name }) => (
+          <PlayerIcon name={name} />
+        ))}
+      </span>
+    );
 
     return (
       <a
@@ -69,6 +77,7 @@ const CollectionLogPage = ({
       >
         {itemImage}
         {quantityLabel}
+        {otherMemberHaveItemLabel}
       </a>
     );
   });

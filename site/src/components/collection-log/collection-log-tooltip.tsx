@@ -1,9 +1,11 @@
 import { Fragment, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
+import { PlayerIcon } from "../player-icon/player-icon";
+import type * as Member from "../../data/member";
 
 export interface CollectionLogItemTooltipProps {
   name: string;
-  memberQuantities: { name: string; quantity: number }[];
+  memberQuantities: { name: Member.Name; quantity: number }[];
 }
 
 export const useCollectionLogItemTooltip = (): {
@@ -28,7 +30,8 @@ export const useCollectionLogItemTooltip = (): {
       {props?.name}
       {props?.memberQuantities.map(({ name, quantity }) => (
         <Fragment key={name}>
-          <br /> {name}: {quantity}
+          <br /> <PlayerIcon name={name} />
+          {name}: {quantity}
         </Fragment>
       ))}
     </>
