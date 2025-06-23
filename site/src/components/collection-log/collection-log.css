@@ -162,6 +162,10 @@
   height: 64px;
 }
 
+.collection-log-page-item-missing {
+  filter: opacity(0.3);
+}
+
 .collection-log-page-item-quantity {
   position: absolute;
   top: 0;

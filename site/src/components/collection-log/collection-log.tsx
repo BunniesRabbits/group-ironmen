@@ -64,10 +64,20 @@ export const CollectionLogWindow = ({
       const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
       const quantity = progress?.items.get(itemID) ?? 0;
 
+      const itemImage = (
+        <img
+          className={`${quantity === 0 ? "collection-log-page-item-missing" : ""}`}
+          alt={itemDatabase?.get(itemID)?.name ?? "osrs item"}
+          src={`/icons/items/${itemID}.webp`}
+        />
+      );
+      const quantityLabel =
+        quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
+
       return (
         <a key={itemID} className="collection-log-page-item" href={wikiLink} target="_blank" rel="noopener noreferrer">
-          <img alt={itemDatabase?.get(itemID)?.name ?? "osrs item"} src={`/icons/items/${itemID}.webp`} />
-          <span className="collection-log-page-item-quantity">{quantity}</span>
+          {itemImage}
+          {quantityLabel}
         </a>
       );
     });
