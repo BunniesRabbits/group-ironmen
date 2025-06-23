@@ -1,10 +1,81 @@
-import { useContext, useState, type ReactElement, type ReactNode } from "react";
-import { type Collection } from "../../data/member";
+import { useContext, useState, type ReactElement } from "react";
 import { GameDataContext } from "../../data/game-data";
+import { type Collection, type CollectionPageProgress } from "../../data/member";
 import * as CollectionLog from "../../data/collection-log";
 
 import "./collection-log.css";
 import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
+
+const CollectionLogPage = ({
+  page,
+  progress,
+}: {
+  page: CollectionLog.Page;
+  progress: CollectionPageProgress | undefined;
+}): ReactElement => {
+  const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
+  const { items: itemDatabase } = useContext(GameDataContext);
+
+  const { name: pageName, items: possibleItems, completionLabels } = page;
+
+  const completions = completionLabels.map((label, index) => (
+    <div key={label}>
+      <span className=".collection-log-count">
+        {label}: {progress?.completions[index] ?? 0}
+        <br />
+      </span>
+    </div>
+  ));
+
+  const drops = possibleItems.map((itemID) => {
+    const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
+    const quantity = progress?.items.get(itemID) ?? 0;
+    const itemName = itemDatabase?.get(itemID)?.name;
+
+    const itemImage = (
+      <img
+        className={`${quantity === 0 ? "collection-log-page-item-missing" : ""}`}
+        alt={itemName ?? "osrs item"}
+        src={`/icons/items/${itemID}.webp`}
+      />
+    );
+    const quantityLabel =
+      quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
+
+    return (
+      <a
+        key={itemID}
+        onPointerEnter={() => {
+          if (!itemName) {
+            hideTooltip();
+            return;
+          }
+          showTooltip({ name: itemName });
+        }}
+        className="collection-log-page-item"
+        href={wikiLink}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {itemImage}
+        {quantityLabel}
+      </a>
+    );
+  });
+
+  return (
+    <>
+      <div className="collection-log-page-top">
+        <h2 className="rstext">{pageName}</h2>
+        {completions}
+      </div>
+      <div onPointerLeave={hideTooltip} className="collection-log-page-items">
+        {drops}
+      </div>
+      {tooltipElement}
+    </>
+  );
+};
 
 /**
  * Display a single member's collection log.
@@ -17,12 +88,11 @@ export const CollectionLogWindow = ({
   onCloseModal: () => void;
 }): ReactElement => {
   // TODO: display entire group's collection, but only focused on one.
-  const { items: itemDatabase, collectionLogInfo } = useContext(GameDataContext);
-  const [visibleTab, setVisibleTab] = useState<CollectionLog.Tab>("Bosses");
+  const { collectionLogInfo } = useContext(GameDataContext);
+  const [visibleTab, setVisibleTab] = useState<CollectionLog.TabName>("Bosses");
   const [pageIndex, setPageIndex] = useState<number>(0);
-  const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
 
-  const tabButtons = CollectionLog.Tab.map((tab) => (
+  const tabButtons = CollectionLog.TabName.map((tab) => (
     <button
       key={tab}
       className={`${tab === visibleTab ? "collection-log-tab-button-active" : ""}`}
@@ -46,71 +116,8 @@ export const CollectionLogWindow = ({
     }),
   );
 
-  const page = ((): ReactNode => {
-    const pageToRender = collectionLogInfo?.tabs.get(visibleTab)?.[pageIndex];
-    if (!pageToRender) return undefined;
-    const { name: pageName, items: possibleItems, completionLabels } = pageToRender;
-
-    const progress = collection.get(pageName);
-
-    const completions = completionLabels.map((label, index) => (
-      <div key={label}>
-        <span className=".collection-log-count">
-          {label}: {progress?.completions[index] ?? 0}
-          <br />
-        </span>
-      </div>
-    ));
-
-    const drops = possibleItems.map((itemID) => {
-      const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
-      const quantity = progress?.items.get(itemID) ?? 0;
-      const itemName = itemDatabase?.get(itemID)?.name;
-
-      const itemImage = (
-        <img
-          className={`${quantity === 0 ? "collection-log-page-item-missing" : ""}`}
-          alt={itemName ?? "osrs item"}
-          src={`/icons/items/${itemID}.webp`}
-        />
-      );
-      const quantityLabel =
-        quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
-
-      return (
-        <a
-          key={itemID}
-          onPointerEnter={() => {
-            if (!itemName) {
-              hideTooltip();
-              return;
-            }
-            showTooltip({ name: itemName });
-          }}
-          className="collection-log-page-item"
-          href={wikiLink}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {itemImage}
-          {quantityLabel}
-        </a>
-      );
-    });
-
-    return (
-      <>
-        <div className="collection-log-page-top">
-          <h2 className="rstext">{pageName}</h2>
-          {completions}
-        </div>
-        <div onPointerLeave={hideTooltip} className="collection-log-page-items">
-          {drops}
-        </div>
-        {tooltipElement}
-      </>
-    );
-  })();
+  const visiblePage = collectionLogInfo?.tabs.get(visibleTab)?.[pageIndex];
+  const visiblePageProgress = visiblePage?.name ? collection.get(visiblePage?.name) : undefined;
 
   return (
     <div className="collection-log-container dialog-container metal-border rsbackground">
@@ -125,7 +132,9 @@ export const CollectionLogWindow = ({
         <div className="collection-log-tab-buttons">{tabButtons}</div>
         <div className="collection-log-tab-container">
           <div className="collection-log-tab-list">{pageDirectory}</div>
-          <div className="collection-log-page-container">{page}</div>
+          <div className="collection-log-page-container">
+            {visiblePage ? <CollectionLogPage page={visiblePage} progress={visiblePageProgress} /> : undefined}
+          </div>
         </div>
       </div>
     </div>

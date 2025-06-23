@@ -45,7 +45,7 @@ const CollectionLogInfoSchema = z
   })
   .array()
   .transform((tabs) =>
-    tabs.reduce<Map<CollectionLog.Tab, Page[]>>((tabs, { tabId, pages }) => {
+    tabs.reduce<Map<CollectionLog.TabName, Page[]>>((tabs, { tabId, pages }) => {
       tabs.set(TabByID[tabId], pages);
       return tabs;
     }, new Map()),

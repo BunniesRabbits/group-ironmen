@@ -29,7 +29,11 @@ export type Inventory = (ItemStack | undefined)[];
 export type Skills = Record<Skill, Experience>;
 export type Quests = Map<QuestID, QuestStatus>;
 export type Diaries = Record<DiaryRegion, Record<DiaryTier, boolean[]>>;
-export type Collection = Map<CollectionLog.PageName, { items: Map<ItemID, number>; completions: number[] }>;
+export interface CollectionPageProgress {
+  items: Map<ItemID, number>;
+  completions: number[];
+}
+export type Collection = Map<CollectionLog.PageName, CollectionPageProgress>;
 
 export interface NPCInteraction {
   /**
