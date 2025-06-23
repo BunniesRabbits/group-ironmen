@@ -7,7 +7,7 @@ import { PlayerQuests } from "./player-quests";
 import { PlayerDiaries } from "./player-diaries";
 import * as Member from "../../data/member";
 import { useModal } from "../modal/modal";
-import { CollectionLog } from "../collection-log/collection-log";
+import { CollectionLogWindow } from "../collection-log/collection-log";
 
 import "./player-panel.css";
 
@@ -53,7 +53,7 @@ export const PlayerPanel = ({
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
   const { open: openCollectionLogModal, modal: collectionLogModal } = useModal({
-    Children: CollectionLog,
+    Children: CollectionLogWindow,
     otherProps: { collection: collection ?? new Map() },
   });
 

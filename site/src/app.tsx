@@ -53,6 +53,9 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
       onGEDataUpdate: (data) => {
         gameDataRef.current.gePrices = data;
       },
+      onCollectionLogInfoUpdate: (info) => {
+        gameDataRef.current.collectionLogInfo = info;
+      },
     });
 
     api.startFetchingEverything();

@@ -6,6 +6,8 @@ import type * as Member from "./member";
 import { fetchGEPrices, type GEPrices } from "./requests/ge-prices";
 import { fetchGroupData, type Response as GetGroupDataResponse } from "./requests/group-data";
 import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
+import type { CollectionLogInfo } from "./collection-log";
+import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -22,6 +24,7 @@ interface UpdateCallbacks {
   onQuestDataUpdate: (questData: QuestDatabase) => void;
   onDiaryDataUpdate: (diaryData: DiaryDatabase) => void;
   onGEDataUpdate: (geData: GEPrices) => void;
+  onCollectionLogInfoUpdate: (info: CollectionLogInfo) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -38,6 +41,7 @@ export default class Api {
   private questData?: QuestDatabase;
   private diaryData?: DiaryDatabase;
   private geData?: GEPrices;
+  private collectionLogInfo?: CollectionLogInfo;
 
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedItems = false;
@@ -230,6 +234,16 @@ export default class Api {
           this.callbacks?.onGEDataUpdate(data);
         })
         .catch((reason) => console.error("Failed to get grand exchange data for API", reason));
+    }
+    if (this.collectionLogInfo === undefined) {
+      fetchCollectionLogInfo({ baseURL: this.baseURL })
+        .then((response) => {
+          this.collectionLogInfo = {
+            tabs: response,
+          };
+          this.callbacks?.onCollectionLogInfoUpdate(this.collectionLogInfo);
+        })
+        .catch((reason) => console.error("Failed to get collection log info for API", reason));
     }
   }
 
