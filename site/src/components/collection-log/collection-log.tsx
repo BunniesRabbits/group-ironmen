@@ -4,6 +4,7 @@ import { GameDataContext } from "../../data/game-data";
 import * as CollectionLog from "../../data/collection-log";
 
 import "./collection-log.css";
+import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 
 /**
  * Display a single member's collection log.
@@ -19,6 +20,7 @@ export const CollectionLogWindow = ({
   const { items: itemDatabase, collectionLogInfo } = useContext(GameDataContext);
   const [visibleTab, setVisibleTab] = useState<CollectionLog.Tab>("Bosses");
   const [pageIndex, setPageIndex] = useState<number>(0);
+  const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
 
   const tabButtons = CollectionLog.Tab.map((tab) => (
     <button
@@ -63,11 +65,12 @@ export const CollectionLogWindow = ({
     const drops = possibleItems.map((itemID) => {
       const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
       const quantity = progress?.items.get(itemID) ?? 0;
+      const itemName = itemDatabase?.get(itemID)?.name;
 
       const itemImage = (
         <img
           className={`${quantity === 0 ? "collection-log-page-item-missing" : ""}`}
-          alt={itemDatabase?.get(itemID)?.name ?? "osrs item"}
+          alt={itemName ?? "osrs item"}
           src={`/icons/items/${itemID}.webp`}
         />
       );
@@ -75,7 +78,20 @@ export const CollectionLogWindow = ({
         quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
 
       return (
-        <a key={itemID} className="collection-log-page-item" href={wikiLink} target="_blank" rel="noopener noreferrer">
+        <a
+          key={itemID}
+          onPointerEnter={() => {
+            if (!itemName) {
+              hideTooltip();
+              return;
+            }
+            showTooltip({ name: itemName });
+          }}
+          className="collection-log-page-item"
+          href={wikiLink}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {itemImage}
           {quantityLabel}
         </a>
@@ -88,7 +104,10 @@ export const CollectionLogWindow = ({
           <h2 className="rstext">{pageName}</h2>
           {completions}
         </div>
-        <div className="collection-log-page-items">{drops}</div>
+        <div onPointerLeave={hideTooltip} className="collection-log-page-items">
+          {drops}
+        </div>
+        {tooltipElement}
       </>
     );
   })();
