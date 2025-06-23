@@ -4,6 +4,7 @@ import type { EquipmentSlot } from "./equipment";
 import type { ItemID, ItemStack } from "./items";
 import type { QuestID, QuestStatus } from "./quests";
 import type { Experience, Skill } from "./skill";
+import * as CollectionLog from "./collection-log";
 
 export type Name = Distinct<string, "Member.Name">;
 
@@ -19,6 +20,7 @@ export interface State {
   skills?: Skills;
   quests?: Quests;
   diaries?: Diaries;
+  collection?: Collection;
 }
 
 export type ItemCollection = Map<ItemID, number>;
@@ -27,6 +29,7 @@ export type Inventory = (ItemStack | undefined)[];
 export type Skills = Record<Skill, Experience>;
 export type Quests = Map<QuestID, QuestStatus>;
 export type Diaries = Record<DiaryRegion, Record<DiaryTier, boolean[]>>;
+export type Collection = Map<CollectionLog.PageName, { items: Map<ItemID, number>; completions: number[] }>;
 
 export interface NPCInteraction {
   /**

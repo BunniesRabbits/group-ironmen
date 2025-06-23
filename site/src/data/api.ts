@@ -5,6 +5,7 @@ import type { GroupCredentials } from "./credentials";
 import type * as Member from "./member";
 import { fetchGEPrices, type GEPrices } from "./requests/ge-prices";
 import { fetchGroupData, type Response as GetGroupDataResponse } from "./requests/group-data";
+import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -28,6 +29,7 @@ export default class Api {
   private credentials: GroupCredentials;
 
   private getGroupDataPromise?: Promise<void>;
+  private getGroupCollectionLogsPromise?: Promise<void>;
 
   private groupDataValidUpToDate?: Date;
   private itemDatabase?: ItemsDatabase;
@@ -172,6 +174,24 @@ export default class Api {
     }
   }
 
+  private updateGroupCollectionLogs(response: GetGroupCollectionLogsResponse): void {
+    let updatedLogs = false;
+
+    Object.entries(response).forEach(([member, collection]) => {
+      if (!this.group.members.has(member as Member.Name)) {
+        return;
+      }
+
+      // TODO: Don't do shallow copy (does it matter?)
+      this.group.members.get(member as Member.Name)!.collection = new Map(collection);
+      updatedLogs = true;
+    });
+
+    if (updatedLogs) {
+      this.callbacks?.onGroupUpdate(this.group);
+    }
+  }
+
   private callbacks?: UpdateCallbacks;
 
   public setUpdateCallbacks(callbacks: UpdateCallbacks): void {
@@ -213,23 +233,11 @@ export default class Api {
     }
   }
 
-  /**
-   * WARNING: Make sure callbacks (all named `on*****Update`) are set up to receive the data!
-   * Some callbacks may only be called once and data can be missed.
-   *
-   * Kicks off fetching the group data once a second from the backend.
-   * Only queues a new fetch when the old fetch resolves,
-   * so with slow internet speeds the updates will be slower.
-   * Call close() to stop further queuing.
-   */
-  public startFetchingEverything(): void {
-    if (this.getGroupDataPromise !== undefined) return;
-
-    if (this.questData === undefined || this.itemDatabase === undefined) this.queueGetGameData();
-
+  private queueFetchGroupData(): void {
+    const FETCH_INTERVAL_MS = 1000;
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
-    this.getGroupDataPromise = fetchGroupData({
+    this.getGroupDataPromise ??= fetchGroupData({
       baseURL: this.baseURL,
       credentials: this.credentials,
       fromTime: fetchDate,
@@ -251,9 +259,45 @@ export default class Api {
 
         window.setTimeout(() => {
           this.getGroupDataPromise = undefined;
-          this.startFetchingEverything();
-        }, 1000);
+          this.queueFetchGroupData();
+        }, FETCH_INTERVAL_MS);
       });
+  }
+
+  private queueFetchGroupCollectionLogs(): void {
+    const FETCH_INTERVAL_MS = 10000;
+
+    this.getGroupCollectionLogsPromise ??= fetchGroupCollectionLogs({
+      baseURL: this.baseURL,
+      credentials: this.credentials,
+    })
+      .then((response) => {
+        this.updateGroupCollectionLogs(response);
+      })
+      .then(() => {
+        if (this.closed) return;
+
+        window.setTimeout(() => {
+          this.getGroupCollectionLogsPromise = undefined;
+          this.queueFetchGroupCollectionLogs();
+        }, FETCH_INTERVAL_MS);
+      });
+  }
+
+  /**
+   * WARNING: Make sure callbacks (all named `on*****Update`) are set up to receive the data!
+   * Some callbacks may only be called once and data can be missed.
+   *
+   * Kicks off fetching the group data once a second from the backend.
+   * Only queues a new fetch when the old fetch resolves,
+   * so with slow internet speeds the updates will be slower.
+   * Call close() to stop further queuing.
+   */
+  public startFetchingEverything(): void {
+    if (!this.questData || !this.itemDatabase || !this.diaryData) this.queueGetGameData();
+
+    this.queueFetchGroupData();
+    void this.getGroupDataPromise!.then(() => this.queueFetchGroupCollectionLogs());
   }
 
   close(): void {

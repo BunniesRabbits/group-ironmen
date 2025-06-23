@@ -93,6 +93,7 @@ export const App = (): ReactElement => {
       .filter(([name]) => name !== "@SHARED")
       .map<ReactElement>(([name, state]) => (
         <PlayerPanel
+          key={name}
           interacting={state.interacting}
           inventory={state.inventory}
           equipment={state.equipment}
@@ -102,7 +103,7 @@ export const App = (): ReactElement => {
           player={name}
           lastUpdated={state.lastUpdated}
           stats={state.stats}
-          key={name}
+          collection={state.collection}
         />
       )) ?? [],
   );

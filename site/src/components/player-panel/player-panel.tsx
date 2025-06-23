@@ -1,6 +1,4 @@
-import { useState, type ReactElement } from "react";
-
-import "./player-panel.css";
+import { useCallback, useState, type ReactElement } from "react";
 import { PlayerSkills } from "./player-skills";
 import { PlayerInventory } from "./player-inventory";
 import { PlayerEquipment } from "./player-equipment";
@@ -8,10 +6,27 @@ import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
 import { PlayerDiaries } from "./player-diaries";
 import * as Member from "../../data/member";
+import { useModal } from "../modal/modal";
+import { CollectionLog } from "../collection-log/collection-log";
+
+import "./player-panel.css";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PlayerPanelSubcategories = ["Inventory", "Equipment", "Skills", "Quests", "Diaries", "Collection Log"] as const;
 type PlayerPanelSubcategory = (typeof PlayerPanelSubcategories)[number];
+
+interface PlayerPanelButtonProps {
+  category: PlayerPanelSubcategory;
+  ariaLabel: string;
+  alt: string;
+  src: string;
+  width: number;
+  height: number;
+  class?: string;
+  onClick: () => void;
+}
+
+// TODO: all of these props being nullable is inconvenient, they should probably be coalesced earlier.
 
 export const PlayerPanel = ({
   player,
@@ -23,6 +38,7 @@ export const PlayerPanel = ({
   skills,
   quests,
   diaries,
+  collection,
 }: {
   player: Member.Name;
   stats?: Member.Stats;
@@ -33,8 +49,22 @@ export const PlayerPanel = ({
   skills?: Member.Skills;
   quests?: Member.Quests;
   diaries?: Member.Diaries;
+  collection?: Member.Collection;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
+  const { open: openCollectionLogModal, modal: collectionLogModal } = useModal({
+    Children: CollectionLog,
+    otherProps: { collection: collection ?? new Map() },
+  });
+
+  const toggleCategory = useCallback(
+    (newSubcategory: PlayerPanelSubcategory) => {
+      const alreadySelected = newSubcategory === subcategory;
+      if (alreadySelected) setSubcategory(undefined);
+      else setSubcategory(newSubcategory);
+    },
+    [subcategory],
+  );
 
   const buttons = (
     [
@@ -45,6 +75,9 @@ export const PlayerPanel = ({
         src: "/ui/777-0.png",
         width: 26,
         height: 28,
+        onClick: (): void => {
+          toggleCategory("Inventory");
+        },
       },
       {
         category: "Equipment",
@@ -53,9 +86,32 @@ export const PlayerPanel = ({
         src: "/ui/778-0.png",
         width: 27,
         height: 32,
+        onClick: (): void => {
+          toggleCategory("Equipment");
+        },
       },
-      { category: "Skills", ariaLabel: "stats", alt: "osrs stats", src: "/ui/3579-0.png", width: 23, height: 22 },
-      { category: "Quests", ariaLabel: "quests", alt: "osrs quest", src: "/ui/776-0.png", width: 22, height: 22 },
+      {
+        category: "Skills",
+        ariaLabel: "skills",
+        alt: "osrs skills",
+        src: "/ui/3579-0.png",
+        width: 23,
+        height: 22,
+        onClick: (): void => {
+          toggleCategory("Skills");
+        },
+      },
+      {
+        category: "Quests",
+        ariaLabel: "quests",
+        alt: "osrs quest",
+        src: "/ui/776-0.png",
+        width: 22,
+        height: 22,
+        onClick: (): void => {
+          toggleCategory("Quests");
+        },
+      },
       {
         category: "Diaries",
         ariaLabel: "diaries",
@@ -63,6 +119,9 @@ export const PlayerPanel = ({
         src: "/ui/1298-0.png",
         width: 22,
         height: 22,
+        onClick: (): void => {
+          toggleCategory("Diaries");
+        },
       },
       {
         category: "Collection Log",
@@ -72,27 +131,18 @@ export const PlayerPanel = ({
         width: 32,
         height: 32,
         class: "player-panel-collection-log",
+        onClick: (): void => {
+          openCollectionLogModal();
+        },
       },
-    ] satisfies {
-      category: PlayerPanelSubcategory;
-      ariaLabel: string;
-      alt: string;
-      src: string;
-      width: number;
-      height: number;
-      class?: string;
-    }[]
+    ] satisfies PlayerPanelButtonProps[]
   ).map((props) => (
     <button
       key={props.category}
       className={`${props.category === subcategory ? "player-panel-tab-active" : ""} ${props.class}`}
       aria-label={props.ariaLabel}
       type="button"
-      onClick={() => {
-        const alreadySelected = props.category === subcategory;
-        if (alreadySelected) setSubcategory(undefined);
-        else setSubcategory(props.category);
-      }}
+      onClick={props.onClick}
     >
       <img alt={props.alt} src={props.src} width={props.width} height={props.height} />
     </button>
@@ -118,10 +168,13 @@ export const PlayerPanel = ({
   }
 
   return (
-    <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
-      <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={player} stats={stats} />
-      <div className="player-panel-minibar">{buttons}</div>
-      <div className="player-panel-content">{content}</div>
-    </div>
+    <>
+      {collectionLogModal}
+      <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
+        <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={player} stats={stats} />
+        <div className="player-panel-minibar">{buttons}</div>
+        <div className="player-panel-content">{content}</div>
+      </div>
+    </>
   );
 };
