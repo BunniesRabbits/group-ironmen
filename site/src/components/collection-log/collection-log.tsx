@@ -1,4 +1,4 @@
-import { Fragment, useContext, useState, type ReactElement } from "react";
+import { useContext, useState, type ReactElement, type ReactNode } from "react";
 import { type Collection } from "../../data/member";
 import { GameDataContext } from "../../data/game-data";
 import * as CollectionLog from "../../data/collection-log";
@@ -18,42 +18,70 @@ export const CollectionLogWindow = ({
   // TODO: display entire group's collection, but only focused on one.
   const { items: itemDatabase, collectionLogInfo } = useContext(GameDataContext);
   const [visibleTab, setVisibleTab] = useState<CollectionLog.Tab>("Bosses");
+  const [pageIndex, setPageIndex] = useState<number>(0);
 
   const tabButtons = CollectionLog.Tab.map((tab) => (
     <button
       key={tab}
       className={`${tab === visibleTab ? "collection-log-tab-button-active" : ""}`}
-      onClick={() => setVisibleTab(tab)}
+      onClick={() => {
+        if (tab === visibleTab) return;
+        setPageIndex(0);
+        setVisibleTab(tab);
+      }}
     >
       {tab}
     </button>
   ));
 
-  const pages = [collectionLogInfo?.tabs.get(visibleTab) ?? []].map((pages) =>
-    pages.map(({ name: pageName, completionLabels, items: possibleItems }) => {
-      const progress = collection.get(pageName);
-
-      const completions = completionLabels.map((label, index) => (
-        <Fragment key={label}>
-          {label}: {progress?.completions[index] ?? 0}
-          <br />
-        </Fragment>
-      ));
-      const drops = possibleItems.map((itemID) => (
-        <Fragment
-          key={itemID}
-        >{` ${itemDatabase?.get(itemID)?.name ?? itemID}: ${progress?.items.get(itemID) ?? 0} `}</Fragment>
-      ));
-
+  const pageDirectory = [collectionLogInfo?.tabs.get(visibleTab) ?? []].map((pages) =>
+    pages.map(({ name: pageName }, index) => {
       return (
-        <div key={pageName}>
-          {pageName}: <br />
-          {completions}
-          {drops}
-        </div>
+        <button onClick={() => setPageIndex(index)} key={pageName}>
+          {pageName}
+        </button>
       );
     }),
   );
+
+  const page = ((): ReactNode => {
+    const pageToRender = collectionLogInfo?.tabs.get(visibleTab)?.[pageIndex];
+    if (!pageToRender) return undefined;
+    const { name: pageName, items: possibleItems, completionLabels } = pageToRender;
+
+    const progress = collection.get(pageName);
+
+    const completions = completionLabels.map((label, index) => (
+      <div key={label}>
+        <span className=".collection-log-count">
+          {label}: {progress?.completions[index] ?? 0}
+          <br />
+        </span>
+      </div>
+    ));
+
+    const drops = possibleItems.map((itemID) => {
+      const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
+      const quantity = progress?.items.get(itemID) ?? 0;
+
+      return (
+        <a key={itemID} className="collection-log-page-item" href={wikiLink} target="_blank" rel="noopener noreferrer">
+          <img alt={itemDatabase?.get(itemID)?.name ?? "osrs item"} src={`/icons/items/${itemID}.webp`} />
+          <span className="collection-log-page-item-quantity">{quantity}</span>
+        </a>
+      );
+    });
+
+    return (
+      <>
+        <div className="collection-log-page-top">
+          <h2 className="rstext">{pageName}</h2>
+          {completions}
+        </div>
+        <div className="collection-log-page-items">{drops}</div>
+      </>
+    );
+  })();
 
   return (
     <div className="collection-log-container dialog-container metal-border rsbackground">
@@ -63,13 +91,13 @@ export const CollectionLogWindow = ({
           <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />
         </button>
       </div>
-
-      <div className="collection-log-title-border"></div>
-
+      <div className="collection-log-title-border" />
       <div className="collection-log-main">
         <div className="collection-log-tab-buttons">{tabButtons}</div>
-
-        <div className="collection-log-tab-container">{pages}</div>
+        <div className="collection-log-tab-container">
+          <div className="collection-log-tab-list">{pageDirectory}</div>
+          <div className="collection-log-page-container">{page}</div>
+        </div>
       </div>
     </div>
   );
