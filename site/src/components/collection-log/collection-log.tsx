@@ -1,7 +1,7 @@
 import { useContext, useState, type ReactElement } from "react";
 import { GameDataContext } from "../../data/game-data";
-import { type Collection, type CollectionPageProgress } from "../../data/member";
 import * as CollectionLog from "../../data/collection-log";
+import type * as Member from "../../data/member";
 
 import "./collection-log.css";
 import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
@@ -9,10 +9,12 @@ import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 const CollectionLogPage = ({
   page,
   progress,
+  progressOther,
   wikiLink,
 }: {
   page: CollectionLog.Page;
-  progress: CollectionPageProgress | undefined;
+  progress: Member.CollectionPageProgress | undefined;
+  progressOther: { name: Member.Name; progress: Member.CollectionPageProgress }[];
   wikiLink?: URL;
 }): ReactElement => {
   const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
@@ -43,6 +45,12 @@ const CollectionLogPage = ({
     );
     const quantityLabel =
       quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
+    const otherMemberQuantities = progressOther
+      .map(({ name, progress }) => ({
+        name,
+        quantity: progress.items.get(itemID) ?? 0,
+      }))
+      .filter(({ quantity }) => quantity > 0);
 
     return (
       <a
@@ -52,7 +60,7 @@ const CollectionLogPage = ({
             hideTooltip();
             return;
           }
-          showTooltip({ name: itemName });
+          showTooltip({ name: itemName, memberQuantities: otherMemberQuantities });
         }}
         className="collection-log-page-item"
         href={wikiLink}
@@ -114,16 +122,21 @@ const ResolvePageWikiLink = ({
  * Display a single member's collection log.
  */
 export const CollectionLogWindow = ({
-  collection,
+  player,
+  collections,
   onCloseModal,
 }: {
-  collection: Collection;
+  player: Member.Name;
+  collections: Map<Member.Name, Member.Collection>;
   onCloseModal: () => void;
 }): ReactElement => {
   // TODO: display entire group's collection, but only focused on one.
   const { collectionLogInfo } = useContext(GameDataContext);
   const [currentTabName, setCurrentTabName] = useState<CollectionLog.TabName>("Bosses");
   const [pageIndex, setPageIndex] = useState<number>(0);
+
+  const collection = collections.get(player);
+  if (!collection) return <></>;
 
   const tabButtons = CollectionLog.TabName.map((tab) => (
     <button
@@ -154,7 +167,20 @@ export const CollectionLogWindow = ({
   if (page) {
     const pageWikiLink = ResolvePageWikiLink({ page: page.name, tab: currentTabName });
     const pageProgress = page?.name ? collection.get(page.name) : undefined;
-    pageElement = <CollectionLogPage wikiLink={pageWikiLink} page={page} progress={pageProgress} />;
+    const pageProgressOther = [
+      ...collections
+        .entries()
+        .filter(([nameOther, collectionOther]) => nameOther !== player && collectionOther.has(page.name))
+        .map(([nameOther, collectionOther]) => ({ name: nameOther, progress: collectionOther.get(page.name)! })),
+    ];
+    pageElement = (
+      <CollectionLogPage
+        wikiLink={pageWikiLink}
+        page={page}
+        progress={pageProgress}
+        progressOther={pageProgressOther}
+      />
+    );
   }
 
   return (

@@ -38,7 +38,7 @@ export const PlayerPanel = ({
   skills,
   quests,
   diaries,
-  collection,
+  collections,
 }: {
   player: Member.Name;
   stats?: Member.Stats;
@@ -49,12 +49,12 @@ export const PlayerPanel = ({
   skills?: Member.Skills;
   quests?: Member.Quests;
   diaries?: Member.Diaries;
-  collection?: Member.Collection;
+  collections: Map<Member.Name, Member.Collection>;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
   const { open: openCollectionLogModal, modal: collectionLogModal } = useModal({
     Children: CollectionLogWindow,
-    otherProps: { collection: collection ?? new Map() },
+    otherProps: { collections, player },
   });
 
   const toggleCategory = useCallback(

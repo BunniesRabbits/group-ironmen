@@ -1,20 +1,22 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+
+import Api, { type GroupState } from "./data/api";
+import { GameDataContext, type GameData } from "./data/game-data";
+import type * as Member from "./data/member";
+import { loadValidatedCredentials } from "./data/credentials";
+
 import { UnauthedLayout, AuthedLayout } from "./layout";
 import { MenHomepage } from "./components/men-homepage/men-homepage";
 import { SetupInstructions } from "./components/setup-instructions/setup-instructions";
 import { LoginPage } from "./components/login-page/login-page";
 import { LogoutPage } from "./components/logout-page/logout-page";
-import { Navigate } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-
-import "./app.css";
 import { useCanvasMap } from "./components/canvas-map/canvas-map";
-import Api, { type GroupState } from "./data/api";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
-import { GameDataContext, type GameData } from "./data/game-data";
-import { loadValidatedCredentials } from "./data/credentials";
+
+import "./app.css";
 
 interface APIConnectionWithDataViews {
   close: () => void;
@@ -90,6 +92,20 @@ export const App = (): ReactElement => {
 
   const { close: closeAPI, group, gameData } = useAPI();
 
+  /*
+   * The collection page shows the other member's items too, so unlike the rest
+   * of the member state, we need to aggregate the collection log.
+   */
+  const collections = [...(group?.members.entries().filter(([name]) => name !== "@SHARED") ?? [])].reduce(
+    (collections, [name, { collection }]) => {
+      if (!collection) return collections;
+
+      collections.set(name, collection);
+      return collections;
+    },
+    new Map<Member.Name, Member.Collection>(),
+  );
+
   const panels = Array.from(
     group?.members
       .entries()
@@ -106,7 +122,7 @@ export const App = (): ReactElement => {
           player={name}
           lastUpdated={state.lastUpdated}
           stats={state.stats}
-          collection={state.collection}
+          collections={collections}
         />
       )) ?? [],
   );

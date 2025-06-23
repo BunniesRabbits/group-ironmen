@@ -1,28 +1,38 @@
-import { useRef, useState, type ReactElement } from "react";
+import { Fragment, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
 export interface CollectionLogItemTooltipProps {
   name: string;
+  memberQuantities: { name: string; quantity: number }[];
 }
 
 export const useCollectionLogItemTooltip = (): {
   tooltipElement: ReactElement;
   hideTooltip: () => void;
-  showTooltip: (item: CollectionLogItemTooltipProps) => void;
+  showTooltip: (props: CollectionLogItemTooltipProps) => void;
 } => {
-  const [item, setTooltipItem] = useState<CollectionLogItemTooltipProps>();
+  const [props, setProps] = useState<CollectionLogItemTooltipProps>();
   const tooltipRef = useRef<HTMLDivElement>(document.body.querySelector<HTMLDivElement>("div#tooltip")!);
 
   const hideTooltip = (): void => {
-    setTooltipItem(undefined);
+    setProps(undefined);
     tooltipRef.current.style.visibility = "hidden";
   };
   const showTooltip = (item: CollectionLogItemTooltipProps): void => {
-    setTooltipItem(item);
+    setProps(item);
     tooltipRef.current.style.visibility = "visible";
   };
 
-  const content = <>{item?.name}</>;
+  const content = (
+    <>
+      {props?.name}
+      {props?.memberQuantities.map(({ name, quantity }) => (
+        <Fragment key={name}>
+          <br /> {name}: {quantity}
+        </Fragment>
+      ))}
+    </>
+  );
 
   const tooltipElement = createPortal(content, tooltipRef.current);
 
