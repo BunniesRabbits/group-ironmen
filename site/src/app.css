@@ -7,10 +7,12 @@
   --black: #000;
   --invalid: #ee0d0d;
   --graph-grid-border: rgb(255 255 255 / 5%);
-  --orange: #ff981f;
+  --orange: hsl(32deg 100% 56%);
+  --orange-light: hsl(32deg 100% 90%);
   --yellow: #ff0;
   --red: #f00;
-  --green: #0dc10d;
+  --green: hsl(120deg 87% 40%);
+  --green-light: hsl(120deg 87% 90%);
   --rsbackground: url("/ui/297-0.png");
   --rsbackground-dark: url("/ui/297-0-dark.png");
 }
@@ -34,6 +36,10 @@ button {
   display: unset;
   font-size: unset;
   font-family: rssmall, ui-sans-serif, Arial, sans-serif;
+}
+
+a {
+  color: unset;
 }
 
 html,
@@ -95,6 +101,7 @@ h3 {
   border-style: solid;
   border-radius: 4px;
   background: #4d4336;
+  text-decoration: none;
 }
 
 .dark-mode button.men-button {
@@ -102,43 +109,22 @@ h3 {
   background: #282828;
 }
 
-button.men-button:hover {
-  background: rgb(66 55 38);
-}
-
-.dark-mode button.men-button:hover {
-  background: #383838;
-}
-
-button.men-button.small {
-  padding: 0.2em 0.4em;
-}
-
-button:disabled {
+.men-button:disabled {
   background: #b5b5b5;
   color: #6a6868;
   cursor: not-allowed;
 }
 
-a {
-  color: var(--link-color);
-  text-decoration: none;
+.men-button:hover {
+  background: rgb(66 55 38);
 }
 
-a:link {
-  text-decoration: none;
+.dark-mode .men-button:hover {
+  background: #383838;
 }
 
-a:visited {
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: none;
-}
-
-a:active {
-  text-decoration: none;
+.men-button.small {
+  padding: 0.2em 0.4em;
 }
 
 input[type="checkbox"],

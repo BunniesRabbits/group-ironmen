@@ -22,5 +22,11 @@
 
 #social-links a {
   display: flex;
+  color: hsl(0deg 0% 80%);
+  text-decoration: none;
   align-items: center;
+}
+
+#social-links a:hover {
+  color: hsl(0deg 0% 100%);
 }

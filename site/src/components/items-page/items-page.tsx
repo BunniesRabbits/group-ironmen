@@ -60,11 +60,9 @@ const ItemPanel = ({
     <div className="inventory-item rsborder rsbackground rendered">
       <div className="inventory-item-top rsborder-tiny">
         <div className="inventory-item-top-right">
-          <div className="inventory-item-name">
-            <a className="rstext" href={wikiLink} target="_blank" rel="noopener noreferrer">
-              {itemName}
-            </a>
-          </div>
+          <a className="rstext inventory-item-name" href={wikiLink} target="_blank" rel="noopener noreferrer">
+            {itemName}
+          </a>
           <div className="inventory-item-details">
             <span>Quantity</span>
             <span>{totalQuantity.toLocaleString()}</span>

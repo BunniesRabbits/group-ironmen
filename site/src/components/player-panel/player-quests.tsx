@@ -64,18 +64,12 @@ export const PlayerQuests = ({ quests }: { quests?: Quests }): ReactElement => {
             <a
               key={id}
               href={getQuestWikiLinkURL(name)}
-              className={getClassForQuestStatus(status)}
+              className={`player-quests-quest ${getClassForQuestStatus(status)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
-              <div className="player-quests-quest">
-                <img
-                  className="player-quests-difficulty-icon"
-                  src={getDifficultyIconURL(difficulty)}
-                  alt={difficulty}
-                />
-                {name}
-              </div>
+              <img className="player-quests-difficulty-icon" src={getDifficultyIconURL(difficulty)} alt={difficulty} />
+              {name}
             </a>
           ),
         };

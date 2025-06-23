@@ -104,6 +104,11 @@
 
 .inventory-item-name {
   font-size: 20px;
+  color: var(--yellow);
+}
+
+.inventory-item-name:hover {
+  color: var(--yellow-light);
 }
 
 #inventory-pager {

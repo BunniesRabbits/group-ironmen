@@ -70,8 +70,8 @@ const DiaryRegionWindow = ({
     <div className="dialog-container rsborder rsbackground">
       <div className="diary-dialog-header rsborder-tiny">
         <div>
-          <h3 className="diary-dialog-title">
-            <a href={regionHref} target="_blank" rel="noopener noreferrer">
+          <h3>
+            <a className="diary-dialog-title" href={regionHref} target="_blank" rel="noopener noreferrer">
               {region} Achievement Diary
             </a>
           </h3>
@@ -93,9 +93,11 @@ const DiaryRegionWindow = ({
                 key={tier}
                 className={`diary-dialog-section rsborder-tiny ${complete ? "diary-dialog-tier-complete" : ""}`}
               >
-                <a href={href} target="_blank" rel="noopener noreferrer">
-                  <h4>{tier}</h4>
-                </a>
+                <h4>
+                  <a className="diary-dialog-section-title" href={href} target="_blank" rel="noopener noreferrer">
+                    {tier}
+                  </a>
+                </h4>
                 <TierTasksDisplay tasks={tierProgress} />
               </div>
             );
