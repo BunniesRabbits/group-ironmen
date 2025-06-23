@@ -9,9 +9,11 @@ import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 const CollectionLogPage = ({
   page,
   progress,
+  wikiLink,
 }: {
   page: CollectionLog.Page;
   progress: CollectionPageProgress | undefined;
+  wikiLink?: URL;
 }): ReactElement => {
   const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
   const { items: itemDatabase } = useContext(GameDataContext);
@@ -66,7 +68,11 @@ const CollectionLogPage = ({
   return (
     <>
       <div className="collection-log-page-top">
-        <h2 className="rstext">{pageName}</h2>
+        <h2 className="collection-log-page-name-link">
+          <a href={wikiLink?.href ?? ""} target="_blank" rel="noopener noreferrer">
+            {pageName}
+          </a>
+        </h2>
         {completions}
       </div>
       <div onPointerLeave={hideTooltip} className="collection-log-page-items">
@@ -75,6 +81,28 @@ const CollectionLogPage = ({
       {tooltipElement}
     </>
   );
+};
+
+const ResolvePageWikiLink = ({
+  tab,
+  page,
+}: {
+  tab: CollectionLog.TabName;
+  page: CollectionLog.PageName;
+}): URL | undefined => {
+  let urlRaw = `https://oldschool.runescape.wiki/w/Special:Lookup?type=npc&name=${page}`;
+  if (tab === "Clues") {
+    if (page.startsWith("Shared")) {
+      urlRaw = "https://oldschool.runescape.wiki/w/Collection_log#Shared_Treasure_Trail_Rewards";
+    } else {
+      const difficulty = page.split(" ")[0].toLowerCase();
+      urlRaw = `https://oldschool.runescape.wiki/w/Clue_scroll_(${difficulty})`;
+    }
+  }
+
+  if (!URL.canParse(urlRaw)) return undefined;
+
+  return new URL(urlRaw);
 };
 
 /**
@@ -89,24 +117,24 @@ export const CollectionLogWindow = ({
 }): ReactElement => {
   // TODO: display entire group's collection, but only focused on one.
   const { collectionLogInfo } = useContext(GameDataContext);
-  const [visibleTab, setVisibleTab] = useState<CollectionLog.TabName>("Bosses");
+  const [currentTabName, setCurrentTabName] = useState<CollectionLog.TabName>("Bosses");
   const [pageIndex, setPageIndex] = useState<number>(0);
 
   const tabButtons = CollectionLog.TabName.map((tab) => (
     <button
       key={tab}
-      className={`${tab === visibleTab ? "collection-log-tab-button-active" : ""}`}
+      className={`${tab === currentTabName ? "collection-log-tab-button-active" : ""}`}
       onClick={() => {
-        if (tab === visibleTab) return;
+        if (tab === currentTabName) return;
         setPageIndex(0);
-        setVisibleTab(tab);
+        setCurrentTabName(tab);
       }}
     >
       {tab}
     </button>
   ));
 
-  const pageDirectory = [collectionLogInfo?.tabs.get(visibleTab) ?? []].map((pages) =>
+  const pageDirectory = [collectionLogInfo?.tabs.get(currentTabName) ?? []].map((pages) =>
     pages.map(({ name: pageName }, index) => {
       return (
         <button onClick={() => setPageIndex(index)} key={pageName}>
@@ -116,8 +144,13 @@ export const CollectionLogWindow = ({
     }),
   );
 
-  const visiblePage = collectionLogInfo?.tabs.get(visibleTab)?.[pageIndex];
-  const visiblePageProgress = visiblePage?.name ? collection.get(visiblePage?.name) : undefined;
+  let pageElement = undefined;
+  const page = collectionLogInfo?.tabs.get(currentTabName)?.at(pageIndex);
+  if (page) {
+    const pageWikiLink = ResolvePageWikiLink({ page: page.name, tab: currentTabName });
+    const pageProgress = page?.name ? collection.get(page.name) : undefined;
+    pageElement = <CollectionLogPage wikiLink={pageWikiLink} page={page} progress={pageProgress} />;
+  }
 
   return (
     <div className="collection-log-container dialog-container metal-border rsbackground">
@@ -132,9 +165,7 @@ export const CollectionLogWindow = ({
         <div className="collection-log-tab-buttons">{tabButtons}</div>
         <div className="collection-log-tab-container">
           <div className="collection-log-tab-list">{pageDirectory}</div>
-          <div className="collection-log-page-container">
-            {visiblePage ? <CollectionLogPage page={visiblePage} progress={visiblePageProgress} /> : undefined}
-          </div>
+          <div className="collection-log-page-container">{pageElement}</div>
         </div>
       </div>
     </div>

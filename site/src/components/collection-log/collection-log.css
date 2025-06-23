@@ -171,3 +171,16 @@
   top: 0;
   left: 0;
 }
+
+.collection-log-page-name-link {
+  margin: 0;
+  font-size: 20px;
+}
+
+.collection-log-page-name-link > a {
+  color: var(--yellow);
+}
+
+.collection-log-page-name-link > a:hover {
+  color: var(--yellow-light);
+}
