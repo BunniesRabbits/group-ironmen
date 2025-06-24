@@ -348,16 +348,6 @@ ul {
   display: flex;
 }
 
-#side-panels-container {
-  display: flex;
-  flex-direction: column;
-  padding: 1em;
-  list-style: none;
-  overflow-y: auto;
-  box-sizing: border-box;
-  height: 100%;
-}
-
 #main-content {
   display: flex;
   flex-direction: column;
@@ -380,9 +370,23 @@ ul {
   filter: grayscale(100%);
 }
 
-#panels-page-container {
+#side-panels-container {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  padding: 1em;
   gap: 16px;
+  list-style: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+#panels-page-container {
+  gap: 16px;
+  padding: 8px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, max-content));
   justify-content: center;
+  align-items: start;
 }

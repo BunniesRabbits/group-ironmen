@@ -7,10 +7,6 @@
   box-sizing: border-box;
 }
 
-.player-panel + .player-panel {
-  margin-top: 12px;
-}
-
 .player-panel-minibar {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
