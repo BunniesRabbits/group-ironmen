@@ -4,6 +4,7 @@ import "./player-stats.css";
 import { StatBar } from "./stat-bar";
 import * as Member from "../../data/member";
 import { PlayerIcon } from "../player-icon/player-icon";
+import { XpDropper } from "../xp-dropper/xp-dropper";
 
 /**
  * Time in milliseconds before a player is considered offline/inactive.
@@ -31,10 +32,6 @@ const COLORS = {
     combatBG: "#383838",
     nonCombat: "#333355",
   },
-};
-
-const XpDropper = (): ReactElement => {
-  return <></>;
 };
 
 // Shows what the player is interacting with, like attacking/talking to an npc
@@ -92,6 +89,7 @@ export const PlayerStats = ({
 
   return (
     <div className={`player-stats ${online ? "" : "greyscale"}`}>
+      <XpDropper />
       <div className="player-stats-hitpoints">
         <StatBar
           className="player-stats-hitpoints-bar"
@@ -127,7 +125,6 @@ export const PlayerStats = ({
           ratio={runRatio}
         />
       </div>
-      <XpDropper player-name="${this.playerName}" />
     </div>
   );
 };
