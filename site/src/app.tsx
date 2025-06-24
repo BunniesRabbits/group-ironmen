@@ -122,6 +122,7 @@ export const App = (): ReactElement => {
           player={name}
           lastUpdated={state.lastUpdated}
           stats={state.stats}
+          xpDrops={group?.xpDrops?.get(name)}
           collections={collections}
         />
       )) ?? [],

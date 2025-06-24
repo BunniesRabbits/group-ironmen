@@ -8,6 +8,7 @@ import { fetchGroupData, type Response as GetGroupDataResponse } from "./request
 import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
 import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
+import { Skill, type Experience } from "./skill";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -16,6 +17,7 @@ function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): strin
 export interface GroupState {
   items: Map<ItemID, Map<Member.Name, number>>;
   members: Map<Member.Name, Member.State>;
+  xpDrops: Map<Member.Name, Member.ExperienceDrop[]>;
 }
 
 interface UpdateCallbacks {
@@ -38,14 +40,17 @@ export default class Api {
   private itemDatabase?: ItemsDatabase;
   private group: GroupState;
 
+  private xpDropCleanupInterval: ReturnType<Window["setInterval"]> | undefined;
+  private xpDropCounter = 0;
+
   private questData?: QuestDatabase;
   private diaryData?: DiaryDatabase;
   private geData?: GEPrices;
   private collectionLogInfo?: CollectionLogInfo;
 
   private updateGroupData(response: GetGroupDataResponse): void {
-    let updatedItems = false;
     let updatedAny = false;
+    let updatedItems = false;
 
     // Backend always sends the entirety of the items, in each category that changes.
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
@@ -117,6 +122,26 @@ export default class Api {
       }
 
       if (skills !== undefined) {
+        if (!this.group.xpDrops.has(name)) {
+          this.group.xpDrops.set(name, []);
+        }
+        const drops = this.group.xpDrops.get(name)!;
+        for (const skill of Skill) {
+          if (!memberData?.skills) continue;
+
+          const delta = skills[skill] - memberData.skills[skill];
+          if (delta <= 0) continue;
+
+          drops.push({
+            id: this.xpDropCounter,
+            skill: skill,
+            amount: delta as Experience,
+            creationTimeMS: performance.now(),
+          });
+          this.xpDropCounter += 1;
+          updatedAny = true;
+        }
+
         memberData.skills = structuredClone(skills);
         updatedAny = true;
       }
@@ -299,6 +324,34 @@ export default class Api {
       });
   }
 
+  private cleanupXPDrops(): void {
+    const nowMS = performance.now();
+    // Should match animation-duration in the CSS
+    const ANIMATION_TIME_MS = 4000;
+
+    const newDropsByMember = new Map<Member.Name, Member.ExperienceDrop[]>();
+
+    for (const [member, drops] of this.group.xpDrops) {
+      const countBefore = drops.length;
+      const newDrops = drops.filter((drop) => {
+        const age = nowMS - drop.creationTimeMS;
+        return age < ANIMATION_TIME_MS;
+      });
+      const countAfter = newDrops.length;
+      if (countBefore === countAfter) continue;
+
+      newDropsByMember.set(member, newDrops);
+    }
+
+    if (newDropsByMember.size <= 0) return;
+
+    for (const [member, newDrops] of newDropsByMember) {
+      this.group.xpDrops.set(member, newDrops);
+    }
+
+    this.callbacks?.onGroupUpdate(this.group);
+  }
+
   /**
    * WARNING: Make sure callbacks (all named `on*****Update`) are set up to receive the data!
    * Some callbacks may only be called once and data can be missed.
@@ -313,17 +366,20 @@ export default class Api {
 
     this.queueFetchGroupData();
     void this.getGroupDataPromise!.then(() => this.queueFetchGroupCollectionLogs());
+
+    window.setInterval(() => this.cleanupXPDrops(), 4000);
   }
 
   close(): void {
     this.callbacks = undefined;
     this.closed = true;
+    window.clearInterval(this.xpDropCleanupInterval);
   }
   constructor(credentials: GroupCredentials) {
     this.baseURL = __API_URL__;
     this.credentials = credentials;
     this.closed = false;
-    this.group = { items: new Map(), members: new Map() };
+    this.group = { items: new Map(), members: new Map(), xpDrops: new Map() };
   }
 
   async fetchAmILoggedIn(): Promise<Response> {

@@ -38,6 +38,7 @@ export const PlayerPanel = ({
   skills,
   quests,
   diaries,
+  xpDrops,
   collections,
 }: {
   player: Member.Name;
@@ -49,6 +50,7 @@ export const PlayerPanel = ({
   skills?: Member.Skills;
   quests?: Member.Quests;
   diaries?: Member.Diaries;
+  xpDrops: Member.ExperienceDrop[] | undefined;
   collections: Map<Member.Name, Member.Collection>;
 }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
@@ -171,7 +173,13 @@ export const PlayerPanel = ({
     <>
       {collectionLogModal}
       <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
-        <PlayerStats lastUpdated={lastUpdated} interacting={interacting} name={player} stats={stats} />
+        <PlayerStats
+          xpDrops={xpDrops}
+          lastUpdated={lastUpdated}
+          interacting={interacting}
+          name={player}
+          stats={stats}
+        />
         <div className="player-panel-minibar">{buttons}</div>
         <div className="player-panel-content">{content}</div>
       </div>

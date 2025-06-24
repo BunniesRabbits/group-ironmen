@@ -55,11 +55,13 @@ export const PlayerStats = ({
   stats,
   lastUpdated,
   interacting,
+  xpDrops,
 }: {
   name: Member.Name;
   stats?: Member.Stats;
   lastUpdated?: Date;
   interacting?: Member.NPCInteraction;
+  xpDrops: Member.ExperienceDrop[] | undefined;
 }): ReactElement => {
   const now = new Date();
   const online = now.getTime() - (lastUpdated ?? new Date(0)).getTime() < INACTIVE_TIMER_MS;
@@ -89,7 +91,7 @@ export const PlayerStats = ({
 
   return (
     <div className={`player-stats ${online ? "" : "greyscale"}`}>
-      <XpDropper />
+      <XpDropper xpDrops={xpDrops} />
       <div className="player-stats-hitpoints">
         <StatBar
           className="player-stats-hitpoints-bar"

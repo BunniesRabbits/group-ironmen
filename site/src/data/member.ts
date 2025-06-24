@@ -34,6 +34,32 @@ export interface Collection {
   pageStats: Map<CollectionLog.PageName, { completions: number[] }>;
 }
 
+/**
+ * An instance of a member gaining experience.
+ */
+export interface ExperienceDrop {
+  /**
+   * A unique ID for the drop. This is used as a key for the DOM nodes, so they
+   * are tracked uniquely and have their own CSS animations.
+   */
+  id: number;
+
+  /**
+   * The skill to display the icon for.
+   */
+  skill: Skill;
+
+  /**
+   * The amount of xp in the drop.
+   */
+  amount: Experience;
+
+  /**
+   * Age of the drop, for deleting when it gets old
+   */
+  creationTimeMS: number;
+}
+
 export interface NPCInteraction {
   /**
    * Name of the NPC
