@@ -2,7 +2,7 @@ import { defineConfig, type PluginOption } from "vite";
 import fs from "fs";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { MapMetadata } from "./src/data/map-data";
+import { MapMetadataSchema } from "./src/data/map-data";
 
 const mapJsonPlugin = (): PluginOption => ({
   name: "mapTilesJson",
@@ -18,7 +18,7 @@ const mapJsonPlugin = (): PluginOption => ({
       tiles[plane].push(((x + y) * (x + y + 1)) / 2 + y);
     }
 
-    const map = MapMetadata.safeParse({
+    const map = MapMetadataSchema.safeParse({
       icons: JSON.parse(fs.readFileSync("public/data/map_icons.json", "utf8")),
       labels: JSON.parse(fs.readFileSync("public/data/map_labels.json", "utf8")),
       tiles: tiles,

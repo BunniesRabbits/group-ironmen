@@ -27,9 +27,13 @@ export type MapLabelsMetadata = z.infer<typeof MapLabelsMetadata>;
 export const MapTilesMetadata = z.array(z.array(z.int())).length(4);
 export type MapTilesMetadata = z.infer<typeof MapTilesMetadata>;
 
-export const MapMetadata = z.object({
+export type MapMetadata = z.infer<typeof MapMetadataSchema>;
+export const MapMetadataSchema = z.object({
   icons: MapIconsMetadata,
   labels: MapLabelsMetadata,
   tiles: MapTilesMetadata,
 });
-export type MapMetadata = z.infer<typeof MapMetadata>;
+export const fetchMapJSON = (): Promise<MapMetadata> =>
+  import("../assets/map.json").then((data) => {
+    return MapMetadataSchema.parseAsync(data);
+  });
