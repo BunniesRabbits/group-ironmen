@@ -49,6 +49,7 @@ const CollectionLogPageItems = ({ items }: CollectionLogPageItemProps): ReactEle
           }
           showTooltip({ name: itemName, memberQuantities: otherMembers });
         }}
+        onPointerLeave={hideTooltip}
         className="collection-log-page-item"
         href={wikiLink}
         target="_blank"

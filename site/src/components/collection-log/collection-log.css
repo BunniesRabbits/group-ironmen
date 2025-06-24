@@ -172,11 +172,11 @@
 }
 
 .collection-log-page-items {
-  display: flex;
   padding: 8px;
   overflow-y: auto;
-  flex-wrap: wrap;
-  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, max-content));
+  justify-content: center;
 }
 
 .collection-log-count {
