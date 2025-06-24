@@ -1,5 +1,6 @@
 import { type ReactElement } from "react";
 import type * as Member from "../../data/member";
+import { SkillIconsBySkill } from "../../data/skill";
 
 import "./xp-dropper.css";
 
@@ -26,7 +27,7 @@ export const XpDropper = ({ xpDrops }: { xpDrops: Member.ExperienceDrop[] | unde
             }}
             className="xp-dropper-drop"
           >
-            {skill}:{amount}
+            <img alt={skill} src={SkillIconsBySkill.get(skill)?.href ?? ""} />+{amount}
           </div>
         );
       })}

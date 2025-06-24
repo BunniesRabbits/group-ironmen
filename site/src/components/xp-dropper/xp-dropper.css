@@ -25,3 +25,9 @@
   animation-fill-mode: forwards;
   animation-timing-function: linear;
 }
+
+.xp-dropper-drop > img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
