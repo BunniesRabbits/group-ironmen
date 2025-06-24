@@ -182,12 +182,15 @@ export default class Api {
     let updatedLogs = false;
 
     Object.entries(response).forEach(([member, collection]) => {
-      if (!this.group.members.has(member as Member.Name)) {
+      if (!this.group.members.has(member as Member.Name) || !collection) {
         return;
       }
 
       // TODO: Don't do shallow copy (does it matter?)
-      this.group.members.get(member as Member.Name)!.collection = new Map(collection);
+      this.group.members.get(member as Member.Name)!.collection = {
+        pageStats: new Map(collection.pageStats),
+        obtainedItems: new Map(collection.obtainedItems),
+      };
       updatedLogs = true;
     });
 

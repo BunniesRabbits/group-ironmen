@@ -61,14 +61,29 @@ const CollectionLogSchema = z.record(
         .transform((items) => items as ItemID[]),
     })
     .array()
-    .transform((pagesFlat) =>
-      pagesFlat.reduce<Map<CollectionLog.PageName, { items: Map<ItemID, number>; completions: number[] }>>(
-        (pages, page) => {
-          page.new_items.forEach((itemID) => page.items.set(itemID, 1));
-          pages.set(page.page_name, { completions: page.completion_counts, items: page.items });
-          return pages;
-        },
-        new Map(),
-      ),
-    ),
+    .transform((pagesFlat) => {
+      const obtainedItems = new Map<CollectionLog.ItemIDDeduped, number>();
+      const pageStats = new Map<CollectionLog.PageName, { completions: number[] }>();
+
+      pagesFlat.forEach((page) => {
+        // We overwrite the amounts, since all instances of the same item ID should
+        // report the same quantity, even after deduplicating.
+
+        // TODO: The backend should deduplicate and aggregate collection log item IDs.
+
+        // TODO: investigate what the significance of new_items is
+
+        page.new_items.forEach((itemID) => obtainedItems.set(CollectionLog.deduplicateItemID(itemID), 1));
+        page.items.forEach((quantity, itemID) => {
+          obtainedItems.set(CollectionLog.deduplicateItemID(itemID), quantity);
+        });
+
+        pageStats.set(page.page_name, { completions: [...page.completion_counts] });
+      });
+
+      return {
+        obtainedItems,
+        pageStats,
+      };
+    }),
 );

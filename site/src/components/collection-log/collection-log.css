@@ -111,14 +111,32 @@
   box-sizing: border-box;
 }
 
-/* stylelint-disable-next-line no-descending-specificity */
-.collection-log-tab-list button {
+.collection-log-page-directory-page {
   font-size: 18px;
   color: var(--orange);
   font-family: rssmall, ui-sans-serif, Arial, sans-serif;
   text-shadow: 1.3px 1.3px var(--black);
   text-align: left;
   padding: 2px 0;
+  display: flex;
+}
+
+.collection-log-page-directory-page > span {
+  flex: 1;
+  text-align: end;
+  padding-inline: 8px;
+}
+
+.collection-log-page-directory-page-all {
+  color: var(--green);
+}
+
+.collection-log-page-directory-page-some > span {
+  color: var(--yellow);
+}
+
+.collection-log-page-directory-page-none > span {
+  color: var(--red);
 }
 
 .collection-log-tab-list button:nth-child(odd) {

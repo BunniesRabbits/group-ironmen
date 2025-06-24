@@ -6,35 +6,17 @@ import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 
 import "./collection-log.css";
 import { PlayerIcon } from "../player-icon/player-icon";
+import type { ItemID } from "../../data/items";
 
-const CollectionLogPage = ({
-  page,
-  progress,
-  progressOther,
-  wikiLink,
-}: {
-  page: CollectionLog.Page;
-  progress: Member.CollectionPageProgress | undefined;
-  progressOther: { name: Member.Name; progress: Member.CollectionPageProgress }[];
-  wikiLink?: URL;
-}): ReactElement => {
+interface CollectionLogPageItemProps {
+  items: { item: ItemID; quantity: number; otherMembers: { name: Member.Name; quantity: number }[] }[];
+}
+const CollectionLogPageItems = ({ items }: CollectionLogPageItemProps): ReactElement => {
   const { tooltipElement, showTooltip, hideTooltip } = useCollectionLogItemTooltip();
   const { items: itemDatabase } = useContext(GameDataContext);
 
-  const { name: pageName, items: possibleItems, completionLabels } = page;
-
-  const completions = completionLabels.map((label, index) => (
-    <div key={label}>
-      <span className=".collection-log-count">
-        {label}: {progress?.completions[index] ?? 0}
-        <br />
-      </span>
-    </div>
-  ));
-
-  const drops = possibleItems.map((itemID) => {
+  const itemElements = items.map(({ item: itemID, quantity, otherMembers }) => {
     const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
-    const quantity = progress?.items.get(itemID) ?? 0;
     const itemName = itemDatabase?.get(itemID)?.name;
 
     const itemImage = (
@@ -46,17 +28,14 @@ const CollectionLogPage = ({
     );
     const quantityLabel =
       quantity > 0 ? <span className="collection-log-page-item-quantity">{quantity}</span> : undefined;
-    const otherMemberQuantities = progressOther
-      .map(({ name, progress }) => ({
-        name,
-        quantity: progress.items.get(itemID) ?? 0,
-      }))
-      .filter(({ quantity }) => quantity > 0);
+
     const otherMemberHaveItemLabel = (
       <span style={{ position: "absolute", bottom: 0, left: 0 }}>
-        {otherMemberQuantities.map(({ name }) => (
-          <PlayerIcon name={name} />
-        ))}
+        {otherMembers
+          .filter(({ quantity }) => quantity > 0)
+          .map(({ name }) => (
+            <PlayerIcon key={name} name={name} />
+          ))}
       </span>
     );
 
@@ -68,7 +47,7 @@ const CollectionLogPage = ({
             hideTooltip();
             return;
           }
-          showTooltip({ name: itemName, memberQuantities: otherMemberQuantities });
+          showTooltip({ name: itemName, memberQuantities: otherMembers });
         }}
         className="collection-log-page-item"
         href={wikiLink}
@@ -84,16 +63,8 @@ const CollectionLogPage = ({
 
   return (
     <>
-      <div className="collection-log-page-top">
-        <h2 className="collection-log-page-name-link">
-          <a href={wikiLink?.href ?? ""} target="_blank" rel="noopener noreferrer">
-            {pageName}
-          </a>
-        </h2>
-        {completions}
-      </div>
       <div onPointerLeave={hideTooltip} className="collection-log-page-items">
-        {drops}
+        {itemElements}
         {/* The outer div is rectangular. Thus, when the item grid is not
          *  rectangular, the empty section at the end wouldn't hide the cursor.
          *  So we insert this span, and that hides the cursor.
@@ -101,6 +72,44 @@ const CollectionLogPage = ({
         <span onPointerEnter={hideTooltip} style={{ flex: 1 }} />
       </div>
       {tooltipElement}
+    </>
+  );
+};
+
+interface CollectionLogPageHeaderProps {
+  name: string;
+  wikiLink: URL | undefined;
+  obtained: number;
+  obtainedPossible: number;
+  completions: { count: number; label: string }[];
+}
+const CollectionLogPageHeader = ({
+  name,
+  wikiLink,
+  completions,
+  obtained,
+  obtainedPossible,
+}: CollectionLogPageHeaderProps): ReactElement => {
+  const completionElements = completions.map(({ count, label }) => (
+    <div key={label}>
+      <span className=".collection-log-count">
+        {label}: {count}
+        <br />
+      </span>
+    </div>
+  ));
+
+  return (
+    <>
+      <div className="collection-log-page-top">
+        <h2 className="collection-log-page-name-link">
+          <a href={wikiLink?.href ?? ""} target="_blank" rel="noopener noreferrer">
+            {name}
+          </a>
+        </h2>
+        Obtained: {obtained}/{obtainedPossible}
+        {completionElements}
+      </div>
     </>
   );
 };
@@ -161,11 +170,33 @@ export const CollectionLogWindow = ({
     </button>
   ));
 
+  const totalCollected = collection.obtainedItems.size;
+
   const pageDirectory = [collectionLogInfo?.tabs.get(currentTabName) ?? []].map((pages) =>
-    pages.map(({ name: pageName }, index) => {
+    pages.map(({ name: pageName, items: pageItems }, index) => {
+      const pageUniqueSlots = pageItems.length;
+
+      let pageUnlockedSlots = 0;
+      pageItems.forEach((itemID) => {
+        const obtainedCount = collection.obtainedItems.get(CollectionLog.deduplicateItemID(itemID)) ?? 0;
+        const hasItem = obtainedCount > 0;
+        if (hasItem) pageUnlockedSlots += 1;
+      });
+
+      let classNameCompletion = "collection-log-page-directory-page-none";
+      if (pageUnlockedSlots >= pageUniqueSlots) classNameCompletion = "collection-log-page-directory-page-all";
+      else if (pageUnlockedSlots > 0) classNameCompletion = "collection-log-page-directory-page-some";
+
       return (
-        <button onClick={() => setPageIndex(index)} key={pageName}>
-          {pageName}
+        <button
+          className={`collection-log-page-directory-page ${classNameCompletion}`}
+          onClick={() => setPageIndex(index)}
+          key={pageName}
+        >
+          {`${pageName}`}
+          <span>
+            {pageUnlockedSlots} / {pageUniqueSlots}
+          </span>
         </button>
       );
     }),
@@ -174,21 +205,49 @@ export const CollectionLogWindow = ({
   let pageElement = undefined;
   const page = collectionLogInfo?.tabs.get(currentTabName)?.at(pageIndex);
   if (page) {
-    const pageWikiLink = ResolvePageWikiLink({ page: page.name, tab: currentTabName });
-    const pageProgress = page?.name ? collection.get(page.name) : undefined;
-    const pageProgressOther = [
-      ...collections
-        .entries()
-        .filter(([nameOther, collectionOther]) => nameOther !== player && collectionOther.has(page.name))
-        .map(([nameOther, collectionOther]) => ({ name: nameOther, progress: collectionOther.get(page.name)! })),
-    ];
+    const headerProps: CollectionLogPageHeaderProps = {
+      name: page.name,
+      wikiLink: ResolvePageWikiLink({ page: page.name, tab: currentTabName }),
+      completions: [],
+      obtained: 0,
+      obtainedPossible: page.items.length,
+    };
+    const itemsProps: CollectionLogPageItemProps = {
+      items: [],
+    };
+
+    page.completionLabels.forEach((label, index) => {
+      const count = collection.pageStats.get(page.name)?.completions.at(index) ?? 0;
+      headerProps.completions.push({ label, count });
+    });
+
+    page.items.forEach((itemID) => {
+      const deduplicateItemID = CollectionLog.deduplicateItemID(itemID);
+      const quantity = collection.obtainedItems.get(deduplicateItemID) ?? 0;
+
+      if (quantity > 0) headerProps.obtained += 1;
+
+      itemsProps.items.push({
+        item: itemID,
+        quantity: quantity,
+        otherMembers: [
+          ...collections
+            .entries()
+            .filter(([member]) => member !== player)
+            .map(([name, collection]) => ({
+              name,
+              quantity: collection.obtainedItems.get(deduplicateItemID) ?? 0,
+            }))
+            .filter(({ quantity }) => quantity > 0),
+        ],
+      });
+    });
+
     pageElement = (
-      <CollectionLogPage
-        wikiLink={pageWikiLink}
-        page={page}
-        progress={pageProgress}
-        progressOther={pageProgressOther}
-      />
+      <>
+        <CollectionLogPageHeader {...headerProps} />
+        <CollectionLogPageItems {...itemsProps} />
+      </>
     );
   }
 
@@ -196,7 +255,7 @@ export const CollectionLogWindow = ({
     <div className="collection-log-container dialog-container metal-border rsbackground">
       <div className="collection-log-header">
         <h2 className="collection-log-title">
-          {player}'s Collection Log - 0 / {collectionLogInfo?.uniqueSlots ?? 0}
+          {player}'s Collection Log - {totalCollected} / {collectionLogInfo?.uniqueSlots ?? 0}
         </h2>
         <button className="collection-log-close dialog__close" onClick={onCloseModal}>
           <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />

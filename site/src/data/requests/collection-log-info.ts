@@ -37,19 +37,6 @@ const PageSchema = z
 
 type Page = z.infer<typeof PageSchema>;
 
-/*
- * NOTE: The collection log has duplicate versions of items on different pages with different
- * items ids for some reason. Not sure how this is counted correctly in the game client, but
- * here they are mapped and subtracted from the totals for the player unlocked counts.
- */
-const duplicateCollectionLogItems = new Map([
-  // Duplicate mining outfit from volcanic mine and motherlode mine pages
-  [29472, 12013], // Prospector helmet
-  [29474, 12014], // Prospector jacket
-  [29476, 12015], // Prospector legs
-  [29478, 12016], // Prospector boots
-]);
-
 const TabByID = ["Bosses", "Raids", "Clues", "Minigames", "Other"] as const;
 const CollectionLogInfoSchema = z
   .object({
@@ -58,11 +45,12 @@ const CollectionLogInfoSchema = z
   })
   .array()
   .transform((tabsFlat) => {
-    let seenItemIDs = new Set<ItemID>();
+    const seenItemIDs = new Set<CollectionLog.ItemIDDeduped>();
     const tabs = tabsFlat.reduce<Map<CollectionLog.TabName, Page[]>>((tabsMap, { tabId, pages }) => {
       tabsMap.set(TabByID[tabId], pages);
-      seenItemIDs = seenItemIDs.union(new Set(pages.flatMap((page) => page.items)));
+      pages.flatMap((page) => page.items).forEach((itemID) => seenItemIDs.add(CollectionLog.deduplicateItemID(itemID)));
       return tabsMap;
     }, new Map());
-    return { uniqueSlots: [...seenItemIDs].filter((itemID) => !duplicateCollectionLogItems.has(itemID)).length, tabs };
+
+    return { uniqueSlots: seenItemIDs.size, tabs };
   });
