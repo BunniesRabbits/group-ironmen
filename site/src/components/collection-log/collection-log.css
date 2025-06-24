@@ -161,6 +161,8 @@
 
 .collection-log-page-container {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .collection-log-page-top {
@@ -171,7 +173,7 @@
 
 .collection-log-page-items {
   display: flex;
-  padding: 2px 8px;
+  padding: 8px;
   overflow-y: auto;
   flex-wrap: wrap;
   box-sizing: border-box;
@@ -183,8 +185,20 @@
 
 .collection-log-page-item {
   position: relative;
-  width: 72px;
+  width: 64px;
   height: 64px;
+}
+
+/* 
+ * object-fit, object-position, width, and height all work together to center
+ * the image and make it as large as possible. This is used since the image
+ * icons are not square.
+ */
+.collection-log-page-item > img {
+  object-fit: contain;
+  object-position: center;
+  width: 100%;
+  height: 100%;
 }
 
 .collection-log-page-item:hover {
