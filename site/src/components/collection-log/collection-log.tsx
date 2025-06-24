@@ -195,7 +195,9 @@ export const CollectionLogWindow = ({
   return (
     <div className="collection-log-container dialog-container metal-border rsbackground">
       <div className="collection-log-header">
-        <h2 className="collection-log-title">{player}'s Collection Log</h2>
+        <h2 className="collection-log-title">
+          {player}'s Collection Log - 0 / {collectionLogInfo?.uniqueSlots ?? 0}
+        </h2>
         <button className="collection-log-close dialog__close" onClick={onCloseModal}>
           <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />
         </button>

@@ -238,9 +238,7 @@ export default class Api {
     if (this.collectionLogInfo === undefined) {
       fetchCollectionLogInfo({ baseURL: this.baseURL })
         .then((response) => {
-          this.collectionLogInfo = {
-            tabs: response,
-          };
+          this.collectionLogInfo = response;
           this.callbacks?.onCollectionLogInfoUpdate(this.collectionLogInfo);
         })
         .catch((reason) => console.error("Failed to get collection log info for API", reason));
