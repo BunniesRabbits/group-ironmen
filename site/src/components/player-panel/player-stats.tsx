@@ -82,7 +82,7 @@ export const PlayerStats = ({
         - <span className="player-stats-world">{`W${stats.world}`}</span>
       </>
     );
-  } else if (!online && lastUpdated !== undefined) {
+  } else if (!online && lastUpdated && lastUpdated?.getTime() > 0) {
     status = <> - {lastUpdated.toLocaleString()}</>;
   }
 
@@ -105,7 +105,7 @@ export const PlayerStats = ({
           {name} {status}
         </div>
         <div className="player-stats-hitpoints-numbers">
-          {stats?.health.current} / {stats?.health.max}
+          {stats ? `${stats.health.current} / ${stats.health.max}` : "10 / 10"}
         </div>
       </div>
       <div className="player-stats-prayer">
@@ -116,7 +116,7 @@ export const PlayerStats = ({
           ratio={prayerRatio}
         />
         <div className="player-stats-prayer-numbers">
-          {stats?.prayer.current} / {stats?.prayer.max}
+          {stats ? `${stats.prayer.current} / ${stats?.prayer.max}` : "1 / 1"}
         </div>
       </div>
       <div className="player-stats-energy">
