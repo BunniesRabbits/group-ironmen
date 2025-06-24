@@ -187,21 +187,19 @@ export const PlayerDiaries = ({
 }): ReactElement => {
   const { quests: questData, diaries: diaryData } = useContext(GameDataContext);
 
-  if (diaries === undefined || diaryData === undefined) return <></>;
+  if (diaryData === undefined) return <></>;
 
   const display = diaryData.entries().map(([region, tasksByTier]) => {
-    const progressForRegion = diaries[region];
-    if (!progressForRegion) return;
+    const progressForRegion = diaries?.[region];
 
     const displayForRegion = new Map<DiaryTier, DiaryTaskView[]>();
 
     tasksByTier.forEach((tasks, tier) => {
-      const progressForTier = progressForRegion[tier];
-      if (!progressForTier) return;
+      const progressForTier = progressForRegion?.[tier];
 
       const progressForTasks = tasks.map<DiaryTaskView>(
         ({ task, requirements: { quests: taskQuests, skills: taskSkills } }, index) => ({
-          complete: progressForTier.at(index) ?? false,
+          complete: progressForTier?.at(index) ?? false,
           description: task,
           quests: taskQuests.map((id) => ({
             name: questData?.get(id)?.name ?? "Summer's End",
