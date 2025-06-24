@@ -9,6 +9,7 @@ import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsRespon
 import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import { Skill, type Experience } from "./skill";
+import type { CoordinateTriplet } from "../components/canvas-map/canvas-wrapper";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -27,6 +28,7 @@ interface UpdateCallbacks {
   onDiaryDataUpdate: (diaryData: DiaryDatabase) => void;
   onGEDataUpdate: (geData: GEPrices) => void;
   onCollectionLogInfoUpdate: (info: CollectionLogInfo) => void;
+  onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -51,6 +53,7 @@ export default class Api {
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedAny = false;
     let updatedItems = false;
+    let updatedCoordinates = false;
 
     // Backend always sends the entirety of the items, in each category that changes.
     // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
@@ -58,6 +61,7 @@ export default class Api {
 
     for (const {
       name,
+      coordinates,
       bank,
       equipment,
       inventory,
@@ -167,6 +171,11 @@ export default class Api {
         memberData.diaries = structuredClone(diary_vars);
         updatedAny = true;
       }
+
+      if (coordinates !== undefined) {
+        memberData.coordinates = structuredClone(coordinates);
+        updatedCoordinates = true;
+      }
     }
 
     if (updatedItems) {
@@ -200,7 +209,16 @@ export default class Api {
     }
 
     if (updatedAny || updatedItems) {
-      this.callbacks?.onGroupUpdate(this.group);
+      this.callbacks?.onGroupUpdate?.(this.group);
+    }
+
+    if (updatedCoordinates) {
+      const positions = [];
+      for (const [member, { coordinates }] of this.group.members) {
+        if (!coordinates) continue;
+        positions.push({ player: member, coords: coordinates });
+      }
+      this.callbacks?.onPlayerPositionsUpdate?.(positions);
     }
   }
 
@@ -221,14 +239,14 @@ export default class Api {
     });
 
     if (updatedLogs) {
-      this.callbacks?.onGroupUpdate(this.group);
+      this.callbacks?.onGroupUpdate?.(this.group);
     }
   }
 
-  private callbacks?: UpdateCallbacks;
+  private callbacks: Partial<UpdateCallbacks> = {};
 
-  public setUpdateCallbacks(callbacks: UpdateCallbacks): void {
-    this.callbacks = callbacks;
+  public setUpdateCallbacks(callbacks: Partial<UpdateCallbacks>): void {
+    Object.assign(this.callbacks, callbacks);
   }
 
   private queueGetGameData(): void {
@@ -236,7 +254,7 @@ export default class Api {
       fetchQuestDataJSON()
         .then((data) => {
           this.questData = data;
-          this.callbacks?.onQuestDataUpdate(data);
+          this.callbacks?.onQuestDataUpdate?.(data);
         })
         .catch((reason) => console.error("Failed to get quest data for API", reason));
     }
@@ -244,7 +262,7 @@ export default class Api {
       fetchItemDataJSON()
         .then((data) => {
           this.itemDatabase = data;
-          this.callbacks?.onItemDataUpdate(data);
+          this.callbacks?.onItemDataUpdate?.(data);
         })
         .catch((reason) => console.error("Failed to get item data for API", reason));
     }
@@ -252,7 +270,7 @@ export default class Api {
       fetchDiaryDataJSON()
         .then((data) => {
           this.diaryData = data;
-          this.callbacks?.onDiaryDataUpdate(data);
+          this.callbacks?.onDiaryDataUpdate?.(data);
         })
         .catch((reason) => console.error("Failed to get diary data for API", reason));
     }
@@ -260,7 +278,7 @@ export default class Api {
       fetchGEPrices({ baseURL: this.baseURL })
         .then((data) => {
           this.geData = data;
-          this.callbacks?.onGEDataUpdate(data);
+          this.callbacks?.onGEDataUpdate?.(data);
         })
         .catch((reason) => console.error("Failed to get grand exchange data for API", reason));
     }
@@ -268,14 +286,14 @@ export default class Api {
       fetchCollectionLogInfo({ baseURL: this.baseURL })
         .then((response) => {
           this.collectionLogInfo = response;
-          this.callbacks?.onCollectionLogInfoUpdate(this.collectionLogInfo);
+          this.callbacks?.onCollectionLogInfoUpdate?.(this.collectionLogInfo);
         })
         .catch((reason) => console.error("Failed to get collection log info for API", reason));
     }
   }
 
   private queueFetchGroupData(): void {
-    const FETCH_INTERVAL_MS = 1000;
+    const FETCH_INTERVAL_MS = 200;
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
     this.getGroupDataPromise ??= fetchGroupData({
@@ -350,7 +368,7 @@ export default class Api {
       this.group.xpDrops.set(member, newDrops);
     }
 
-    this.callbacks?.onGroupUpdate(this.group);
+    this.callbacks?.onGroupUpdate?.(this.group);
   }
 
   /**
@@ -372,7 +390,7 @@ export default class Api {
   }
 
   close(): void {
-    this.callbacks = undefined;
+    this.callbacks = {};
     this.closed = true;
     window.clearInterval(this.xpDropCleanupInterval);
   }

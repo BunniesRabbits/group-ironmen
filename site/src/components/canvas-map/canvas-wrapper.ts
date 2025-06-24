@@ -6,6 +6,11 @@ export interface ExtentPair {
   width: number;
   height: number;
 }
+export interface CoordinateTriplet {
+  x: number;
+  y: number;
+  plane: number;
+}
 
 // Figuring out when to apply scaling is hard, so this wrapper handles
 // that by implementing a subset of Context2D rendering commands.
@@ -207,5 +212,16 @@ export class Context2DScaledWrapper {
       );
     }
     this.context.globalAlpha = previousAlpha;
+  }
+
+  drawText({ worldPosition, label }: { worldPosition: CoordinatePair; label: string }): void {
+    const position = this.convertWorldPositionToView(worldPosition);
+
+    this.context.fillStyle = "yellow";
+    this.context.font = `40px rssmall`;
+    this.context.textAlign = "center";
+    this.context.lineWidth = 1;
+
+    this.context.fillText(label, position.x, position.y);
   }
 }

@@ -886,12 +886,22 @@ const DiariesSchema = z
       }) satisfies Record<DiaryRegion, Record<DiaryTier, boolean[]>>,
   );
 
+const CoordinatesSchema = z
+  .uint32()
+  .array()
+  .length(3)
+  .transform(([x, y, plane]) => ({ x, y, plane }));
+
 const GetGroupDataResponseSchema = z
   .object({
     /**
      * The name of the player
      */
     name: z.string().transform((arg) => arg as Member.Name),
+    /**
+     * Current world coordinates of the player.
+     */
+    coordinates: CoordinatesSchema.optional(),
     /**
      * The last time the player sent an update
      */

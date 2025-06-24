@@ -17,10 +17,15 @@ import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
 
 import "./app.css";
+import type { CoordinateTriplet } from "./components/canvas-map/canvas-wrapper";
 
 interface APIConnectionWithDataViews {
   close: () => void;
-  group: GroupState;
+  group: GroupState | undefined;
+  gameData: GameData;
+  setPlayerPositionsCallback: (
+    onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void,
+  ) => void;
 }
 
 /**
@@ -31,7 +36,7 @@ interface APIConnectionWithDataViews {
  *
  * Data is only provided when it is ready to be used.
  */
-const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } => {
+const useAPI = (): APIConnectionWithDataViews => {
   const location = useLocation();
   const [api, setApi] = useState<Api>();
   const [group, setGroup] = useState<GroupState>();
@@ -67,6 +72,13 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
     };
   }, [api]);
 
+  const setPlayerPositionsCallback = useCallback(
+    (onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void) => {
+      api?.setUpdateCallbacks({ onPlayerPositionsUpdate });
+    },
+    [api],
+  );
+
   useEffect(() => {
     if (api !== undefined) return;
 
@@ -84,13 +96,14 @@ const useAPI = (): Partial<APIConnectionWithDataViews> & { gameData: GameData } 
     close,
     group,
     gameData: gameDataRef.current,
+    setPlayerPositionsCallback,
   };
 };
 
 export const App = (): ReactElement => {
   const location = useLocation();
 
-  const { close: closeAPI, group, gameData } = useAPI();
+  const { close: closeAPI, group, gameData, setPlayerPositionsCallback } = useAPI();
 
   /*
    * The collection page shows the other member's items too, so unlike the rest
@@ -128,9 +141,13 @@ export const App = (): ReactElement => {
       )) ?? [],
   );
 
-  const { coordinateIndicator, planeSelect, backgroundMap } = useCanvasMap({
+  const { coordinateIndicator, controls, backgroundMap, updatePlayerPositions } = useCanvasMap({
     interactive: location.pathname === "/group/map",
   });
+
+  useEffect(() => {
+    setPlayerPositionsCallback(updatePlayerPositions);
+  }, [setPlayerPositionsCallback, updatePlayerPositions]);
 
   return (
     <>
@@ -176,7 +193,7 @@ export const App = (): ReactElement => {
               path="map"
               element={
                 <AuthedLayout panels={panels}>
-                  {planeSelect}
+                  {controls}
                   {coordinateIndicator}
                 </AuthedLayout>
               }

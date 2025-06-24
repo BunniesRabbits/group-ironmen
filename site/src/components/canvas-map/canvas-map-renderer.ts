@@ -1,6 +1,6 @@
 import { fetchMapJSON, type MapMetadata } from "../../data/map-data";
 import type { Distinct } from "../../util";
-import type { CoordinatePair, Context2DScaledWrapper, ExtentPair } from "./canvas-wrapper";
+import type { CoordinatePair, Context2DScaledWrapper, ExtentPair, CoordinateTriplet } from "./canvas-wrapper";
 
 export const ICON_IMAGE_PIXEL_SIZE = 15;
 const REGION_IMAGE_PIXEL_SIZE = 256;
@@ -93,6 +93,7 @@ export class CanvasMapRenderer {
   private iconsAtlas?: ImageBitmap;
   private iconsByRegion?: MapIconGrid;
   private labelsByRegion?: MapLabelGrid;
+  private playerPositions = new Map<string, CoordinateTriplet>();
 
   public forceRenderNextFrame = false;
 
@@ -258,6 +259,28 @@ export class CanvasMapRenderer {
 
   public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
+  public onPlayerPositionsUpdate?: (positions: { player: string; coords: CoordinateTriplet }[]) => void;
+
+  public jumpToWorldPosition({ coords }: { coords: CoordinateTriplet }): void {
+    this.camera.x = coords.x - OURS_TO_WIKI_CONVERSION_FACTOR_X;
+    this.camera.y = -coords.y + OURS_TO_WIKI_CONVERSION_FACTOR_Y;
+    this.plane = coords.plane;
+
+    this.cursor.accumulatedFrictionMS = 0;
+    this.cursor.accumulatedScroll = 0;
+    this.cursor.rateSamplesX = [];
+    this.cursor.rateSamplesY = [];
+  }
+
+  public updatePlayerPositionsFromOSRSCoordinates(positions: { player: string; coords: CoordinateTriplet }[]): void {
+    this.playerPositions.clear();
+    for (const { player, coords } of positions) {
+      const { x, y, plane } = coords;
+      this.playerPositions.set(player, { x, y: -y, plane });
+    }
+    this.onPlayerPositionsUpdate?.(positions);
+    this.forceRenderNextFrame = true;
+  }
 
   private updateCursorVelocity(elapsed: number): void {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
@@ -657,5 +680,17 @@ export class CanvasMapRenderer {
     this.drawVisibleRegions(context);
     this.drawVisibleIcons(context);
     this.drawVisibleAreaLabels(context);
+
+    for (const [player, { x, y }] of this.playerPositions) {
+      context.setFillStyle("blue");
+      context.fillRect({
+        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+        worldExtent: { height: 1, width: 1 },
+      });
+      context.drawText({
+        label: player,
+        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+      });
+    }
   }
 }

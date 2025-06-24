@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { Context2DScaledWrapper, type CoordinatePair } from "./canvas-wrapper";
+import { Context2DScaledWrapper, type CoordinatePair, type CoordinateTriplet } from "./canvas-wrapper";
 import { CanvasMapRenderer } from "./canvas-map-renderer";
 
 import "./canvas-map.css";
@@ -8,12 +8,18 @@ export const useCanvasMap = ({
   interactive,
 }: {
   interactive: boolean;
-}): { coordinateIndicator: ReactElement; planeSelect: ReactElement; backgroundMap: ReactElement } => {
+}): {
+  coordinateIndicator: ReactElement;
+  updatePlayerPositions: (positions: { player: string; coords: CoordinateTriplet }[]) => void;
+  controls: ReactElement;
+  backgroundMap: ReactElement;
+} => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
   const [dragging, setDragging] = useState<boolean>();
   const [coordinates, setCoordinates] = useState<CoordinatePair>();
+  const [memberCoordinates, setMemberCoordinates] = useState<{ player: string; coords: CoordinateTriplet }[]>([]);
   const animationFrameHandleRef = useRef<number>(undefined);
 
   const resizeCanvas = useCallback(() => {
@@ -79,10 +85,12 @@ export const useCanvasMap = ({
 
     renderer.onCursorCoordinatesUpdate = setCoordinates;
     renderer.onDraggingUpdate = setDragging;
+    renderer.onPlayerPositionsUpdate = setMemberCoordinates;
 
     return (): void => {
       renderer.onCursorCoordinatesUpdate = undefined;
       renderer.onDraggingUpdate = undefined;
+      renderer.onPlayerPositionsUpdate = undefined;
     };
   }, [renderer]);
 
@@ -124,6 +132,13 @@ export const useCanvasMap = ({
     [renderer],
   );
 
+  const updatePlayerPositions = useCallback(
+    (positions: { player: string; coords: CoordinateTriplet }[]) => {
+      renderer?.updatePlayerPositionsFromOSRSCoordinates(positions);
+    },
+    [renderer],
+  );
+
   const coordinatesView = coordinates ? `X: ${coordinates.x}, Y: ${coordinates.y}` : undefined;
   const draggingClass = dragging ? "dragging" : "";
   const interactiveClass = interactive ? "interactive" : "";
@@ -143,6 +158,28 @@ export const useCanvasMap = ({
       </select>
     </div>
   );
+  const teleportButtons = (
+    <>
+      {memberCoordinates.map(({ player, coords }) => {
+        return (
+          <button
+            key={player}
+            className="men-button"
+            onClick={() => {
+              if (!renderer) return;
+              renderer.jumpToWorldPosition({
+                coords,
+              });
+              renderer.forceRenderNextFrame = true;
+            }}
+          >
+            {player}
+            <br /> ({coords.x}, {coords.y}, {coords.plane})
+          </button>
+        );
+      })}
+    </>
+  );
   const coordinateIndicator = <div id="canvas-map-coordinates">{coordinatesView}</div>;
 
   const backgroundMap = (
@@ -159,6 +196,12 @@ export const useCanvasMap = ({
       />
     </div>
   );
+  const controls = (
+    <div style={{ display: "flex" }}>
+      {planeSelect}
+      {teleportButtons}
+    </div>
+  );
 
-  return { coordinateIndicator, planeSelect, backgroundMap };
+  return { coordinateIndicator, controls, updatePlayerPositions, backgroundMap };
 };
