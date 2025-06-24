@@ -237,7 +237,7 @@ export const ItemsPage = ({
         {pageSelection}
       </div>
       <div id="items-page-utility">
-        <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
+        <div className="rsborder-tiny rsbackground rsbackground-hover">
           <select
             value={sortCategory}
             onChange={(e) => {
@@ -251,7 +251,7 @@ export const ItemsPage = ({
             ))}
           </select>
         </div>
-        <div className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
+        <div className="rsborder-tiny rsbackground rsbackground-hover">
           <select
             value={filter}
             onChange={(e) => {
@@ -265,15 +265,15 @@ export const ItemsPage = ({
             ))}
           </select>
         </div>
-        <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
+        <span className="rsborder-tiny rsbackground rsbackground-hover">
           <span>{filteredItems.length.toLocaleString()}</span>&nbsp;
           <span>items</span>
         </span>
-        <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
+        <span className="rsborder-tiny rsbackground rsbackground-hover">
           HA:&nbsp;<span>{totalHighAlch.toLocaleString()}</span>
           <span>gp</span>
         </span>
-        <span className="men-control-container rsborder-tiny rsbackground rsbackground-hover">
+        <span className="rsborder-tiny rsbackground rsbackground-hover">
           GE:&nbsp;<span>{totalGEPrice.toLocaleString()}</span>
           <span>gp</span>
         </span>

@@ -1,6 +1,5 @@
 #app-navigation {
   display: flex;
-  margin-bottom: 1em;
   align-items: center;
   padding: 8px;
   overflow: auto hidden;

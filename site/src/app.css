@@ -275,21 +275,6 @@ ul {
   padding-left: 1em;
 }
 
-.men-control-container {
-  display: flex;
-  align-items: center;
-  padding: 0.4em;
-  margin-left: 8px;
-}
-
-.men-control-container:first-child {
-  margin-left: 0;
-}
-
-.men-control-container input {
-  margin: 0 0.5em 0 0;
-}
-
 .rstext {
   color: yellow;
 }
@@ -352,6 +337,7 @@ ul {
   display: flex;
   flex-direction: column;
   flex: 1;
+  gap: 8px;
 }
 
 .active {
@@ -379,6 +365,12 @@ ul {
   overflow-y: auto;
   box-sizing: border-box;
   height: 100%;
+}
+
+@media only screen and (width <= 700px) {
+  #side-panels-container {
+    display: none;
+  }
 }
 
 #panels-page-container {

@@ -30,9 +30,13 @@
 
 #items-page-utility {
   margin-inline: 16px;
+  gap: 4px;
   display: flex;
-  align-items: center;
-  overflow-x: auto;
+  flex-wrap: wrap;
+}
+
+#items-page-utility > * {
+  padding: 4px;
 }
 
 .inventory-item {
