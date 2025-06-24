@@ -154,8 +154,6 @@ export const CollectionLogWindow = ({
   const [pageIndex, setPageIndex] = useState<number>(0);
 
   const collection = collections.get(player);
-  if (!collection) return <></>;
-
   const tabButtons = CollectionLog.TabName.map((tab) => (
     <button
       key={tab}
@@ -170,7 +168,7 @@ export const CollectionLogWindow = ({
     </button>
   ));
 
-  const totalCollected = collection.obtainedItems.size;
+  const totalCollected = collection?.obtainedItems.size ?? 0;
 
   const pageDirectory = [collectionLogInfo?.tabs.get(currentTabName) ?? []].map((pages) =>
     pages.map(({ name: pageName, items: pageItems }, index) => {
@@ -178,7 +176,7 @@ export const CollectionLogWindow = ({
 
       let pageUnlockedSlots = 0;
       pageItems.forEach((itemID) => {
-        const obtainedCount = collection.obtainedItems.get(CollectionLog.deduplicateItemID(itemID)) ?? 0;
+        const obtainedCount = collection?.obtainedItems.get(CollectionLog.deduplicateItemID(itemID)) ?? 0;
         const hasItem = obtainedCount > 0;
         if (hasItem) pageUnlockedSlots += 1;
       });
@@ -217,13 +215,13 @@ export const CollectionLogWindow = ({
     };
 
     page.completionLabels.forEach((label, index) => {
-      const count = collection.pageStats.get(page.name)?.completions.at(index) ?? 0;
+      const count = collection?.pageStats.get(page.name)?.completions.at(index) ?? 0;
       headerProps.completions.push({ label, count });
     });
 
     page.items.forEach((itemID) => {
       const deduplicateItemID = CollectionLog.deduplicateItemID(itemID);
-      const quantity = collection.obtainedItems.get(deduplicateItemID) ?? 0;
+      const quantity = collection?.obtainedItems.get(deduplicateItemID) ?? 0;
 
       if (quantity > 0) headerProps.obtained += 1;
 
