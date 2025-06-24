@@ -52,11 +52,15 @@
   overflow: hidden;
 }
 
-.collection-log-tab-buttons {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-gap: 4px;
-  text-align: center;
+.collection-log-tab-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding: 2px;
+  min-width: 150px;
+  border-right: 1px solid hsl(40deg 15.79% 29.8%);
+  box-sizing: border-box;
 }
 
 .collection-log-tab-buttons button {
@@ -72,12 +76,51 @@
   padding: 4px;
 }
 
+.collection-log-tab-list button:nth-child(odd) {
+  background-color: rgb(255 255 255 / 5%);
+}
+
+.collection-log-tab-list button:hover {
+  background-color: rgb(255 255 255 / 20%);
+}
+
+.collection-log-tab-list button > * {
+  pointer-events: none;
+}
+
+.collection-log-tab-list button.collection-log-page-active {
+  background-color: rgb(255 255 255 / 20%);
+}
+
+.collection-log-tab-list button.collection-log-complete {
+  color: var(--green);
+}
+
+.collection-log-tab-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-gap: 4px;
+  text-align: center;
+}
+
 .collection-log-tab-buttons button.collection-log-tab-button-active {
   background: #3e3529;
 }
 
 .collection-log-tab-buttons button:hover {
   background: #483e30;
+}
+
+.dark-mode .collection-log-tab-buttons button {
+  background: #191919;
+}
+
+.dark-mode .collection-log-tab-buttons button.collection-log-tab-button-active {
+  background: #282828;
+}
+
+.dark-mode .collection-log-tab-buttons button:hover {
+  background: #383838;
 }
 
 .collection-log-tab-container {
@@ -98,17 +141,6 @@
 
 .collection-log-not-started {
   color: var(--red);
-}
-
-.collection-log-tab-list {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
-  padding: 2px;
-  min-width: 150px;
-  border-right: 1px solid hsl(40deg 15.79% 29.8%);
-  box-sizing: border-box;
 }
 
 .collection-log-page-directory-page {
@@ -137,26 +169,6 @@
 
 .collection-log-page-directory-page-none > span {
   color: var(--red);
-}
-
-.collection-log-tab-list button:nth-child(odd) {
-  background-color: rgb(255 255 255 / 5%);
-}
-
-.collection-log-tab-list button:hover {
-  background-color: rgb(255 255 255 / 20%);
-}
-
-.collection-log-tab-list button > * {
-  pointer-events: none;
-}
-
-.collection-log-tab-list button.collection-log-page-active {
-  background-color: rgb(255 255 255 / 20%);
-}
-
-.collection-log-tab-list button.collection-log-complete {
-  color: var(--green);
 }
 
 .collection-log-page-container {

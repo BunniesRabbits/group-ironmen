@@ -104,7 +104,7 @@ h3 {
   text-decoration: none;
 }
 
-.dark-mode button.men-button {
+.dark-mode .men-button {
   border-image: url("/ui/border-button-dark.png") 9 9 / 9px stretch;
   background: #282828;
 }
