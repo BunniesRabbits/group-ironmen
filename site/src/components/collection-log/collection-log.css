@@ -166,6 +166,7 @@
 }
 
 .collection-log-page-top {
+  color: var(--orange);
   font-size: 18px;
   padding: 4px 8px;
   border-bottom: 1px solid hsl(40deg 15.79% 29.8%);
@@ -177,6 +178,22 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(64px, max-content));
   justify-content: center;
+}
+
+.collection-log-page-completion-quantity {
+  color: white;
+}
+
+.collection-log-page-obtained-all {
+  color: var(--green);
+}
+
+.collection-log-page-obtained-some {
+  color: var(--yellow);
+}
+
+.collection-log-page-obtained-none {
+  color: var(--red);
 }
 
 .collection-log-count {

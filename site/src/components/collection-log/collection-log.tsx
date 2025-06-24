@@ -1,4 +1,4 @@
-import { useContext, useState, type ReactElement } from "react";
+import { Fragment, useContext, useState, type ReactElement } from "react";
 import { GameDataContext } from "../../data/game-data";
 import * as CollectionLog from "../../data/collection-log";
 import type * as Member from "../../data/member";
@@ -92,13 +92,15 @@ const CollectionLogPageHeader = ({
   obtainedPossible,
 }: CollectionLogPageHeaderProps): ReactElement => {
   const completionElements = completions.map(({ count, label }) => (
-    <div key={label}>
-      <span className=".collection-log-count">
-        {label}: {count}
-        <br />
-      </span>
-    </div>
+    <Fragment key={label}>
+      {label}: <span className="collection-log-page-completion-quantity">{count}</span>
+      <br />
+    </Fragment>
   ));
+
+  let classNameCompletion = "collection-log-page-obtained-none";
+  if (obtained >= obtainedPossible) classNameCompletion = "collection-log-page-obtained-all";
+  else if (obtained > 0) classNameCompletion = "collection-log-page-obtained-some";
 
   return (
     <>
@@ -108,7 +110,11 @@ const CollectionLogPageHeader = ({
             {name}
           </a>
         </h2>
-        Obtained: {obtained}/{obtainedPossible}
+        Obtained:{" "}
+        <span className={classNameCompletion}>
+          {obtained}/{obtainedPossible}
+        </span>{" "}
+        <br />
         {completionElements}
       </div>
     </>
