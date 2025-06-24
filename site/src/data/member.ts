@@ -58,6 +58,12 @@ export interface ExperienceDrop {
    * Age of the drop, for deleting when it gets old
    */
   creationTimeMS: number;
+
+  /**
+   * A random seed between 0 and 1, that can be used for randomly distributed
+   * yet deterministic variations between xp drops.
+   */
+  seed: number;
 }
 
 export interface NPCInteraction {

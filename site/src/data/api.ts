@@ -137,6 +137,7 @@ export default class Api {
             skill: skill,
             amount: delta as Experience,
             creationTimeMS: performance.now(),
+            seed: Math.random(),
           });
           this.xpDropCounter += 1;
           updatedAny = true;
@@ -327,7 +328,7 @@ export default class Api {
   private cleanupXPDrops(): void {
     const nowMS = performance.now();
     // Should match animation-duration in the CSS
-    const ANIMATION_TIME_MS = 4000;
+    const ANIMATION_TIME_MS = 8000;
 
     const newDropsByMember = new Map<Member.Name, Member.ExperienceDrop[]>();
 
