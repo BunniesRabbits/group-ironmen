@@ -55,3 +55,8 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.canvas-map-selected-teleport-button {
+  outline: 3px groove rgb(200 200 200);
+  filter: brightness(1.2);
+}

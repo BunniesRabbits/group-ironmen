@@ -30,6 +30,7 @@ export const useCanvasMap = ({
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
   const [dragging, setDragging] = useState<boolean>();
   const [coordinates, setCoordinates] = useState<CoordinatePair>();
+  const [followedPlayer, setFollowedPlayer] = useState<string>();
   const animationFrameHandleRef = useRef<number>(undefined);
   const memberCoordinates = useGroupStateContext(memberCoordinatesSelector);
 
@@ -100,10 +101,12 @@ export const useCanvasMap = ({
 
     renderer.onCursorCoordinatesUpdate = setCoordinates;
     renderer.onDraggingUpdate = setDragging;
+    renderer.onFollowPlayerUpdate = setFollowedPlayer;
 
     return (): void => {
       renderer.onCursorCoordinatesUpdate = undefined;
       renderer.onDraggingUpdate = undefined;
+      renderer.onFollowPlayerUpdate = undefined;
     };
   }, [renderer]);
 
@@ -165,20 +168,20 @@ export const useCanvasMap = ({
     </div>
   );
   const teleportButtons = [];
-  for (const { label, coords } of memberCoordinates) {
+  for (const { label: player } of memberCoordinates) {
     teleportButtons.push(
       <button
-        key={label}
-        className="men-button"
+        key={player}
+        className={`${player === followedPlayer ? "canvas-map-selected-teleport-button" : ""} men-button `}
         onClick={() => {
           if (!renderer) return;
-          renderer.jumpToWorldPosition({
-            coords,
+          renderer.startFollowingPlayer({
+            player,
           });
           renderer.forceRenderNextFrame = true;
         }}
       >
-        {label}
+        {player}
       </button>,
     );
   }

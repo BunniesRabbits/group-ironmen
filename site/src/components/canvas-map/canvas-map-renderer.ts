@@ -15,6 +15,7 @@ interface CanvasMapCamera {
   // Positions of camera with capability for smooth lerping.
   x: number;
   y: number;
+  followPlayer: string | undefined;
 
   // Zoom of camera with smoothing
   zoom: number;
@@ -178,6 +179,7 @@ export class CanvasMapRenderer {
       zoom: INITIAL_ZOOM,
       minZoom: 1 / 32,
       maxZoom: 2,
+      followPlayer: undefined,
     };
     this.cursor = {
       x: 0,
@@ -264,16 +266,22 @@ export class CanvasMapRenderer {
 
   public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
+  public onFollowPlayerUpdate?: (player: string | undefined) => void;
 
-  public jumpToWorldPosition({ coords }: { coords: CoordinateTriplet }): void {
+  private jumpToWorldPosition({ coords }: { coords: CoordinateTriplet }): void {
     this.camera.x = coords.x - OURS_TO_WIKI_CONVERSION_FACTOR_X;
-    this.camera.y = -coords.y + OURS_TO_WIKI_CONVERSION_FACTOR_Y;
+    this.camera.y = coords.y + OURS_TO_WIKI_CONVERSION_FACTOR_Y;
     this.plane = coords.plane;
 
     this.cursor.accumulatedScroll = 0;
     this.cursor.rateSamplesX = [];
     this.cursor.rateSamplesY = [];
     this.cursor.isDragging = false;
+  }
+
+  public startFollowingPlayer({ player }: { player: string | undefined }): void {
+    this.camera.followPlayer = player;
+    this.onFollowPlayerUpdate?.(this.camera.followPlayer);
   }
 
   public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
@@ -312,12 +320,20 @@ export class CanvasMapRenderer {
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
+    if (this.camera.followPlayer && !this.playerPositions.has(this.camera.followPlayer)) {
+      this.startFollowingPlayer({ player: undefined });
+    }
+
     // When calculating camera delta from cursor delta, we negate,
     // since dragging is opposite the intended direction of movement.
     const worldUnitsPerCursorUnit = this.camera.zoom;
     if (this.cursor.isDragging) {
       this.camera.x += -worldUnitsPerCursorUnit * cursorDeltaX;
       this.camera.y += -worldUnitsPerCursorUnit * cursorDeltaY;
+      this.startFollowingPlayer({ player: undefined });
+    } else if (this.camera.followPlayer) {
+      const coords = this.playerPositions.get(this.camera.followPlayer)!;
+      this.jumpToWorldPosition({ coords });
     } else {
       // The camera continues to move with linear deceleration due to friction
       const SPEED_THRESHOLD = 0.05;
