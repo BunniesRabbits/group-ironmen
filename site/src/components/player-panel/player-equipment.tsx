@@ -2,7 +2,8 @@ import { useContext, type ReactElement } from "react";
 import { useItemTooltip } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../context/game-data-context";
 import { EquipmentSlot } from "../../data/equipment";
-import type { Equipment } from "../../data/member";
+import type * as Member from "../../data/member";
+import { useMemberEquipmentContext } from "../../context/group-state-context";
 
 import "./player-equipment.css";
 
@@ -36,14 +37,15 @@ const EquipmentSlotEmptyIcons = new Map<EquipmentSlot, string>([
   ["Ammo", "166-0.png"],
 ]);
 
-export const PlayerEquipment = ({ items }: { items?: Equipment }): ReactElement => {
+export const PlayerEquipment = ({ member }: { member: Member.Name }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
   const { items: itemData, gePrices: geData } = useContext(GameDataContext);
+  const equipment = useMemberEquipmentContext(member);
 
   return (
     <div className="player-equipment">
       {VisibleEquipmentSlots.map((slot) => {
-        const item = items?.get(slot);
+        const item = equipment?.get(slot);
         if (item !== undefined) {
           const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
           const iconURL = `/icons/items/${item.itemID}.webp`;

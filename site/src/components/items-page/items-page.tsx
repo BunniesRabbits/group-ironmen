@@ -4,6 +4,7 @@ import "./items-page.css";
 import type * as Member from "../../data/member";
 import { GameDataContext } from "../../context/game-data-context";
 import { type ItemID } from "../../data/items";
+import { useGroupListMembersContext, useGroupStateContext } from "../../context/group-state-context";
 
 type ItemFilter = "All" | Member.Name;
 const ItemSortCategory = [
@@ -128,18 +129,15 @@ const usePageSelection = ({
   return { pageNumber: pageCurrent, resetPage: () => setPageCurrent(0), element };
 };
 
-export const ItemsPage = ({
-  items,
-  memberNames,
-}: {
-  items?: Map<ItemID, Map<Member.Name, number>>;
-  memberNames?: Member.Name[];
-}): ReactElement => {
+export const ItemsPage = (): ReactElement => {
   // const [itemCount, setItemCount] = useState<number>(0);
   const [filter, setFilter] = useState<ItemFilter>("All");
   const [searchString, setSearchString] = useState<string>("");
   const [sortCategory, setSortCategory] = useState<ItemSortCategory>("GE Unit Price");
   const { gePrices: geData, items: itemData } = useContext(GameDataContext);
+
+  const members = useGroupListMembersContext();
+  const items = useGroupStateContext((state) => state?.items);
 
   interface ItemAggregates {
     totalHighAlch: number;
@@ -258,7 +256,7 @@ export const ItemsPage = ({
               setFilter(e.target.value as ItemFilter);
             }}
           >
-            {["All", ...(memberNames ?? [])].map((name) => (
+            {["All", ...members].map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>

@@ -8,6 +8,8 @@ import { PlayerDiaries } from "./player-diaries";
 import * as Member from "../../data/member";
 import { useModal } from "../modal/modal";
 import { CollectionLogWindow } from "../collection-log/collection-log";
+import type { GroupState } from "../../data/api";
+import { useGroupStateContext } from "../../context/group-state-context";
 
 import "./player-panel.css";
 
@@ -26,37 +28,24 @@ interface PlayerPanelButtonProps {
   onClick: () => void;
 }
 
-// TODO: all of these props being nullable is inconvenient, they should probably be coalesced earlier.
+const collectionsSelector = (group: GroupState | undefined): Map<Member.Name, Member.Collection> => {
+  const collections = new Map<Member.Name, Member.Collection>();
 
-export const PlayerPanel = ({
-  player,
-  stats,
-  lastUpdated,
-  interacting,
-  inventory,
-  equipment,
-  skills,
-  quests,
-  diaries,
-  xpDrops,
-  collections,
-}: {
-  player: Member.Name;
-  stats?: Member.Stats;
-  lastUpdated?: Date;
-  interacting?: Member.NPCInteraction;
-  inventory?: Member.Inventory;
-  equipment?: Member.Equipment;
-  skills?: Member.Skills;
-  quests?: Member.Quests;
-  diaries?: Member.Diaries;
-  xpDrops: Member.ExperienceDrop[] | undefined;
-  collections: Map<Member.Name, Member.Collection>;
-}): ReactElement => {
+  if (!group) return collections;
+
+  for (const [name, { collection }] of group.members) {
+    if (!collection) continue;
+    collections.set(name, collection);
+  }
+  return collections;
+};
+
+export const PlayerPanel = ({ member }: { member: Member.Name }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
+  const collections = useGroupStateContext(collectionsSelector);
   const { open: openCollectionLogModal, modal: collectionLogModal } = useModal({
     Children: CollectionLogWindow,
-    otherProps: { collections, player },
+    otherProps: { collections, player: member },
   });
 
   const toggleCategory = useCallback(
@@ -153,19 +142,19 @@ export const PlayerPanel = ({
   let content = undefined;
   switch (subcategory) {
     case "Inventory":
-      content = <PlayerInventory items={inventory} />;
+      content = <PlayerInventory member={member} />;
       break;
     case "Equipment":
-      content = <PlayerEquipment items={equipment} />;
+      content = <PlayerEquipment member={member} />;
       break;
     case "Skills":
-      content = <PlayerSkills skills={skills} />;
+      content = <PlayerSkills member={member} />;
       break;
     case "Quests":
-      content = <PlayerQuests quests={quests} />;
+      content = <PlayerQuests member={member} />;
       break;
     case "Diaries":
-      content = <PlayerDiaries {...{ quests, player, diaries, skills }} />;
+      content = <PlayerDiaries member={member} />;
       break;
   }
 
@@ -173,13 +162,7 @@ export const PlayerPanel = ({
     <>
       {collectionLogModal}
       <div className={`player-panel rsborder rsbackground ${content !== undefined ? "expanded" : ""}`}>
-        <PlayerStats
-          xpDrops={xpDrops}
-          lastUpdated={lastUpdated}
-          interacting={interacting}
-          name={player}
-          stats={stats}
-        />
+        <PlayerStats member={member} />
         <div className="player-panel-minibar">{buttons}</div>
         <div className="player-panel-content">{content}</div>
       </div>

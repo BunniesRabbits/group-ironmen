@@ -1,9 +1,10 @@
 import { type ReactElement } from "react";
 import { type Experience, Skill, SkillIconsBySkill, decomposeExperience } from "../../data/skill";
 import { useSkillTooltip } from "../tooltip/skill-tooltip";
+import type * as Member from "../../data/member";
+import { useMemberSkillsContext } from "../../context/group-state-context";
 
 import "./player-skills.css";
-import type { Skills } from "../../data/member";
 
 const SkillsInOSRSDisplayOrder: Skill[] = [
   "Attack",
@@ -31,8 +32,9 @@ const SkillsInOSRSDisplayOrder: Skill[] = [
   "Hunter",
 ];
 
-export const PlayerSkills = ({ skills }: { skills?: Skills }): ReactElement => {
+export const PlayerSkills = ({ member }: { member: Member.Name }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useSkillTooltip();
+  const skills = useMemberSkillsContext(member);
 
   let levelTotal = 0;
   let xpTotal = 0;

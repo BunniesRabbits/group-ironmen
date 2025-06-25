@@ -5,6 +5,12 @@ import { StatBar } from "./stat-bar";
 import * as Member from "../../data/member";
 import { PlayerIcon } from "../player-icon/player-icon";
 import { XpDropper } from "../xp-dropper/xp-dropper";
+import {
+  useMemberInteractingContext,
+  useMemberLastUpdatedContext,
+  useMemberStatsContext,
+  useMemberXPDropsContext,
+} from "../../context/group-state-context";
 
 /**
  * Time in milliseconds before a player is considered offline/inactive.
@@ -50,19 +56,12 @@ const PlayerInteracting = ({ npcName, healthRatio }: { npcName: string; healthRa
   );
 };
 
-export const PlayerStats = ({
-  name,
-  stats,
-  lastUpdated,
-  interacting,
-  xpDrops,
-}: {
-  name: Member.Name;
-  stats?: Member.Stats;
-  lastUpdated?: Date;
-  interacting?: Member.NPCInteraction;
-  xpDrops: Member.ExperienceDrop[] | undefined;
-}): ReactElement => {
+export const PlayerStats = ({ member }: { member: Member.Name }): ReactElement => {
+  const interacting = useMemberInteractingContext(member);
+  const stats = useMemberStatsContext(member);
+  const lastUpdated = useMemberLastUpdatedContext(member);
+  const xpDrops = useMemberXPDropsContext(member);
+
   const now = new Date();
   const online = now.getTime() - (lastUpdated ?? new Date(0)).getTime() < INACTIVE_TIMER_MS;
 
@@ -101,8 +100,8 @@ export const PlayerStats = ({
         />
         {interactionBar}
         <div className="player-stats-name">
-          <PlayerIcon name={name} />
-          {name} {status}
+          <PlayerIcon name={member} />
+          {member} {status}
         </div>
         <div className="player-stats-hitpoints-numbers">
           {stats ? `${stats.health.current} / ${stats.health.max}` : "10 / 10"}

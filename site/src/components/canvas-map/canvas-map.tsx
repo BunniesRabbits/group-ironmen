@@ -6,12 +6,15 @@ import type { GroupState } from "../../data/api";
 
 import "./canvas-map.css";
 
-const memberCoordinatesSelector = (state: GroupState): LabelledCoordinates[] => [
-  ...state.members
-    .entries()
-    .filter(([_, state]) => state.coordinates)
-    .map(([name, state]) => ({ label: name, coords: state.coordinates! })),
-];
+const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoordinates[] => {
+  if (!state) return [];
+  return [
+    ...state.members
+      .entries()
+      .filter(([_, state]) => state.coordinates)
+      .map(([name, state]) => ({ label: name, coords: state.coordinates! })),
+  ];
+};
 
 export const useCanvasMap = ({
   interactive,

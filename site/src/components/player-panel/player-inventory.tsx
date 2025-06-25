@@ -1,13 +1,15 @@
 import { useContext, type ReactElement } from "react";
 import { useItemTooltip } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../context/game-data-context";
-import type { Inventory } from "../../data/member";
+import * as Member from "../../data/member";
+import { useMemberInventoryContext } from "../../context/group-state-context";
 
 import "./player-inventory.css";
 
-export const PlayerInventory = ({ items }: { items?: Inventory }): ReactElement => {
+export const PlayerInventory = ({ member }: { member: Member.Name }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
   const { items: itemData, gePrices: geData } = useContext(GameDataContext);
+  const items = useMemberInventoryContext(member);
 
   return (
     <div className="player-inventory">

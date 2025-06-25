@@ -5,6 +5,11 @@ import { useModal } from "../modal/modal";
 import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill";
 import { GameDataContext } from "../../context/game-data-context";
 import type * as Member from "../../data/member";
+import {
+  useMemberDiariesContext,
+  useMemberQuestsContext,
+  useMemberSkillsContext,
+} from "../../context/group-state-context";
 
 import "./player-diaries.css";
 
@@ -174,18 +179,11 @@ interface DiaryTaskView {
 }
 type DiaryRegionView = Map<DiaryTier, DiaryTaskView[]>;
 
-export const PlayerDiaries = ({
-  player,
-  skills,
-  diaries,
-  quests,
-}: {
-  player: Member.Name;
-  skills: Member.Skills | undefined;
-  diaries: Member.Diaries | undefined;
-  quests: Member.Quests | undefined;
-}): ReactElement => {
+export const PlayerDiaries = ({ member }: { member: Member.Name }): ReactElement => {
   const { quests: questData, diaries: diaryData } = useContext(GameDataContext);
+  const skills = useMemberSkillsContext(member);
+  const diaries = useMemberDiariesContext(member);
+  const quests = useMemberQuestsContext(member);
 
   if (diaryData === undefined) return <></>;
 
@@ -216,7 +214,7 @@ export const PlayerDiaries = ({
       displayForRegion.set(tier, progressForTasks);
     });
 
-    return <DiarySummary player={player} key={region} region={region} progress={displayForRegion} />;
+    return <DiarySummary player={member} key={region} region={region} progress={displayForRegion} />;
   });
 
   return (
