@@ -1,12 +1,15 @@
 import { Navigate } from "react-router-dom";
-import { useEffect, type ReactElement } from "react";
+import { useContext, useEffect, type ReactElement } from "react";
 import { wipeCredentials } from "../../data/credentials";
+import { APIContext } from "../group-state/api-context";
 
-export const LogoutPage = ({ callback }: { callback?: () => void }): ReactElement => {
+export const LogoutPage = (): ReactElement => {
+  const { close } = useContext(APIContext);
+
   useEffect(() => {
-    callback?.();
+    close?.();
     wipeCredentials();
-  }, [callback]);
+  }, [close]);
 
   return <Navigate to="/" />;
 };

@@ -2,6 +2,11 @@ import { fetchMapJSON, type MapMetadata } from "../../data/map-data";
 import type { Distinct } from "../../util";
 import type { CoordinatePair, Context2DScaledWrapper, ExtentPair, CoordinateTriplet } from "./canvas-wrapper";
 
+export interface LabelledCoordinates {
+  label: string;
+  coords: CoordinateTriplet;
+}
+
 export const ICON_IMAGE_PIXEL_SIZE = 15;
 const REGION_IMAGE_PIXEL_SIZE = 256;
 const RS_SQUARE_PIXEL_SIZE = 4;
@@ -259,7 +264,6 @@ export class CanvasMapRenderer {
 
   public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
-  public onPlayerPositionsUpdate?: (positions: { player: string; coords: CoordinateTriplet }[]) => void;
 
   public jumpToWorldPosition({ coords }: { coords: CoordinateTriplet }): void {
     this.camera.x = coords.x - OURS_TO_WIKI_CONVERSION_FACTOR_X;
@@ -272,13 +276,12 @@ export class CanvasMapRenderer {
     this.cursor.rateSamplesY = [];
   }
 
-  public updatePlayerPositionsFromOSRSCoordinates(positions: { player: string; coords: CoordinateTriplet }[]): void {
+  public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
     this.playerPositions.clear();
-    for (const { player, coords } of positions) {
+    for (const { label, coords } of positions) {
       const { x, y, plane } = coords;
-      this.playerPositions.set(player, { x, y: -y, plane });
+      this.playerPositions.set(label, { x, y: -y, plane });
     }
-    this.onPlayerPositionsUpdate?.(positions);
     this.forceRenderNextFrame = true;
   }
 

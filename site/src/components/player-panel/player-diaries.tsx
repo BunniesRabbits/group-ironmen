@@ -3,7 +3,7 @@ import { StatBar } from "./stat-bar";
 import { DiaryRegion, DiaryTier } from "../../data/diaries";
 import { useModal } from "../modal/modal";
 import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill";
-import { GameDataContext } from "../../data/game-data";
+import { GameDataContext } from "../group-state/game-data-context";
 import type * as Member from "../../data/member";
 
 import "./player-diaries.css";

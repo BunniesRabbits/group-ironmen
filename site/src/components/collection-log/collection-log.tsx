@@ -1,12 +1,12 @@
 import { Fragment, useContext, useState, type ReactElement } from "react";
-import { GameDataContext } from "../../data/game-data";
+import { GameDataContext } from "../group-state/game-data-context";
 import * as CollectionLog from "../../data/collection-log";
 import type * as Member from "../../data/member";
 import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
-
-import "./collection-log.css";
 import { PlayerIcon } from "../player-icon/player-icon";
 import type { ItemID } from "../../data/items";
+
+import "./collection-log.css";
 
 interface CollectionLogPageItemProps {
   items: { item: ItemID; quantity: number; otherMembers: { name: Member.Name; quantity: number }[] }[];

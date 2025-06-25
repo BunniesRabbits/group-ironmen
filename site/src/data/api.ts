@@ -21,13 +21,17 @@ export interface GroupState {
   xpDrops: Map<Member.Name, Member.ExperienceDrop[]>;
 }
 
+export interface GameData {
+  items?: ItemsDatabase;
+  quests?: QuestDatabase;
+  diaries?: DiaryDatabase;
+  gePrices?: GEPrices;
+  collectionLogInfo?: CollectionLogInfo;
+}
+
 interface UpdateCallbacks {
   onGroupUpdate: (group: GroupState) => void;
-  onItemDataUpdate: (itemData: ItemsDatabase) => void;
-  onQuestDataUpdate: (questData: QuestDatabase) => void;
-  onDiaryDataUpdate: (diaryData: DiaryDatabase) => void;
-  onGEDataUpdate: (geData: GEPrices) => void;
-  onCollectionLogInfoUpdate: (info: CollectionLogInfo) => void;
+  onGameDataUpdate: (data: GameData) => void;
   onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void;
 }
 export default class Api {
@@ -39,16 +43,12 @@ export default class Api {
   private getGroupCollectionLogsPromise?: Promise<void>;
 
   private groupDataValidUpToDate?: Date;
-  private itemDatabase?: ItemsDatabase;
   private group: GroupState;
 
   private xpDropCleanupInterval: ReturnType<Window["setInterval"]> | undefined;
   private xpDropCounter = 0;
 
-  private questData?: QuestDatabase;
-  private diaryData?: DiaryDatabase;
-  private geData?: GEPrices;
-  private collectionLogInfo?: CollectionLogInfo;
+  private gameData: GameData = {};
 
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedAny = false;
@@ -151,15 +151,15 @@ export default class Api {
         updatedAny = true;
       }
 
-      if (quests !== undefined && this.questData !== undefined) {
-        if (this.questData.size !== quests.length) {
+      if (quests && this.gameData?.quests) {
+        if (this.gameData.quests.size !== quests.length) {
           console.warn(
             "Quest data and quest progress have mismatched length. This indicates the network sent bad data, or the quest_data.json is out of date.",
           );
         } else {
           const questsByID = new Map();
           // Resolve the IDs for the flattened quest progress sent by the backend
-          this.questData.entries().forEach(([id, _], index) => {
+          this.gameData.quests.entries().forEach(([id, _], index) => {
             questsByID.set(id, quests[index]);
           });
           memberData.quests = questsByID;
@@ -250,43 +250,43 @@ export default class Api {
   }
 
   private queueGetGameData(): void {
-    if (this.questData === undefined) {
+    if (!this.gameData.quests) {
       fetchQuestDataJSON()
         .then((data) => {
-          this.questData = data;
-          this.callbacks?.onQuestDataUpdate?.(data);
+          this.gameData.quests = data;
+          this.callbacks?.onGameDataUpdate?.(this.gameData);
         })
         .catch((reason) => console.error("Failed to get quest data for API", reason));
     }
-    if (this.itemDatabase === undefined) {
+    if (!this.gameData.items) {
       fetchItemDataJSON()
         .then((data) => {
-          this.itemDatabase = data;
-          this.callbacks?.onItemDataUpdate?.(data);
+          this.gameData.items = data;
+          this.callbacks?.onGameDataUpdate?.(this.gameData);
         })
         .catch((reason) => console.error("Failed to get item data for API", reason));
     }
-    if (this.diaryData === undefined) {
+    if (!this.gameData.diaries) {
       fetchDiaryDataJSON()
         .then((data) => {
-          this.diaryData = data;
-          this.callbacks?.onDiaryDataUpdate?.(data);
+          this.gameData.diaries = data;
+          this.callbacks?.onGameDataUpdate?.(this.gameData);
         })
         .catch((reason) => console.error("Failed to get diary data for API", reason));
     }
-    if (this.geData === undefined) {
+    if (!this.gameData.gePrices) {
       fetchGEPrices({ baseURL: this.baseURL })
         .then((data) => {
-          this.geData = data;
-          this.callbacks?.onGEDataUpdate?.(data);
+          this.gameData.gePrices = data;
+          this.callbacks?.onGameDataUpdate?.(this.gameData);
         })
         .catch((reason) => console.error("Failed to get grand exchange data for API", reason));
     }
-    if (this.collectionLogInfo === undefined) {
+    if (!this.gameData.collectionLogInfo) {
       fetchCollectionLogInfo({ baseURL: this.baseURL })
         .then((response) => {
-          this.collectionLogInfo = response;
-          this.callbacks?.onCollectionLogInfoUpdate?.(this.collectionLogInfo);
+          this.gameData.collectionLogInfo = response;
+          this.callbacks?.onGameDataUpdate?.(this.gameData);
         })
         .catch((reason) => console.error("Failed to get collection log info for API", reason));
     }
@@ -381,8 +381,7 @@ export default class Api {
    * Call close() to stop further queuing.
    */
   public startFetchingEverything(): void {
-    if (!this.questData || !this.itemDatabase || !this.diaryData) this.queueGetGameData();
-
+    this.queueGetGameData();
     this.queueFetchGroupData();
     void this.getGroupDataPromise!.then(() => this.queueFetchGroupCollectionLogs());
 

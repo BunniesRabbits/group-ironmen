@@ -1,10 +1,7 @@
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import Api, { type GroupState } from "./data/api";
-import { GameDataContext, type GameData } from "./data/game-data";
 import type * as Member from "./data/member";
-import { loadValidatedCredentials } from "./data/credentials";
 
 import { UnauthedLayout, AuthedLayout } from "./layout";
 import { MenHomepage } from "./components/men-homepage/men-homepage";
@@ -15,95 +12,14 @@ import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
+import { useGroupStateContext } from "./components/group-state/group-state-context";
 
 import "./app.css";
-import type { CoordinateTriplet } from "./components/canvas-map/canvas-wrapper";
-
-interface APIConnectionWithDataViews {
-  close: () => void;
-  group: GroupState | undefined;
-  gameData: GameData;
-  setPlayerPositionsCallback: (
-    onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void,
-  ) => void;
-}
-
-/**
- * A hook that provides access to the backend network API, but also game data, wrapped and processed somewhat.
- *
- * For example, loading quests over the network requires resolving their IDs from the quests information themselves.
- * But that information is loaded from a json file, so processing quests requires synchronization which this hook provides.
- *
- * Data is only provided when it is ready to be used.
- */
-const useAPI = (): APIConnectionWithDataViews => {
-  const location = useLocation();
-  const [api, setApi] = useState<Api>();
-  const [group, setGroup] = useState<GroupState>();
-
-  const gameDataRef = useRef<GameData>({});
-
-  useEffect(() => {
-    if (api === undefined) return;
-
-    api.setUpdateCallbacks({
-      onGroupUpdate: (group) => setGroup(structuredClone(group)),
-      onItemDataUpdate: (data) => {
-        gameDataRef.current.items = data;
-      },
-      onQuestDataUpdate: (data) => {
-        gameDataRef.current.quests = data;
-      },
-      onDiaryDataUpdate: (data) => {
-        gameDataRef.current.diaries = data;
-      },
-      onGEDataUpdate: (data) => {
-        gameDataRef.current.gePrices = data;
-      },
-      onCollectionLogInfoUpdate: (info) => {
-        gameDataRef.current.collectionLogInfo = info;
-      },
-    });
-
-    api.startFetchingEverything();
-
-    return (): void => {
-      api.close();
-    };
-  }, [api]);
-
-  const setPlayerPositionsCallback = useCallback(
-    (onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void) => {
-      api?.setUpdateCallbacks({ onPlayerPositionsUpdate });
-    },
-    [api],
-  );
-
-  useEffect(() => {
-    if (api !== undefined) return;
-
-    const credentials = loadValidatedCredentials();
-    if (credentials === undefined) return;
-
-    setApi(new Api(credentials));
-  }, [location, api]);
-
-  const close = useCallback(() => {
-    setApi(undefined);
-  }, [setApi]);
-
-  return {
-    close,
-    group,
-    gameData: gameDataRef.current,
-    setPlayerPositionsCallback,
-  };
-};
 
 export const App = (): ReactElement => {
   const location = useLocation();
 
-  const { close: closeAPI, group, gameData, setPlayerPositionsCallback } = useAPI();
+  const group = useGroupStateContext((state) => state);
 
   /*
    * The collection page shows the other member's items too, so unlike the rest
@@ -141,78 +57,72 @@ export const App = (): ReactElement => {
       )) ?? [],
   );
 
-  const { coordinateIndicator, controls, backgroundMap, updatePlayerPositions } = useCanvasMap({
+  const { coordinateIndicator, controls, backgroundMap } = useCanvasMap({
     interactive: location.pathname === "/group/map",
   });
-
-  useEffect(() => {
-    setPlayerPositionsCallback(updatePlayerPositions);
-  }, [setPlayerPositionsCallback, updatePlayerPositions]);
 
   return (
     <>
       {backgroundMap}
-      <GameDataContext value={gameData}>
-        <Routes>
+      <Routes>
+        <Route
+          index
+          element={
+            <UnauthedLayout>
+              <MenHomepage />
+            </UnauthedLayout>
+          }
+        />
+        <Route
+          path="/setup-instructions"
+          element={
+            <UnauthedLayout>
+              <SetupInstructions />
+            </UnauthedLayout>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <UnauthedLayout>
+              <LoginPage />
+            </UnauthedLayout>
+          }
+        />
+        <Route path="/logout" element={<LogoutPage />} />
+        <Route path="/group">
+          <Route index element={<Navigate to="items" replace />} />
           <Route
-            index
+            path="items"
             element={
-              <UnauthedLayout>
-                <MenHomepage />
-              </UnauthedLayout>
+              <AuthedLayout panels={panels}>
+                <ItemsPage memberNames={[...(group?.members.keys() ?? [])]} items={group?.items} />
+              </AuthedLayout>
             }
           />
           <Route
-            path="/setup-instructions"
+            path="map"
             element={
-              <UnauthedLayout>
-                <SetupInstructions />
-              </UnauthedLayout>
+              <AuthedLayout panels={panels}>
+                {controls}
+                {coordinateIndicator}
+              </AuthedLayout>
             }
           />
+          <Route path="graphs" element={<AuthedLayout panels={panels} />} />
           <Route
-            path="/login"
+            path="panels"
             element={
-              <UnauthedLayout>
-                <LoginPage />
-              </UnauthedLayout>
+              <AuthedLayout panels={undefined}>
+                <div id="panels-page-container">{panels}</div>
+              </AuthedLayout>
             }
           />
-          <Route path="/logout" element={<LogoutPage callback={closeAPI} />} />
-          <Route path="/group">
-            <Route index element={<Navigate to="items" replace />} />
-            <Route
-              path="items"
-              element={
-                <AuthedLayout panels={panels}>
-                  <ItemsPage memberNames={[...(group?.members.keys() ?? [])]} items={group?.items} />
-                </AuthedLayout>
-              }
-            />
-            <Route
-              path="map"
-              element={
-                <AuthedLayout panels={panels}>
-                  {controls}
-                  {coordinateIndicator}
-                </AuthedLayout>
-              }
-            />
-            <Route path="graphs" element={<AuthedLayout panels={panels} />} />
-            <Route
-              path="panels"
-              element={
-                <AuthedLayout panels={undefined}>
-                  <div id="panels-page-container">{panels}</div>
-                </AuthedLayout>
-              }
-            />
-            <Route path="settings" element={<AuthedLayout panels={panels} />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <Tooltip />
-      </GameDataContext>
+          <Route path="settings" element={<AuthedLayout panels={panels} />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Tooltip />
     </>
   );
 };
