@@ -31,7 +31,7 @@ export class Context2DScaledWrapper {
     this.context = context;
     this.translation = { x: 0, y: 0 };
     this.scale = 1;
-    context.imageSmoothingEnabled = false;
+    this.context.imageSmoothingEnabled = false;
   }
 
   private screenPixelsPerWorldUnit(): number {
@@ -170,6 +170,63 @@ export class Context2DScaledWrapper {
     this.context.moveTo(start.x, start.y);
     this.context.lineTo(end.x, end.y);
     this.context.stroke();
+  }
+
+  clear(): void {
+    this.context.clearRect(
+      -this.context.canvas.width,
+      -this.context.canvas.height,
+      2 * this.context.canvas.width,
+      2 * this.context.canvas.height,
+    );
+  }
+
+  /**
+   * Draw tile region, stretching it to fit to exact pixel of the adjacent regions.
+   */
+  drawRegion({
+    image,
+    worldPosition,
+    worldExtent,
+    alpha,
+  }: {
+    image: ImageBitmap;
+    worldPosition: CoordinatePair;
+    worldExtent: ExtentPair;
+    alpha: number;
+  }): void {
+    const position = this.convertWorldPositionToView(worldPosition);
+    const extent = this.convertWorldExtentToView(worldExtent);
+
+    const positionNext = { x: position.x + extent.width, y: position.y + extent.height };
+
+    const previousAlpha = this.context.globalAlpha;
+    this.context.globalAlpha = alpha;
+    {
+      this.context.setTransform(1, 0, 0, 1, 0, 0);
+
+      const dx1 = Math.floor(this.pixelRatio * position.x + this.context.canvas.width / 2);
+      const dy1 = Math.floor(this.pixelRatio * position.y + this.context.canvas.height / 2);
+
+      /*
+       * Compute dx2,dy2 in a consistent way such that they are actually the dx1/dy1 of adjacent regions.
+       * This allows us to then render in a pixel-perfect way, in terms of leaving no gaps.
+       */
+      const dx2 = Math.floor(this.pixelRatio * positionNext.x + this.context.canvas.width / 2);
+      const dy2 = Math.floor(this.pixelRatio * positionNext.y + this.context.canvas.height / 2);
+
+      this.context.drawImage(image, 0, 0, image.width, image.height, dx1, dy1, dx2 - dx1, dy2 - dy1);
+
+      this.context.setTransform(
+        this.pixelRatio,
+        0,
+        0,
+        this.pixelRatio,
+        this.context.canvas.width / 2,
+        this.context.canvas.height / 2,
+      );
+    }
+    this.context.globalAlpha = previousAlpha;
   }
 
   /**

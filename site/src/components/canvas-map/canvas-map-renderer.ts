@@ -675,17 +675,8 @@ export class CanvasMapRenderer {
           continue;
         }
 
-        if (region.alpha < 1) {
-          context.drawRect({
-            fillStyle: "black",
-            worldPosition,
-            worldExtent,
-          });
-        }
-        context.drawImage({
+        context.drawRegion({
           image: region.image,
-          imageOffsetInPixels: { x: 0, y: 0 },
-          imageExtentInPixels: { width: region.image.width, height: region.image.height },
           worldPosition,
           worldExtent,
           alpha: region.alpha,
@@ -761,6 +752,7 @@ export class CanvasMapRenderer {
   }
 
   private drawAll(context: Context2DScaledWrapper): void {
+    context.clear();
     this.drawVisibleRegions(context);
     this.drawVisibleIcons(context);
     this.drawVisibleAreaLabels(context);
