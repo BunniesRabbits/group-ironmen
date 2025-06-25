@@ -7,15 +7,23 @@ export interface LabelledCoordinates {
   coords: CoordinateTriplet;
 }
 
+interface CoordinateLerp {
+  from: CoordinatePair;
+  to: CoordinatePair;
+  timeRemainingMS: number;
+}
+
 export const ICON_IMAGE_PIXEL_SIZE = 15;
 const REGION_IMAGE_PIXEL_SIZE = 256;
 const RS_SQUARE_PIXEL_SIZE = 4;
 const WORLD_UNITS_PER_REGION = REGION_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
+const FOLLOW_ANIMATION_TIME_MS = 300;
 interface CanvasMapCamera {
-  // Positions of camera with capability for smooth lerping.
   x: number;
   y: number;
   followPlayer: string | undefined;
+
+  followingAnimation: CoordinateLerp | undefined;
 
   // Zoom of camera with smoothing
   zoom: number;
@@ -176,6 +184,7 @@ export class CanvasMapRenderer {
     this.camera = {
       x: INITIAL_X,
       y: INITIAL_Y,
+      followingAnimation: undefined,
       zoom: INITIAL_ZOOM,
       minZoom: 1 / 32,
       maxZoom: 2,
@@ -280,15 +289,39 @@ export class CanvasMapRenderer {
   }
 
   public startFollowingPlayer({ player }: { player: string | undefined }): void {
+    if (!player || !this.playerPositions.has(player)) {
+      this.camera.followPlayer = undefined;
+      this.camera.followingAnimation = undefined;
+      this.onFollowPlayerUpdate?.(undefined);
+      return;
+    }
+
     this.camera.followPlayer = player;
+    this.jumpToWorldPosition({ coords: this.playerPositions.get(player)! });
+    this.camera.followingAnimation = {
+      from: { x: this.camera.x, y: this.camera.y },
+      to: { x: this.camera.x, y: this.camera.y },
+      timeRemainingMS: 0,
+    };
     this.onFollowPlayerUpdate?.(this.camera.followPlayer);
   }
 
   public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
-    this.playerPositions.clear();
     for (const { label, coords } of positions) {
       const { x, y, plane } = coords;
-      this.playerPositions.set(label, { x, y: -y, plane });
+      const current = this.playerPositions.get(label);
+
+      if (!current || current.x !== x || current.y !== -y || current.plane !== plane) {
+        this.playerPositions.set(label, { x, y: -y, plane });
+
+        if (this.camera.followPlayer === label) {
+          this.camera.followingAnimation = {
+            timeRemainingMS: FOLLOW_ANIMATION_TIME_MS,
+            from: { x: this.camera.x, y: this.camera.y },
+            to: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: -y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+          };
+        }
+      }
     }
     this.forceRenderNextFrame = true;
   }
@@ -316,7 +349,33 @@ export class CanvasMapRenderer {
     }
   }
 
-  private updateCameraPositionFromCursorVelocity(): void {
+  private updateCamera({ cursorWorldPosition }: { cursorWorldPosition: CoordinatePair }): void {
+    const previousZoom = this.camera.zoom;
+    const ZOOM_SENSITIVITY = 1 / 3000;
+    if (this.cursor.accumulatedScroll !== 0) {
+      this.camera.zoom += ZOOM_SENSITIVITY * this.cursor.accumulatedScroll;
+    }
+    this.cursor.accumulatedScroll = 0;
+    this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
+
+    /*
+     * Don't shift the camera with zoom when following, since we just want the
+     * camera to zoom in/out of the player being followed.
+     */
+    if (this.camera.zoom !== previousZoom && !this.camera.followingAnimation) {
+      /*
+       * Zoom requires special handling since we want to zoom in on the cursor.
+       * This requires translating the camera towards the cursor some amount.
+       */
+      const cameraToCursorWorldDelta: CoordinatePair = {
+        x: this.camera.x - cursorWorldPosition.x,
+        y: this.camera.y - cursorWorldPosition.y,
+      };
+      const zoomRatio = this.camera.zoom / previousZoom;
+      this.camera.x = cursorWorldPosition.x + zoomRatio * cameraToCursorWorldDelta.x;
+      this.camera.y = cursorWorldPosition.y + zoomRatio * cameraToCursorWorldDelta.y;
+    }
+
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
@@ -331,9 +390,12 @@ export class CanvasMapRenderer {
       this.camera.x += -worldUnitsPerCursorUnit * cursorDeltaX;
       this.camera.y += -worldUnitsPerCursorUnit * cursorDeltaY;
       this.startFollowingPlayer({ player: undefined });
-    } else if (this.camera.followPlayer) {
-      const coords = this.playerPositions.get(this.camera.followPlayer)!;
-      this.jumpToWorldPosition({ coords });
+    } else if (this.camera.followingAnimation) {
+      const { to, from, timeRemainingMS } = this.camera.followingAnimation;
+
+      const t = 1.0 - timeRemainingMS / FOLLOW_ANIMATION_TIME_MS;
+      this.camera.x = to.x * t + from.x * (1 - t);
+      this.camera.y = to.y * t + from.y * (1 - t);
     } else {
       // The camera continues to move with linear deceleration due to friction
       const SPEED_THRESHOLD = 0.05;
@@ -352,15 +414,6 @@ export class CanvasMapRenderer {
         this.camera.y += -worldUnitsPerCursorUnit * speedAfterFriction * directionY;
       }
     }
-  }
-
-  private updateCameraZoomFromCursorScroll(): void {
-    const ZOOM_SENSITIVITY = 1 / 3000;
-    if (this.cursor.accumulatedScroll !== 0) {
-      this.camera.zoom += ZOOM_SENSITIVITY * this.cursor.accumulatedScroll;
-    }
-    this.cursor.accumulatedScroll = 0;
-    this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
   }
 
   /**
@@ -414,30 +467,21 @@ export class CanvasMapRenderer {
 
     if (!this.forceRenderNextFrame && elapsed < 0.001) return;
 
+    if (this.camera.followingAnimation) {
+      this.camera.followingAnimation.timeRemainingMS = Math.max(
+        this.camera.followingAnimation.timeRemainingMS - elapsed,
+        0,
+      );
+    }
     this.updateCursorVelocity(elapsed);
 
-    const previousZoom = this.camera.zoom;
     context.setTransform({
       translation: { x: this.camera.x, y: this.camera.y },
-      scale: previousZoom,
+      scale: this.camera.zoom,
       pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
     });
-    this.updateCameraZoomFromCursorScroll();
-    const zoom = this.camera.zoom;
-
-    if (zoom !== previousZoom) {
-      const cursorWorldPosition = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
-      // Zoom requires special handling since we want to zoom in on the cursor.
-      // This requires translating the camera towards the cursor some amount
-      const cameraToCursorWorldDelta: CoordinatePair = {
-        x: this.camera.x - cursorWorldPosition.x,
-        y: this.camera.y - cursorWorldPosition.y,
-      };
-      const zoomRatio = zoom / previousZoom;
-      this.camera.x = cursorWorldPosition.x + zoomRatio * cameraToCursorWorldDelta.x;
-      this.camera.y = cursorWorldPosition.y + zoomRatio * cameraToCursorWorldDelta.y;
-    }
-    this.updateCameraPositionFromCursorVelocity();
+    const cursorWorldPosition = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
+    this.updateCamera({ cursorWorldPosition });
 
     const currentTransform = {
       translation: { x: this.camera.x, y: this.camera.y },
