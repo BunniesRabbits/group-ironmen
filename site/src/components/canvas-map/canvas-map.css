@@ -19,10 +19,6 @@
   transition: filter 0.5s;
 }
 
-#canvas-map.dragging {
-  cursor: grabbing;
-}
-
 #canvas-map:not(.interactive) {
   filter: opacity(0.8) saturate(0.8);
 }
@@ -30,6 +26,10 @@
 #canvas-map.interactive {
   pointer-events: auto;
   cursor: grab;
+}
+
+#canvas-map.dragging {
+  cursor: grabbing;
 }
 
 .dark-mode #canvas-map:not(.interactive) {
