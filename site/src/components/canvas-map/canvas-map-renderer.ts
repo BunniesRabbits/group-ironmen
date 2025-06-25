@@ -277,17 +277,6 @@ export class CanvasMapRenderer {
   public onDraggingUpdate?: (dragging: boolean) => void;
   public onFollowPlayerUpdate?: (player: string | undefined) => void;
 
-  private jumpToWorldPosition({ coords }: { coords: CoordinateTriplet }): void {
-    this.camera.x = coords.x - OURS_TO_WIKI_CONVERSION_FACTOR_X;
-    this.camera.y = coords.y + OURS_TO_WIKI_CONVERSION_FACTOR_Y;
-    this.plane = coords.plane;
-
-    this.cursor.accumulatedScroll = 0;
-    this.cursor.rateSamplesX = [];
-    this.cursor.rateSamplesY = [];
-    this.cursor.isDragging = false;
-  }
-
   public startFollowingPlayer({ player }: { player: string | undefined }): void {
     if (!player || !this.playerPositions.has(player)) {
       this.camera.followPlayer = undefined;
@@ -296,13 +285,16 @@ export class CanvasMapRenderer {
       return;
     }
 
+    const { x, y, plane } = this.playerPositions.get(player)!;
+
     this.camera.followPlayer = player;
-    this.jumpToWorldPosition({ coords: this.playerPositions.get(player)! });
     this.camera.followingAnimation = {
       from: { x: this.camera.x, y: this.camera.y },
-      to: { x: this.camera.x, y: this.camera.y },
-      timeRemainingMS: 0,
+      to: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+      timeRemainingMS: FOLLOW_ANIMATION_TIME_MS,
     };
+    this.plane = plane;
+
     this.onFollowPlayerUpdate?.(this.camera.followPlayer);
   }
 
