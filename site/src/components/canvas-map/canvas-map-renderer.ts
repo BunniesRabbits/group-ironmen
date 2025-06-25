@@ -270,10 +270,10 @@ export class CanvasMapRenderer {
     this.camera.y = -coords.y + OURS_TO_WIKI_CONVERSION_FACTOR_Y;
     this.plane = coords.plane;
 
-    this.cursor.accumulatedFrictionMS = 0;
     this.cursor.accumulatedScroll = 0;
     this.cursor.rateSamplesX = [];
     this.cursor.rateSamplesY = [];
+    this.cursor.isDragging = false;
   }
 
   public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
@@ -286,6 +286,8 @@ export class CanvasMapRenderer {
   }
 
   private updateCursorVelocity(elapsed: number): void {
+    if (elapsed < 0.001) return;
+
     const cursorDeltaX = this.cursor.x - this.cursor.previousX;
     const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
