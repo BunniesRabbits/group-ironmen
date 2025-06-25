@@ -581,6 +581,10 @@ export class CanvasMapRenderer {
     }
   }
 
+  /**
+   * Icons are the "points of interests", the circular icons such as the blue
+   * quest star and green agility shortcut arrow.
+   */
   private drawVisibleIcons(context: Context2DScaledWrapper): void {
     // When zooming out, we want icons to get bigger since they would become unreadable otherwise.
     const iconScale = 16 * Math.max(context.getScale(), 1 / 8);
@@ -623,6 +627,10 @@ export class CanvasMapRenderer {
     }
   }
 
+  /**
+   * A region is the 256x256 square areas in OSRS. We render them as square
+   * images in the background.
+   */
   private drawVisibleRegions(context: Context2DScaledWrapper): void {
     /*
      * WARNING:
@@ -650,8 +658,6 @@ export class CanvasMapRenderer {
       (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
     );
 
-    context.setFillStyle("black");
-
     for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
       for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
         const coordinateHash = hashMapRegionCoordinate3Ds({ position: { x: regionX, y: regionY }, plane: this.plane });
@@ -669,7 +675,8 @@ export class CanvasMapRenderer {
         if (region === undefined) continue;
 
         if (region.image === undefined) {
-          context.fillRect({
+          context.drawRect({
+            fillStyle: "black",
             worldPosition,
             worldExtent,
           });
@@ -677,7 +684,8 @@ export class CanvasMapRenderer {
         }
 
         if (region.alpha < 1) {
-          context.fillRect({
+          context.drawRect({
+            fillStyle: "black",
             worldPosition,
             worldExtent,
           });
@@ -695,7 +703,8 @@ export class CanvasMapRenderer {
   }
 
   /**
-   * A map label is pre-rendered text labelling areas such as "Karamja" and "Mudskipper Point".
+   * A map label is pre-rendered text labelling areas such as "Karamja" and
+   * "Mudskipper Point".
    */
   private drawVisibleAreaLabels(context: Context2DScaledWrapper): void {
     const labelScale = 1 * Math.max(context.getScale(), 1 / 12);
@@ -741,21 +750,28 @@ export class CanvasMapRenderer {
     }
   }
 
+  /**
+   * Each player gets a highlighted square (like runelite tile markers), and a label of their name.
+   */
+  private drawPlayerPositionMarkers(context: Context2DScaledWrapper): void {
+    for (const [player, { x, y }] of this.playerPositions) {
+      context.drawRect({
+        fillStyle: "rgb(0 200 255 / 50%)",
+        insetBorder: { style: "rgb(0 200 255 / 50%)", widthPixels: 5 },
+        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+        worldExtent: { height: 1, width: 1 },
+      });
+      context.drawRSText({
+        label: player,
+        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X + 0.5, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+      });
+    }
+  }
+
   private drawAll(context: Context2DScaledWrapper): void {
     this.drawVisibleRegions(context);
     this.drawVisibleIcons(context);
     this.drawVisibleAreaLabels(context);
-
-    for (const [player, { x, y }] of this.playerPositions) {
-      context.setFillStyle("blue");
-      context.fillRect({
-        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
-        worldExtent: { height: 1, width: 1 },
-      });
-      context.drawText({
-        label: player,
-        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
-      });
-    }
+    this.drawPlayerPositionMarkers(context);
   }
 }

@@ -121,12 +121,39 @@ export class Context2DScaledWrapper {
   }
 
   /**
-   * Draws a filled rectangle
+   * Draws a filled rectangle.
    */
-  fillRect({ worldPosition, worldExtent }: { worldPosition: CoordinatePair; worldExtent: ExtentPair }): void {
+  drawRect({
+    worldPosition,
+    worldExtent,
+    fillStyle,
+    insetBorder,
+  }: {
+    worldPosition: CoordinatePair;
+    worldExtent: ExtentPair;
+    fillStyle: string;
+    opacity?: number;
+    insetBorder?: {
+      style: string;
+      widthPixels: number;
+    };
+  }): void {
+    this.context.fillStyle = fillStyle;
     const position = this.convertWorldPositionToView(worldPosition);
     const extent = this.convertWorldExtentToView(worldExtent);
+
     this.context.fillRect(position.x, position.y, extent.width, extent.height);
+
+    if (insetBorder) {
+      this.context.strokeStyle = insetBorder.style;
+      this.context.lineWidth = insetBorder.widthPixels;
+      this.context.strokeRect(
+        position.x + insetBorder.widthPixels / 2,
+        position.y + insetBorder.widthPixels / 2,
+        extent.width - insetBorder.widthPixels,
+        extent.height - insetBorder.widthPixels,
+      );
+    }
   }
 
   fillLine({
@@ -214,14 +241,19 @@ export class Context2DScaledWrapper {
     this.context.globalAlpha = previousAlpha;
   }
 
-  drawText({ worldPosition, label }: { worldPosition: CoordinatePair; label: string }): void {
+  drawRSText({ worldPosition, label }: { worldPosition: CoordinatePair; label: string }): void {
     const position = this.convertWorldPositionToView(worldPosition);
+    const scale = this.convertWorldExtentToView({ width: 1, height: 1 });
 
-    this.context.fillStyle = "yellow";
-    this.context.font = `40px rssmall`;
+    this.context.font = `${Math.max(2.0 * scale.height, 16)}px rssmall`;
     this.context.textAlign = "center";
     this.context.lineWidth = 1;
+    this.context.textBaseline = "middle";
 
+    this.context.fillStyle = "black";
+    this.context.fillText(label, position.x + 2, position.y + 2);
+
+    this.context.fillStyle = "yellow";
     this.context.fillText(label, position.x, position.y);
   }
 }
