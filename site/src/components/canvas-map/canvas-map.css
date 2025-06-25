@@ -49,3 +49,9 @@
 #canvas-map-plane-select {
   padding: 0.4em;
 }
+
+#canvas-map-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

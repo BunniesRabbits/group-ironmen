@@ -164,28 +164,25 @@ export const useCanvasMap = ({
       </select>
     </div>
   );
-  const teleportButtons = (
-    <>
-      {memberCoordinates?.map(({ label, coords }) => {
-        return (
-          <button
-            key={label}
-            className="men-button"
-            onClick={() => {
-              if (!renderer) return;
-              renderer.jumpToWorldPosition({
-                coords,
-              });
-              renderer.forceRenderNextFrame = true;
-            }}
-          >
-            {label}
-            <br /> ({coords.x}, {coords.y}, {coords.plane})
-          </button>
-        );
-      })}
-    </>
-  );
+  const teleportButtons = [];
+  for (const { label, coords } of memberCoordinates) {
+    teleportButtons.push(
+      <button
+        key={label}
+        className="men-button"
+        onClick={() => {
+          if (!renderer) return;
+          renderer.jumpToWorldPosition({
+            coords,
+          });
+          renderer.forceRenderNextFrame = true;
+        }}
+      >
+        {label}
+      </button>,
+    );
+  }
+
   const coordinateIndicator = <div id="canvas-map-coordinates">{coordinatesView}</div>;
 
   const backgroundMap = (
@@ -203,7 +200,7 @@ export const useCanvasMap = ({
     </div>
   );
   const controls = (
-    <div style={{ display: "flex" }}>
+    <div id="canvas-map-controls">
       {planeSelect}
       {teleportButtons}
     </div>
