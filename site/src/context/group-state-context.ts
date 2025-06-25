@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { GroupState } from "../../data/api";
+import type { GroupState } from "../data/api";
 
 type GroupStateSelector<T> = (state: GroupState) => T;
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { Context2DScaledWrapper, type CoordinatePair } from "./canvas-wrapper";
 import { CanvasMapRenderer, type LabelledCoordinates } from "./canvas-map-renderer";
-import { useGroupStateContext } from "../group-state/group-state-context";
+import { useGroupStateContext } from "../../context/group-state-context";
 import type { GroupState } from "../../data/api";
 
 import "./canvas-map.css";

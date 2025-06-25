@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from "react";
-import type { GameData, GroupState } from "../../data/api";
+import type { GameData, GroupState } from "../data/api";
 import { GroupStateContext } from "./group-state-context";
-import Api from "../../data/api";
+import Api from "../data/api";
 import { useLocation } from "react-router-dom";
 import { GameDataContext } from "./game-data-context";
-import { loadValidatedCredentials } from "../../data/credentials";
+import { loadValidatedCredentials } from "../data/credentials";
 import { APIContext } from "./api-context";
 
 export const APIProvider = ({ children }: { children: ReactNode }): ReactElement => {

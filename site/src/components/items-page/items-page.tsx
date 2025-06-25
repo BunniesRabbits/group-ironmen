@@ -2,7 +2,7 @@ import { type ReactElement, Fragment, useContext, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
 import type * as Member from "../../data/member";
-import { GameDataContext } from "../group-state/game-data-context";
+import { GameDataContext } from "../../context/game-data-context";
 import { type ItemID } from "../../data/items";
 
 type ItemFilter = "All" | Member.Name;

@@ -1,5 +1,5 @@
 import { Fragment, useContext, useState, type ReactElement } from "react";
-import { GameDataContext } from "../group-state/game-data-context";
+import { GameDataContext } from "../../context/game-data-context";
 import * as CollectionLog from "../../data/collection-log";
 import type * as Member from "../../data/member";
 import { useCollectionLogItemTooltip } from "./collection-log-tooltip";

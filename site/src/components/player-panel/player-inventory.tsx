@@ -1,6 +1,6 @@
 import { useContext, type ReactElement } from "react";
 import { useItemTooltip } from "../tooltip/item-tooltip";
-import { GameDataContext } from "../group-state/game-data-context";
+import { GameDataContext } from "../../context/game-data-context";
 import type { Inventory } from "../../data/member";
 
 import "./player-inventory.css";

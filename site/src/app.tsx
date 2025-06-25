@@ -12,7 +12,7 @@ import { useCanvasMap } from "./components/canvas-map/canvas-map";
 import { ItemsPage } from "./components/items-page/items-page";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Tooltip } from "./components/tooltip/tooltip";
-import { useGroupStateContext } from "./components/group-state/group-state-context";
+import { useGroupStateContext } from "./context/group-state-context";
 
 import "./app.css";
 
