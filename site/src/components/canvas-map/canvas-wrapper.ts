@@ -243,15 +243,15 @@ export class Context2DScaledWrapper {
 
   drawRSText({ worldPosition, label }: { worldPosition: CoordinatePair; label: string }): void {
     const position = this.convertWorldPositionToView(worldPosition);
-    const scale = this.convertWorldExtentToView({ width: 1, height: 1 });
+    const scale = Math.round(Math.max(2.0 * this.convertWorldExtentToView({ width: 1, height: 1 }).height, 16));
 
-    this.context.font = `${Math.max(2.0 * scale.height, 16)}px rssmall`;
+    this.context.font = `${scale}px rssmall`;
     this.context.textAlign = "center";
     this.context.lineWidth = 1;
     this.context.textBaseline = "middle";
 
     this.context.fillStyle = "black";
-    this.context.fillText(label, position.x + 2, position.y + 2);
+    this.context.fillText(label, position.x + scale / 16, position.y + scale / 16);
 
     this.context.fillStyle = "yellow";
     this.context.fillText(label, position.x, position.y);
