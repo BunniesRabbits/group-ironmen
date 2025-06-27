@@ -5,7 +5,7 @@ import type { ItemID, ItemStack } from "./items";
 import type { QuestID, QuestStatus } from "./quests";
 import type { Experience, Skill } from "./skill";
 import * as CollectionLog from "./collection-log";
-import type { WikiPosition3D } from "../components/canvas-map/coordinates";
+import type { WikiPosition2D } from "../components/canvas-map/coordinates";
 
 export type Name = Distinct<string, "Member.Name">;
 
@@ -16,7 +16,7 @@ export interface State {
   seedVault: ItemCollection;
   equipment: Equipment;
   inventory: Inventory;
-  coordinates?: WikiPosition3D;
+  coordinates?: { coords: WikiPosition2D; plane: number };
   interacting?: NPCInteraction;
   stats?: Stats;
   skills?: Skills;
@@ -25,6 +25,10 @@ export interface State {
   collection?: Collection;
 }
 
+export interface Position {
+  coords: WikiPosition2D;
+  plane: number;
+}
 export type ItemCollection = Map<ItemID, number>;
 export type Equipment = Map<EquipmentSlot, ItemStack>;
 export type Inventory = (ItemStack | undefined)[];

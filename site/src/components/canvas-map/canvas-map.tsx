@@ -3,9 +3,9 @@ import { Context2DScaledWrapper } from "./canvas-wrapper";
 import { CanvasMapRenderer, type LabelledCoordinates } from "./canvas-map-renderer";
 import { useGroupStateContext } from "../../context/group-state-context";
 import type { GroupState } from "../../data/api";
+import { Vec2D, type WikiPosition2D } from "./coordinates";
 
 import "./canvas-map.css";
-import { createVec2D, type WikiPosition2D } from "./coordinates";
 
 const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoordinates[] => {
   if (!state) return [];
@@ -13,7 +13,7 @@ const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoord
     ...state.members
       .entries()
       .filter(([_, state]) => state.coordinates)
-      .map(([name, state]) => ({ label: name, coords: state.coordinates! })),
+      .map(([name, state]) => ({ label: name, coords: state.coordinates!.coords, plane: state.coordinates!.plane })),
   ];
 };
 
@@ -123,7 +123,7 @@ export const useCanvasMap = ({
 
   const handlePointerMove = useCallback(
     ({ clientX, clientY }: { clientX: number; clientY: number }) => {
-      renderer?.handlePointerMove(createVec2D({ x: clientX, y: clientY }));
+      renderer?.handlePointerMove(Vec2D.create({ x: clientX, y: clientY }));
     },
     [renderer],
   );

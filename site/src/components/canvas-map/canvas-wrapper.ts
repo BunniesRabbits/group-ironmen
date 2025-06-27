@@ -1,17 +1,13 @@
 import {
   type WorldPosition2D,
-  type WorldDisplacement2D,
   type CursorDisplacement2D,
   type Transform2D,
-  createVec2D,
   Disp2D,
-  convertPos2DWorldToView,
-  addVec2D,
   type ImagePosition2D,
   type ImageDisplacement2D,
-  mulVec2D,
   Rect2D,
-  subVec2D,
+  Vec2D,
+  Pos2D,
 } from "./coordinates";
 
 // Figuring out when to apply scaling is hard, so this wrapper handles
@@ -31,14 +27,14 @@ export class Context2DScaledWrapper {
     this.pixelRatio = pixelRatio;
     this.context = context;
     this.camera = {
-      translation: createVec2D({ x: 0, y: 0 }),
+      translation: Vec2D.create({ x: 0, y: 0 }),
       scale: 1,
     };
     this.context.imageSmoothingEnabled = false;
   }
 
   public getCanvasExtent(): CursorDisplacement2D {
-    return createVec2D({
+    return Vec2D.create({
       x: this.context.canvas.clientWidth,
       y: this.context.canvas.clientHeight,
     });
@@ -49,20 +45,11 @@ export class Context2DScaledWrapper {
 
   // Sets context for transformation.
   // The parameters should match your camera, do not pass inverted parameters.
-  public setTransform({
-    translation,
-    scale,
-    pixelPerfectDenominator,
-  }: {
-    translation: WorldPosition2D;
-    scale: number;
-    pixelPerfectDenominator: number;
-  }): void {
+  public setTransform({ translation, scale }: { translation: WorldPosition2D; scale: number }): void {
     // Ratio of world units to physical pixels
     this.camera = {
       translation,
-      scale:
-        Math.floor(pixelPerfectDenominator * scale * this.pixelRatio) / (pixelPerfectDenominator * this.pixelRatio),
+      scale,
     };
 
     // The rectangular canvas is the view plane of the camera.
@@ -72,7 +59,7 @@ export class Context2DScaledWrapper {
       this.pixelRatio,
       0,
       0,
-      -this.pixelRatio,
+      this.pixelRatio,
       this.context.canvas.width / 2,
       this.context.canvas.height / 2,
     );
@@ -84,12 +71,12 @@ export class Context2DScaledWrapper {
    */
   public getVisibleWorldBox(): { min: WorldPosition2D; max: WorldPosition2D } {
     const extent = Disp2D.viewToWorld({
-      view: createVec2D({ x: this.context.canvas.clientWidth, y: this.context.canvas.clientHeight }),
+      view: Vec2D.create({ x: this.context.canvas.clientWidth, y: this.context.canvas.clientHeight }),
       camera: this.camera,
     });
     return {
-      min: addVec2D(this.camera.translation, mulVec2D(-0.5, extent)),
-      max: addVec2D(this.camera.translation, mulVec2D(0.5, extent)),
+      min: Vec2D.add(this.camera.translation, Vec2D.mul(-0.5, extent)),
+      max: Vec2D.add(this.camera.translation, Vec2D.mul(0.5, extent)),
     };
   }
 
@@ -118,7 +105,7 @@ export class Context2DScaledWrapper {
     const { min, max } = Rect2D.worldToView({ min: rect.min, max: rect.max, camera: this.camera });
 
     const position = min;
-    const extent = subVec2D(max, min);
+    const extent = Vec2D.sub(max, min);
 
     this.context.fillRect(position.x, position.y, extent.x, extent.y);
     if (insetBorder) {
@@ -140,8 +127,8 @@ export class Context2DScaledWrapper {
     worldStartPosition: WorldPosition2D;
     worldEndPosition: WorldPosition2D;
   }): void {
-    const start = convertPos2DWorldToView({ world: worldStartPosition, camera: this.camera });
-    const end = convertPos2DWorldToView({ world: worldEndPosition, camera: this.camera });
+    const start = Pos2D.worldToView({ world: worldStartPosition, camera: this.camera });
+    const end = Pos2D.worldToView({ world: worldEndPosition, camera: this.camera });
 
     this.context.beginPath();
     this.context.moveTo(start.x, start.y);
@@ -170,8 +157,8 @@ export class Context2DScaledWrapper {
     rect: { min: WorldPosition2D; max: WorldPosition2D };
     alpha: number;
   }): void {
-    const position = convertPos2DWorldToView({ world: min, camera: this.camera });
-    const positionNeighbor = convertPos2DWorldToView({ world: max, camera: this.camera });
+    const position = Pos2D.worldToView({ world: min, camera: this.camera });
+    const positionNeighbor = Pos2D.worldToView({ world: max, camera: this.camera });
 
     const previousAlpha = this.context.globalAlpha;
     this.context.globalAlpha = alpha;
@@ -204,76 +191,44 @@ export class Context2DScaledWrapper {
   /**
    * Draws an image.
    * Be careful of the image offset/extent, you need to have knowledge of the underlying image.
-   *
-   * PixelPerfect: round width/height to nearest pixel. Can mess up aspect ratio if you are non-uniformly scaling.
    */
   drawImage({
     image,
     imageOffsetInPixels,
     imageExtentInPixels,
-    worldPosition,
-    worldExtent,
-    pixelPerfect,
+    rect,
     alpha,
   }: {
     image: ImageBitmap;
     imageOffsetInPixels: ImagePosition2D;
     imageExtentInPixels: ImageDisplacement2D;
-    worldPosition: WorldPosition2D;
-    worldExtent: WorldDisplacement2D;
-    pixelPerfect?: boolean;
+    rect: { min: WorldPosition2D; max: WorldPosition2D };
     alpha: number;
   }): void {
-    const position = convertPos2DWorldToView({ world: worldPosition, camera: this.camera });
-    const extent = Disp2D.worldToView({ world: worldExtent, camera: this.camera });
-
-    pixelPerfect = pixelPerfect ?? false;
+    const { min, max } = Rect2D.worldToView({ min: rect.min, max: rect.max, camera: this.camera });
+    const position = min;
+    const extent = Vec2D.sub(max, min);
 
     const previousAlpha = this.context.globalAlpha;
     this.context.globalAlpha = alpha;
-    if (pixelPerfect) {
-      this.context.setTransform(1, 0, 0, 1, 0, 0);
 
-      this.context.drawImage(
-        image,
-        imageOffsetInPixels.x,
-        imageOffsetInPixels.y,
-        imageExtentInPixels.x,
-        imageExtentInPixels.y,
-        Math.round(this.pixelRatio * position.x + this.context.canvas.width / 2),
-        Math.round(this.pixelRatio * position.y + this.context.canvas.height / 2),
-        Math.round((this.pixelRatio * extent.x) / imageExtentInPixels.x) * imageExtentInPixels.x,
-        Math.round((this.pixelRatio * extent.y) / imageExtentInPixels.y) * imageExtentInPixels.y,
-      );
-
-      this.context.setTransform(
-        this.pixelRatio,
-        0,
-        0,
-        this.pixelRatio,
-        this.context.canvas.width / 2,
-        this.context.canvas.height / 2,
-      );
-    } else {
-      this.context.drawImage(
-        image,
-        imageOffsetInPixels.x,
-        imageOffsetInPixels.y,
-        imageExtentInPixels.x,
-        imageExtentInPixels.y,
-        position.x,
-        position.y,
-        extent.x,
-        extent.y,
-      );
-    }
+    this.context.drawImage(
+      image,
+      imageOffsetInPixels.x,
+      imageOffsetInPixels.y,
+      imageExtentInPixels.x,
+      imageExtentInPixels.y,
+      position.x,
+      position.y,
+      extent.x,
+      extent.y,
+    );
     this.context.globalAlpha = previousAlpha;
   }
 
   drawRSText({ position, label }: { position: WorldPosition2D; label: string }): void {
-    const positionView = convertPos2DWorldToView({ world: position, camera: this.camera });
-    const extentView = Disp2D.worldToView({ world: createVec2D({ x: 0, y: 0 }), camera: this.camera });
-    const scale = Math.round(Math.max(2.0 * extentView.y, 16));
+    const positionView = Pos2D.worldToView({ world: position, camera: this.camera });
+    const scale = 16;
 
     this.context.font = `${scale}px rssmall`;
     this.context.textAlign = "center";

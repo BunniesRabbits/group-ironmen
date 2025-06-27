@@ -9,7 +9,7 @@ import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsRespon
 import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import { Skill, type Experience } from "./skill";
-import { createVec3D, type WikiPosition3D } from "../components/canvas-map/coordinates";
+import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -32,7 +32,7 @@ export interface GameData {
 interface UpdateCallbacks {
   onGroupUpdate: (group: GroupState) => void;
   onGameDataUpdate: (data: GameData) => void;
-  onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: WikiPosition3D }[]) => void;
+  onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: WikiPosition2D; plane: number }[]) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -173,11 +173,13 @@ export default class Api {
       }
 
       if (coordinates !== undefined) {
-        memberData.coordinates = createVec3D<WikiPosition3D>({
-          x: coordinates.x,
-          y: coordinates.y,
-          z: coordinates.plane,
-        });
+        memberData.coordinates = {
+          coords: Vec2D.create<WikiPosition2D>({
+            x: coordinates.x,
+            y: coordinates.y,
+          }),
+          plane: coordinates.plane,
+        };
         updatedCoordinates = true;
       }
     }
@@ -220,7 +222,7 @@ export default class Api {
       const positions = [];
       for (const [member, { coordinates }] of this.group.members) {
         if (!coordinates) continue;
-        positions.push({ player: member, coords: coordinates });
+        positions.push({ player: member, coords: coordinates.coords, plane: coordinates.plane });
       }
       this.callbacks?.onPlayerPositionsUpdate?.(positions);
     }
