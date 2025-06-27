@@ -5,7 +5,7 @@ import type { ItemID, ItemStack } from "./items";
 import type { QuestID, QuestStatus } from "./quests";
 import type { Experience, Skill } from "./skill";
 import * as CollectionLog from "./collection-log";
-import type { CoordinateTriplet } from "../components/canvas-map/canvas-wrapper";
+import type { WikiPosition3D } from "../components/canvas-map/coordinates";
 
 export type Name = Distinct<string, "Member.Name">;
 
@@ -16,7 +16,7 @@ export interface State {
   seedVault: ItemCollection;
   equipment: Equipment;
   inventory: Inventory;
-  coordinates?: CoordinateTriplet;
+  coordinates?: WikiPosition3D;
   interacting?: NPCInteraction;
   stats?: Stats;
   skills?: Skills;

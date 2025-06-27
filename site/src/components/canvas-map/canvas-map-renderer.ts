@@ -1,26 +1,53 @@
 import { fetchMapJSON, type MapMetadata } from "../../data/map-data";
 import type { Distinct } from "../../util";
-import type { CoordinatePair, Context2DScaledWrapper, ExtentPair, CoordinateTriplet } from "./canvas-wrapper";
+import type { Context2DScaledWrapper } from "./canvas-wrapper";
+import {
+  sqrLengthVec2D,
+  type CursorPosition2D,
+  type CursorVelocity2D,
+  type WorldDisplacement2D,
+  interpolatePos2D,
+  createVec2D,
+  type WikiPosition3D,
+  convertPos3DWikiToWorld,
+  subVec2D,
+  divDisplacement2D,
+  addVec2D,
+  mulVec2D,
+  averageVec2D,
+  mulVelocity2D,
+  type WorldPosition2D,
+  type WorldPosition3D,
+  type WikiPosition2D,
+  convertPos2DCursorToWiki,
+  convertDisplacement2DCursorToWorld,
+  Pos2D,
+  type RegionPosition2D,
+  type RegionPosition3D,
+  Vec2D,
+  createVec3D,
+  REGION_IMAGE_PIXEL_EXTENT,
+  ICON_IMAGE_PIXEL_EXTENT,
+  Disp2D,
+  Rect2D,
+  type RegionDisplacement2D,
+} from "./coordinates";
 
 export interface LabelledCoordinates {
   label: string;
-  coords: CoordinateTriplet;
+  coords: WikiPosition3D;
 }
 
 interface CoordinateLerp {
-  from: CoordinatePair;
-  to: CoordinatePair;
+  from: WorldPosition2D;
+  to: WorldPosition2D;
   timeRemainingMS: number;
 }
 
-export const ICON_IMAGE_PIXEL_SIZE = 15;
-const REGION_IMAGE_PIXEL_SIZE = 256;
-const RS_SQUARE_PIXEL_SIZE = 4;
-const WORLD_UNITS_PER_REGION = REGION_IMAGE_PIXEL_SIZE / RS_SQUARE_PIXEL_SIZE;
 const FOLLOW_ANIMATION_TIME_MS = 300;
 interface CanvasMapCamera {
-  x: number;
-  y: number;
+  position: WorldPosition2D;
+
   followPlayer: string | undefined;
 
   followingAnimation: CoordinateLerp | undefined;
@@ -31,19 +58,24 @@ interface CanvasMapCamera {
   maxZoom: number;
 }
 interface CanvasMapCursor {
-  // Current Position.
-  x: number;
-  y: number;
+  /**
+   * Current position of the cursor in the window. We do not store this as a
+   * WorldTranslation since it will need to be resolved as the camera moves and
+   * scales.
+   */
+  position: CursorPosition2D;
+  positionPrevious: CursorPosition2D;
 
-  // Last update call's positions.
-  previousX: number;
-  previousY: number;
+  /**
+   * Stores samples of the cursors movement across frames, so the camera coasts
+   * with no accidental "flicking".
+   */
+  rateSamples: CursorVelocity2D[];
 
-  // Stores samples of the cursors movement across frames, so the camera coasts with no accidental "flicking".
-  rateSamplesX: number[];
-  rateSamplesY: number[];
-
-  // Milliseconds of time spent in friction, for computing the deceleration of the camera when let go
+  /**
+   * Milliseconds of time spent in friction, for computing the deceleration of
+   * the camera when let go
+   */
   accumulatedFrictionMS: number;
 
   isDragging: boolean;
@@ -57,47 +89,34 @@ interface MapRegion {
   alpha: number;
   // Undefined while loading from file
   image?: ImageBitmap;
-  position: CoordinatePair;
+  position: RegionPosition2D;
 }
 type MapRegionCoordinate2DHash = Distinct<string, "MapRegionCoordinate2DHash">;
 type MapRegionCoordinate3DHash = Distinct<string, "MapRegionCoordinate3DHash">;
 type RegionGrid = Map<MapRegionCoordinate3DHash, MapRegion>;
 // type MapRegionCoordinate3DHash = Distinct<string, "MapRegionCoordinate3DHash">;
 // Fractional coordinates get rounded
-const hashMapRegionCoordinate2Ds = ({ x, y }: CoordinatePair): MapRegionCoordinate2DHash => {
+const hashMapRegionCoordinate2Ds = ({ x, y }: RegionPosition2D): MapRegionCoordinate2DHash => {
   return `${Math.round(x)}_${Math.round(y)}` as MapRegionCoordinate2DHash;
 };
-const hashMapRegionCoordinate3Ds = ({
-  position,
-  plane,
-}: {
-  position: CoordinatePair;
-  plane: number;
-}): MapRegionCoordinate3DHash => {
-  return `${Math.round(plane)}_${Math.round(position.x)}_${Math.round(position.y)}` as MapRegionCoordinate3DHash;
+const hashMapRegionCoordinate3Ds = ({ x, y, z }: RegionPosition3D): MapRegionCoordinate3DHash => {
+  return `${Math.round(z)}_${Math.round(x)}_${Math.round(y)}` as MapRegionCoordinate3DHash;
 };
 // An icon is those round indicators in runescape, e.g. the blue star for quests.
 interface MapIcon {
   // Index into the icon atlas
   spriteIndex: number;
-  worldPosition: CoordinatePair;
+  worldPosition: WorldPosition2D;
 }
 type MapIconGrid = Map<MapRegionCoordinate2DHash, MapIcon[]>;
 interface MapLabel {
   // labelID.webp is the filename of the label
   labelID: number;
-  worldPosition: CoordinatePair;
+  worldPosition: WorldPosition2D;
   plane: number;
   image?: ImageBitmap;
 }
 type MapLabelGrid = Map<MapRegionCoordinate2DHash, MapLabel[]>;
-// Returns 0 for empty array
-const average = (arr: number[]): number => {
-  if (arr.length < 1) return 0;
-  return arr.reduce((previous, current) => previous + current, 0) / arr.length;
-};
-const OURS_TO_WIKI_CONVERSION_FACTOR_X = -128;
-const OURS_TO_WIKI_CONVERSION_FACTOR_Y = 63;
 
 export class CanvasMapRenderer {
   private regions: RegionGrid;
@@ -107,7 +126,7 @@ export class CanvasMapRenderer {
   private iconsAtlas?: ImageBitmap;
   private iconsByRegion?: MapIconGrid;
   private labelsByRegion?: MapLabelGrid;
-  private playerPositions = new Map<string, CoordinateTriplet>();
+  private playerPositions = new Map<string, WorldPosition3D>();
 
   public forceRenderNextFrame = false;
 
@@ -122,9 +141,11 @@ export class CanvasMapRenderer {
   private processMapData(mapData: MapMetadata): void {
     this.iconsByRegion = new Map();
     for (const regionXString of Object.keys(mapData.icons)) {
-      const x = parseInt(regionXString);
       for (const regionYString of Object.keys(mapData.icons[regionXString])) {
-        const y = parseInt(regionYString);
+        const regionPosition = createVec2D<RegionPosition2D>({
+          x: parseInt(regionXString),
+          y: parseInt(regionYString),
+        });
 
         const icons: MapIcon[] = Object.entries(mapData.icons[regionXString][regionYString])
           .map(([spriteIndex, coordinatesFlat]) => {
@@ -135,22 +156,24 @@ export class CanvasMapRenderer {
                 }
                 return pairs;
               }, [])
-              .map((worldPosition) => ({
+              .map((position) => ({
                 spriteIndex: parseInt(spriteIndex),
-                worldPosition: { x: worldPosition[0], y: worldPosition[1] },
+                worldPosition: createVec2D<WorldPosition2D>({ x: position[0] - 128, y: -position[1] }),
               }));
           })
           .flat();
 
-        this.iconsByRegion.set(hashMapRegionCoordinate2Ds({ x, y }), icons);
+        this.iconsByRegion.set(hashMapRegionCoordinate2Ds(regionPosition), icons);
       }
     }
 
     this.labelsByRegion = new Map();
     for (const regionXString of Object.keys(mapData.labels)) {
-      const x = parseInt(regionXString);
       for (const regionYString of Object.keys(mapData.labels[regionXString])) {
-        const y = parseInt(regionYString);
+        const regionPosition = createVec2D<RegionPosition2D>({
+          x: parseInt(regionXString),
+          y: parseInt(regionYString),
+        });
 
         const labels: MapLabel[] = Object.entries(mapData.labels[regionXString][regionYString])
           .map(([planeString, XYLabelIDFlat]) => {
@@ -158,10 +181,15 @@ export class CanvasMapRenderer {
 
             return XYLabelIDFlat.reduce<MapLabel[]>((labels, _, index, labelFlat) => {
               if (index % 3 === 0) {
+                const position = createVec2D<WorldPosition2D>({
+                  x: labelFlat[index] - 128,
+                  y: -labelFlat[index + 1],
+                });
+
                 labels.push({
                   labelID: labelFlat[index + 2],
                   plane,
-                  worldPosition: { x: labelFlat[index], y: labelFlat[index + 1] },
+                  worldPosition: position,
                 });
               }
               return labels;
@@ -169,21 +197,20 @@ export class CanvasMapRenderer {
           })
           .flat();
 
-        this.labelsByRegion.set(hashMapRegionCoordinate2Ds({ x, y }), labels);
+        this.labelsByRegion.set(hashMapRegionCoordinate2Ds(regionPosition), labels);
       }
     }
   }
 
   private constructor() {
-    const INITIAL_X = 3360;
-    const INITIAL_Y = -3150;
+    const INITIAL_X = 3232;
+    const INITIAL_Y = -3232;
     const INITIAL_ZOOM = 1 / 4;
     const INITIAL_PLANE = 0;
 
     this.regions = new Map();
     this.camera = {
-      x: INITIAL_X,
-      y: INITIAL_Y,
+      position: createVec2D({ x: INITIAL_X, y: INITIAL_Y }),
       followingAnimation: undefined,
       zoom: INITIAL_ZOOM,
       minZoom: 1 / 32,
@@ -191,12 +218,9 @@ export class CanvasMapRenderer {
       followPlayer: undefined,
     };
     this.cursor = {
-      x: 0,
-      y: 0,
-      previousX: 0,
-      previousY: 0,
-      rateSamplesX: [0],
-      rateSamplesY: [0],
+      position: createVec2D({ x: 0, y: 0 }),
+      positionPrevious: createVec2D({ x: 0, y: 0 }),
+      rateSamples: [createVec2D({ x: 0, y: 0 })],
       accumulatedFrictionMS: 0,
       isDragging: false,
       accumulatedScroll: 0,
@@ -211,7 +235,7 @@ export class CanvasMapRenderer {
     // Promisify the image loading
     const iconAtlasPromise = new Promise<ImageBitmap>((resolve) => {
       const ICONS_IN_ATLAS = 123;
-      const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_PIXEL_SIZE, ICON_IMAGE_PIXEL_SIZE);
+      const iconAtlas = new Image(ICONS_IN_ATLAS * ICON_IMAGE_PIXEL_EXTENT.x, ICON_IMAGE_PIXEL_EXTENT.y);
       iconAtlas.src = "/map/icons/map_icons.webp";
       iconAtlas.onload = (): void => {
         resolve(createImageBitmap(iconAtlas));
@@ -229,8 +253,7 @@ export class CanvasMapRenderer {
 
     // We reset the samples here, since if the cursor is down, the map should
     // snap to the cursor. When it snaps, the momentum needs to be cancelled.
-    this.cursor.rateSamplesX = [];
-    this.cursor.rateSamplesY = [];
+    this.cursor.rateSamples = [];
 
     this.cursor.isDragging = true;
     this.onDraggingUpdate?.(this.cursor.isDragging);
@@ -241,9 +264,8 @@ export class CanvasMapRenderer {
     this.cursor.isDragging = false;
     this.onDraggingUpdate?.(this.cursor.isDragging);
   }
-  handlePointerMove({ x, y }: { x: number; y: number }): void {
-    this.cursor.x = x;
-    this.cursor.y = y;
+  handlePointerMove(position: CursorPosition2D): void {
+    this.cursor.position = position;
   }
   handlePointerLeave(): void {
     this.cursor.isDragging = false;
@@ -258,22 +280,7 @@ export class CanvasMapRenderer {
     this.plane = plane;
   }
 
-  /**
-   * Converts the cursor coords (which are relative to the window) to the OSRS Wiki's coordinates.
-   * Do NOT use this as world coordinates e.g. for the rendering context, this is for display purposes.
-   */
-  private cursorCoordsAsWikiWorldCoordinates(context: Context2DScaledWrapper): CoordinatePair {
-    const cursorCoordinates = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
-
-    // This conversion factor is a little weird, but for whatever reason the coordinates the wiki uses are shifted from what we end up with.
-    // I have not investigated, and I assume it is due to how the region images are saved and everything.
-    return {
-      x: Math.floor(cursorCoordinates.x) + OURS_TO_WIKI_CONVERSION_FACTOR_X,
-      y: -Math.floor(cursorCoordinates.y) + OURS_TO_WIKI_CONVERSION_FACTOR_Y,
-    };
-  }
-
-  public onCursorCoordinatesUpdate?: (coords: CoordinatePair) => void;
+  public onHoveredCoordinatesUpdate?: (coords: WikiPosition2D) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
   public onFollowPlayerUpdate?: (player: string | undefined) => void;
 
@@ -285,33 +292,34 @@ export class CanvasMapRenderer {
       return;
     }
 
-    const { x, y, plane } = this.playerPositions.get(player)!;
+    const { x, y, z } = this.playerPositions.get(player)!;
 
     this.camera.followPlayer = player;
     this.camera.followingAnimation = {
-      from: { x: this.camera.x, y: this.camera.y },
-      to: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+      from: this.camera.position,
+      to: createVec2D({ x, y }),
       timeRemainingMS: FOLLOW_ANIMATION_TIME_MS,
     };
-    this.plane = plane;
+    this.plane = z;
 
     this.onFollowPlayerUpdate?.(this.camera.followPlayer);
   }
 
   public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
     for (const { label, coords } of positions) {
-      const { x, y, plane } = coords;
+      const other = convertPos3DWikiToWorld(coords);
       const current = this.playerPositions.get(label);
 
-      if (!current || current.x !== x || current.y !== -y || current.plane !== plane) {
-        this.playerPositions.set(label, { x, y: -y, plane });
+      if (!current || current.x !== other.x || current.y !== other.y || current.z !== other.z) {
+        this.playerPositions.set(label, other);
 
         if (this.camera.followPlayer === label) {
           this.camera.followingAnimation = {
             timeRemainingMS: FOLLOW_ANIMATION_TIME_MS,
-            from: { x: this.camera.x, y: this.camera.y },
-            to: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: -y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+            from: this.camera.position,
+            to: createVec2D(other),
           };
+          this.plane = other.z;
         }
       }
     }
@@ -321,27 +329,22 @@ export class CanvasMapRenderer {
   private updateCursorVelocity(elapsed: number): void {
     if (elapsed < 0.001) return;
 
-    const cursorDeltaX = this.cursor.x - this.cursor.previousX;
-    const cursorDeltaY = this.cursor.y - this.cursor.previousY;
+    const displacement = subVec2D(this.cursor.position, this.cursor.positionPrevious);
 
     if (this.cursor.isDragging) {
       const EVENTS_TO_KEEP = 10;
-      this.cursor.rateSamplesX.push(cursorDeltaX / elapsed);
-      if (this.cursor.rateSamplesX.length > EVENTS_TO_KEEP) {
-        this.cursor.rateSamplesX = this.cursor.rateSamplesX.slice(this.cursor.rateSamplesX.length - EVENTS_TO_KEEP);
-      }
-      this.cursor.rateSamplesY.push(cursorDeltaY / elapsed);
-      if (this.cursor.rateSamplesY.length > EVENTS_TO_KEEP) {
-        this.cursor.rateSamplesY = this.cursor.rateSamplesY.slice(this.cursor.rateSamplesY.length - EVENTS_TO_KEEP);
-      }
 
+      this.cursor.rateSamples.push(divDisplacement2D(elapsed, displacement));
+      if (this.cursor.rateSamples.length > EVENTS_TO_KEEP) {
+        this.cursor.rateSamples = this.cursor.rateSamples.slice(this.cursor.rateSamples.length - EVENTS_TO_KEEP);
+      }
       this.cursor.accumulatedFrictionMS = 0;
     } else {
       this.cursor.accumulatedFrictionMS += elapsed;
     }
   }
 
-  private updateCamera({ cursorWorldPosition }: { cursorWorldPosition: CoordinatePair }): void {
+  private updateCamera({ context, elapsed }: { context: Context2DScaledWrapper; elapsed: number }): void {
     const previousZoom = this.camera.zoom;
     const ZOOM_SENSITIVITY = 1 / 3000;
     if (this.cursor.accumulatedScroll !== 0) {
@@ -349,6 +352,17 @@ export class CanvasMapRenderer {
     }
     this.cursor.accumulatedScroll = 0;
     this.camera.zoom = Math.max(Math.min(this.camera.zoom, this.camera.maxZoom), this.camera.minZoom);
+
+    const cursorWorldPosition = Pos2D.cursorToWorld({
+      cursor: this.cursor.position,
+      camera: context.getCamera(),
+      canvasExtent: context.getCanvasExtent(),
+    });
+    const cursorWorldDelta = Disp2D.cursorToWorld({
+      cursor: subVec2D(this.cursor.position, this.cursor.positionPrevious),
+      camera: context.getCamera(),
+      canvasExtent: context.getCanvasExtent(),
+    });
 
     /*
      * Don't shift the camera with zoom when following, since we just want the
@@ -359,51 +373,46 @@ export class CanvasMapRenderer {
        * Zoom requires special handling since we want to zoom in on the cursor.
        * This requires translating the camera towards the cursor some amount.
        */
-      const cameraToCursorWorldDelta: CoordinatePair = {
-        x: this.camera.x - cursorWorldPosition.x,
-        y: this.camera.y - cursorWorldPosition.y,
-      };
+      const cameraToCursorDisplacement = subVec2D(this.camera.position, cursorWorldPosition);
       const zoomRatio = this.camera.zoom / previousZoom;
-      this.camera.x = cursorWorldPosition.x + zoomRatio * cameraToCursorWorldDelta.x;
-      this.camera.y = cursorWorldPosition.y + zoomRatio * cameraToCursorWorldDelta.y;
+      this.camera.position = addVec2D(cursorWorldPosition, mulVec2D(zoomRatio, cameraToCursorDisplacement));
     }
-
-    const cursorDeltaX = this.cursor.x - this.cursor.previousX;
-    const cursorDeltaY = this.cursor.y - this.cursor.previousY;
 
     if (this.camera.followPlayer && !this.playerPositions.has(this.camera.followPlayer)) {
       this.startFollowingPlayer({ player: undefined });
     }
 
-    // When calculating camera delta from cursor delta, we negate,
-    // since dragging is opposite the intended direction of movement.
-    const worldUnitsPerCursorUnit = this.camera.zoom;
+    /*
+     * When calculating camera delta from cursor delta, we negate, since
+     * dragging is opposite the intended direction of movement.
+     *
+     * We add the delta, since if the user grabs the canvas off-center we don't
+     * want to jump to that, we just want to move the world as the cursor moves.
+     */
     if (this.cursor.isDragging) {
-      this.camera.x += -worldUnitsPerCursorUnit * cursorDeltaX;
-      this.camera.y += -worldUnitsPerCursorUnit * cursorDeltaY;
+      this.camera.position = addVec2D(this.camera.position, mulVec2D(-1.0, cursorWorldDelta));
       this.startFollowingPlayer({ player: undefined });
     } else if (this.camera.followingAnimation) {
       const { to, from, timeRemainingMS } = this.camera.followingAnimation;
 
       const t = 1.0 - timeRemainingMS / FOLLOW_ANIMATION_TIME_MS;
-      this.camera.x = to.x * t + from.x * (1 - t);
-      this.camera.y = to.y * t + from.y * (1 - t);
+      this.camera.position = interpolatePos2D({ t, from, to });
     } else {
       // The camera continues to move with linear deceleration due to friction
       const SPEED_THRESHOLD = 0.05;
       const FRICTION_PER_MS = 0.004;
 
-      const velocityAverageX = average(this.cursor.rateSamplesX);
-      const velocityAverageY = average(this.cursor.rateSamplesY);
+      const velocityAverage = averageVec2D(this.cursor.rateSamples);
 
-      const speed = Math.sqrt(velocityAverageX * velocityAverageX + velocityAverageY * velocityAverageY);
+      const speed = Math.sqrt(sqrLengthVec2D(velocityAverage));
       const speedAfterFriction = speed - FRICTION_PER_MS * this.cursor.accumulatedFrictionMS;
       if (speedAfterFriction > SPEED_THRESHOLD) {
-        const directionX = velocityAverageX / speed;
-        const directionY = velocityAverageY / speed;
-
-        this.camera.x += -worldUnitsPerCursorUnit * speedAfterFriction * directionX;
-        this.camera.y += -worldUnitsPerCursorUnit * speedAfterFriction * directionY;
+        const velocityAfterFriction = mulVec2D(speedAfterFriction / speed, velocityAverage);
+        const displacement = convertDisplacement2DCursorToWorld({
+          cursor: mulVelocity2D(elapsed, velocityAfterFriction),
+          camera: context.getCamera(),
+        });
+        this.camera.position = addVec2D(this.camera.position, mulVec2D(-1.0, displacement));
       }
     }
   }
@@ -413,18 +422,7 @@ export class CanvasMapRenderer {
    * @returns Whether or not any VISIBLE tiles updated their alpha.
    */
   private updateRegionsAlpha(context: Context2DScaledWrapper, elapsed: number): boolean {
-    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
-    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
-
-    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-
-    const regionYMin = -Math.ceil(
-      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-    const regionYMax = -Math.floor(
-      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
+    const { min: regionMin, max: regionMax } = Rect2D.worldToRegion(context.getVisibleWorldBox());
 
     let anyVisibleTileUpdatedAlpha = false;
 
@@ -439,8 +437,7 @@ export class CanvasMapRenderer {
 
       const alphaChanged = previousAlpha !== region.alpha;
       const regionIsProbablyVisible =
-        (region.position.x >= regionXMin && region.position.x <= regionXMax) ||
-        (region.position.y >= regionYMin && region.position.y <= regionYMax);
+        Vec2D.greaterOrEqualThan(region.position, regionMin) && Vec2D.lessOrEqualThan(region.position, regionMax);
 
       anyVisibleTileUpdatedAlpha ||= alphaChanged && regionIsProbablyVisible;
     });
@@ -448,9 +445,9 @@ export class CanvasMapRenderer {
     return anyVisibleTileUpdatedAlpha;
   }
 
-  update(context: Context2DScaledWrapper): void {
+  public update(context: Context2DScaledWrapper): void {
     const previousTransform = {
-      translation: { x: this.camera.x, y: this.camera.y },
+      translation: this.camera.position,
       scale: this.camera.zoom,
     };
 
@@ -468,22 +465,22 @@ export class CanvasMapRenderer {
     this.updateCursorVelocity(elapsed);
 
     context.setTransform({
-      translation: { x: this.camera.x, y: this.camera.y },
+      translation: this.camera.position,
       scale: this.camera.zoom,
-      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
+      pixelPerfectDenominator: 256,
     });
-    const cursorWorldPosition = context.screenPositionToWorldPosition({ x: this.cursor.x, y: this.cursor.y });
-    this.updateCamera({ cursorWorldPosition });
+
+    this.updateCamera({ context, elapsed });
 
     const currentTransform = {
-      translation: { x: this.camera.x, y: this.camera.y },
+      translation: this.camera.position,
       scale: this.camera.zoom,
     };
 
     context.setTransform({
       translation: currentTransform.translation,
       scale: currentTransform.scale,
-      pixelPerfectDenominator: REGION_IMAGE_PIXEL_SIZE,
+      pixelPerfectDenominator: 256,
     });
 
     const transformHasChanged =
@@ -498,45 +495,42 @@ export class CanvasMapRenderer {
       this.drawAll(context);
     }
 
-    const cursorHasMoved = this.cursor.x !== this.cursor.previousX || this.cursor.y !== this.cursor.previousY;
+    const cursorHasMoved =
+      this.cursor.position.x !== this.cursor.positionPrevious.x ||
+      this.cursor.position.y !== this.cursor.positionPrevious.y;
     if (cursorHasMoved) {
-      const displayCoords = this.cursorCoordsAsWikiWorldCoordinates(context);
-      this.onCursorCoordinatesUpdate?.(displayCoords);
+      const displayCoords = Vec2D.floor(
+        convertPos2DCursorToWiki({
+          cursor: this.cursor.position,
+          camera: context.getCamera(),
+          canvasExtent: context.getCanvasExtent(),
+        }),
+      );
+      this.onHoveredCoordinatesUpdate?.(displayCoords);
     }
 
-    this.cursor.previousX = this.cursor.x;
-    this.cursor.previousY = this.cursor.y;
+    this.cursor.positionPrevious = this.cursor.position;
     this.lastUpdateTime = currentUpdateTime;
   }
 
   private loadVisibleAll(context: Context2DScaledWrapper): void {
     // Load regions and labels, which use individual images.
     // Icons are in an atlas and are already loaded.
-    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
-    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+    const visibleRect = Rect2D.worldToRegion(context.getVisibleWorldBox());
 
-    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-
-    const regionYMin = -Math.ceil(
-      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-    const regionYMax = -Math.floor(
-      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-
-    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
-      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
-        const hash3D = hashMapRegionCoordinate3Ds({ position: { x: regionX, y: regionY }, plane: this.plane });
-        const hash2D = hashMapRegionCoordinate2Ds({ x: regionX, y: regionY });
+    for (let regionX = visibleRect.min.x - 1; regionX <= visibleRect.max.x; regionX++) {
+      for (let regionY = visibleRect.min.y - 1; regionY <= visibleRect.max.y; regionY++) {
+        const regionPosition = createVec3D<RegionPosition3D>({ x: regionX, y: regionY, z: this.plane });
+        const hash3D = hashMapRegionCoordinate3Ds(regionPosition);
+        const hash2D = hashMapRegionCoordinate2Ds(createVec2D(regionPosition));
 
         if (!this.regions.has(hash3D)) {
-          const image = new Image(REGION_IMAGE_PIXEL_SIZE, REGION_IMAGE_PIXEL_SIZE);
+          const image = new Image(REGION_IMAGE_PIXEL_EXTENT.x, REGION_IMAGE_PIXEL_EXTENT.y);
           const regionFileBaseName = `${this.plane}_${regionX}_${regionY}`;
 
           const region: MapRegion = {
             alpha: 0,
-            position: { x: regionX, y: regionY },
+            position: createVec2D(regionPosition),
           };
           image.src = `/map/${regionFileBaseName}.webp`;
           image.onload = (): void => {
@@ -579,38 +573,30 @@ export class CanvasMapRenderer {
    */
   private drawVisibleIcons(context: Context2DScaledWrapper): void {
     // When zooming out, we want icons to get bigger since they would become unreadable otherwise.
-    const iconScale = 16 * Math.max(context.getScale(), 1 / 8);
+    const iconScale = 16 * Math.max(context.getCamera().scale, 1 / 8);
 
-    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
-    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+    const visibleRect = Rect2D.worldToRegion(context.getVisibleWorldBox());
 
-    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-
-    const regionYMin = -Math.ceil(
-      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-    const regionYMax = -Math.floor(
-      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-
-    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
-      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
-        const mapIcons = this.iconsByRegion?.get(hashMapRegionCoordinate2Ds({ x: regionX, y: regionY }));
+    for (let regionX = visibleRect.min.x - 1; regionX <= visibleRect.max.x; regionX++) {
+      for (let regionY = visibleRect.min.y - 1; regionY <= visibleRect.max.y; regionY++) {
+        const mapIcons = this.iconsByRegion?.get(hashMapRegionCoordinate2Ds(createVec2D({ x: regionX, y: regionY })));
         if (!mapIcons || !this.iconsAtlas) continue;
 
         // The 1 centers the icons, the 64 is to get it to be visually correct.
         // I'm not too sure where the 64 comes from, but it exists since our regions/images/coordinates are not quite synced up.
-        const offsetX = -iconScale / 2;
-        const offsetY = -iconScale / 2 + 64;
+        // const offsetX = -iconScale / 2;
+        // const offsetY = -iconScale / 2 + 64;
+
+        const offset = createVec2D<WorldDisplacement2D>({ x: -iconScale / 2, y: -iconScale / 2 });
+        const extent = createVec2D<WorldDisplacement2D>({ x: iconScale, y: iconScale });
 
         mapIcons.forEach(({ spriteIndex, worldPosition }) => {
           context.drawImage({
             image: this.iconsAtlas!,
-            imageOffsetInPixels: { x: spriteIndex * ICON_IMAGE_PIXEL_SIZE, y: 0 },
-            imageExtentInPixels: { width: ICON_IMAGE_PIXEL_SIZE, height: ICON_IMAGE_PIXEL_SIZE },
-            worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
-            worldExtent: { width: iconScale, height: iconScale },
+            imageOffsetInPixels: createVec2D({ x: spriteIndex * ICON_IMAGE_PIXEL_EXTENT.x, y: 0 }),
+            imageExtentInPixels: ICON_IMAGE_PIXEL_EXTENT,
+            worldPosition: addVec2D(worldPosition, offset),
+            worldExtent: extent,
             pixelPerfect: true,
             alpha: 1,
           });
@@ -637,31 +623,17 @@ export class CanvasMapRenderer {
      * For reference, the world regions surrounded by the ocean run from
      * (18, 39) to (53, 64)
      */
-    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
-    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+    const visibleRect = Rect2D.worldToRegion(context.getVisibleWorldBox());
 
-    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
+    for (let regionX = visibleRect.min.x - 1; regionX <= visibleRect.max.x; regionX++) {
+      for (let regionY = visibleRect.min.y - 1; regionY <= visibleRect.max.y; regionY++) {
+        const coordinateHash = hashMapRegionCoordinate3Ds(createVec3D({ x: regionX, y: regionY, z: this.plane }));
 
-    const regionYMin = -Math.ceil(
-      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-    const regionYMax = -Math.floor(
-      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-
-    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
-      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
-        const coordinateHash = hashMapRegionCoordinate3Ds({ position: { x: regionX, y: regionY }, plane: this.plane });
-
-        const worldPosition: CoordinatePair = {
-          x: regionX * WORLD_UNITS_PER_REGION,
-          y: -regionY * WORLD_UNITS_PER_REGION,
-        };
-        const worldExtent: ExtentPair = {
-          width: WORLD_UNITS_PER_REGION,
-          height: WORLD_UNITS_PER_REGION,
-        };
+        const position = createVec2D<RegionPosition2D>({ x: regionX, y: regionY });
+        const rect = Rect2D.regionToWorld({
+          min: position,
+          max: addVec2D(position, createVec2D<RegionDisplacement2D>({ x: 1, y: 1 })),
+        });
 
         const region = this.regions.get(coordinateHash);
         if (region === undefined) continue;
@@ -669,16 +641,14 @@ export class CanvasMapRenderer {
         if (region.image === undefined) {
           context.drawRect({
             fillStyle: "black",
-            worldPosition,
-            worldExtent,
+            rect,
           });
           continue;
         }
 
-        context.drawRegion({
+        context.drawImageSnappedToGrid({
           image: region.image,
-          worldPosition,
-          worldExtent,
+          rect,
           alpha: region.alpha,
         });
       }
@@ -690,24 +660,13 @@ export class CanvasMapRenderer {
    * "Mudskipper Point".
    */
   private drawVisibleAreaLabels(context: Context2DScaledWrapper): void {
-    const labelScale = 1 * Math.max(context.getScale(), 1 / 12);
+    const labelScale = 1 * Math.max(context.getCamera().scale, 1 / 12);
 
-    const viewPlaneWorldOffset = context.viewPlaneWorldOffset();
-    const viewPlaneWorldExtent = context.viewPlaneWorldExtent();
+    const visibleRect = Rect2D.worldToRegion(context.getVisibleWorldBox());
 
-    const regionXMin = Math.floor((viewPlaneWorldOffset.x - 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-    const regionXMax = Math.ceil((viewPlaneWorldOffset.x + 0.5 * viewPlaneWorldExtent.width) / WORLD_UNITS_PER_REGION);
-
-    const regionYMin = -Math.ceil(
-      (viewPlaneWorldOffset.y + 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-    const regionYMax = -Math.floor(
-      (viewPlaneWorldOffset.y - 0.5 * viewPlaneWorldExtent.height) / WORLD_UNITS_PER_REGION,
-    );
-
-    for (let regionX = regionXMin - 1; regionX <= regionXMax; regionX++) {
-      for (let regionY = regionYMin - 1; regionY <= regionYMax; regionY++) {
-        const labels = this.labelsByRegion?.get(hashMapRegionCoordinate2Ds({ x: regionX, y: regionY }));
+    for (let regionX = visibleRect.min.x - 1; regionX <= visibleRect.max.x; regionX++) {
+      for (let regionY = visibleRect.min.y - 1; regionY <= visibleRect.max.y; regionY++) {
+        const labels = this.labelsByRegion?.get(hashMapRegionCoordinate2Ds(createVec2D({ x: regionX, y: regionY })));
         if (labels === undefined) continue;
 
         labels.forEach((label) => {
@@ -716,15 +675,15 @@ export class CanvasMapRenderer {
           const image = label.image;
           if (plane !== this.plane || image === undefined) return;
 
-          const offsetX = 0;
-          const offsetY = 64;
+          // const offsetX = 0;
+          // const offsetY = 64;
 
           context.drawImage({
             image,
-            imageOffsetInPixels: { x: 0, y: 0 },
-            imageExtentInPixels: { width: image.width, height: image.height },
-            worldPosition: { x: worldPosition.x + offsetX, y: -worldPosition.y + offsetY },
-            worldExtent: { width: labelScale * image.width, height: labelScale * image.height },
+            imageOffsetInPixels: createVec2D({ x: 0, y: 0 }),
+            imageExtentInPixels: createVec2D({ x: image.width, y: image.height }),
+            worldPosition: worldPosition,
+            worldExtent: createVec2D({ x: labelScale * image.width, y: labelScale * image.height }),
             pixelPerfect: true,
             alpha: 1,
           });
@@ -737,16 +696,20 @@ export class CanvasMapRenderer {
    * Each player gets a highlighted square (like runelite tile markers), and a label of their name.
    */
   private drawPlayerPositionMarkers(context: Context2DScaledWrapper): void {
-    for (const [player, { x, y }] of this.playerPositions) {
+    for (const [player, position] of this.playerPositions) {
+      const rect = {
+        min: createVec2D<WorldPosition2D>(position),
+        max: addVec2D(createVec2D<WorldPosition2D>(position), createVec2D<WorldDisplacement2D>({ x: 1, y: 1 })),
+      };
+
       context.drawRect({
         fillStyle: "rgb(0 200 255 / 50%)",
         insetBorder: { style: "rgb(0 200 255 / 50%)", widthPixels: 5 },
-        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
-        worldExtent: { height: 1, width: 1 },
+        rect,
       });
       context.drawRSText({
         label: player,
-        worldPosition: { x: x - OURS_TO_WIKI_CONVERSION_FACTOR_X + 0.5, y: y + OURS_TO_WIKI_CONVERSION_FACTOR_Y },
+        position: createVec2D({ x: position.x, y: position.y }),
       });
     }
   }

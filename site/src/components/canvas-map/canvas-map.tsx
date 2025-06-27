@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { Context2DScaledWrapper, type CoordinatePair } from "./canvas-wrapper";
+import { Context2DScaledWrapper } from "./canvas-wrapper";
 import { CanvasMapRenderer, type LabelledCoordinates } from "./canvas-map-renderer";
 import { useGroupStateContext } from "../../context/group-state-context";
 import type { GroupState } from "../../data/api";
 
 import "./canvas-map.css";
+import { createVec2D, type WikiPosition2D } from "./coordinates";
 
 const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoordinates[] => {
   if (!state) return [];
@@ -29,7 +30,7 @@ export const useCanvasMap = ({
   const pixelRatioRef = useRef<number>(1);
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
   const [dragging, setDragging] = useState<boolean>();
-  const [coordinates, setCoordinates] = useState<CoordinatePair>();
+  const [coordinates, setCoordinates] = useState<WikiPosition2D>();
   const [followedPlayer, setFollowedPlayer] = useState<string>();
   const animationFrameHandleRef = useRef<number>(undefined);
   const memberCoordinates = useGroupStateContext(memberCoordinatesSelector);
@@ -99,12 +100,12 @@ export const useCanvasMap = ({
   useEffect(() => {
     if (renderer === undefined) return;
 
-    renderer.onCursorCoordinatesUpdate = setCoordinates;
+    renderer.onHoveredCoordinatesUpdate = setCoordinates;
     renderer.onDraggingUpdate = setDragging;
     renderer.onFollowPlayerUpdate = setFollowedPlayer;
 
     return (): void => {
-      renderer.onCursorCoordinatesUpdate = undefined;
+      renderer.onHoveredCoordinatesUpdate = undefined;
       renderer.onDraggingUpdate = undefined;
       renderer.onFollowPlayerUpdate = undefined;
     };
@@ -122,7 +123,7 @@ export const useCanvasMap = ({
 
   const handlePointerMove = useCallback(
     ({ clientX, clientY }: { clientX: number; clientY: number }) => {
-      renderer?.handlePointerMove({ x: clientX, y: clientY });
+      renderer?.handlePointerMove(createVec2D({ x: clientX, y: clientY }));
     },
     [renderer],
   );

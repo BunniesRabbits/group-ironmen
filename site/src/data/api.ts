@@ -9,7 +9,7 @@ import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsRespon
 import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import { Skill, type Experience } from "./skill";
-import type { CoordinateTriplet } from "../components/canvas-map/canvas-wrapper";
+import { createVec3D, type WikiPosition3D } from "../components/canvas-map/coordinates";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -32,7 +32,7 @@ export interface GameData {
 interface UpdateCallbacks {
   onGroupUpdate: (group: GroupState) => void;
   onGameDataUpdate: (data: GameData) => void;
-  onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: CoordinateTriplet }[]) => void;
+  onPlayerPositionsUpdate: (positions: { player: Member.Name; coords: WikiPosition3D }[]) => void;
 }
 export default class Api {
   private baseURL: string;
@@ -173,7 +173,11 @@ export default class Api {
       }
 
       if (coordinates !== undefined) {
-        memberData.coordinates = structuredClone(coordinates);
+        memberData.coordinates = createVec3D<WikiPosition3D>({
+          x: coordinates.x,
+          y: coordinates.y,
+          z: coordinates.plane,
+        });
         updatedCoordinates = true;
       }
     }

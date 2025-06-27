@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { GroupState } from "../data/api";
 import type * as Member from "../data/member";
-import type { CoordinateTriplet } from "../components/canvas-map/canvas-wrapper";
+import type { WikiPosition3D } from "../components/canvas-map/coordinates";
 
 type GroupStateSelector<T> = (state: GroupState | undefined) => T;
 
@@ -27,7 +27,7 @@ export const useMemberEquipmentContext = (member: Member.Name): Member.Equipment
   useGroupStateContext((state) => state?.members.get(member)?.equipment);
 export const useMemberInventoryContext = (member: Member.Name): Member.Inventory | undefined =>
   useGroupStateContext((state) => state?.members.get(member)?.inventory);
-export const useMemberCoordinatesContext = (member: Member.Name): CoordinateTriplet | undefined =>
+export const useMemberCoordinatesContext = (member: Member.Name): WikiPosition3D | undefined =>
   useGroupStateContext((state) => state?.members.get(member)?.coordinates);
 export const useMemberInteractingContext = (member: Member.Name): Member.NPCInteraction | undefined =>
   useGroupStateContext((state) => state?.members.get(member)?.interacting);

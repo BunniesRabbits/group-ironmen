@@ -1,16 +1,18 @@
-export interface CoordinatePair {
-  x: number;
-  y: number;
-}
-export interface ExtentPair {
-  width: number;
-  height: number;
-}
-export interface CoordinateTriplet {
-  x: number;
-  y: number;
-  plane: number;
-}
+import {
+  type WorldPosition2D,
+  type WorldDisplacement2D,
+  type CursorDisplacement2D,
+  type Transform2D,
+  createVec2D,
+  Disp2D,
+  convertPos2DWorldToView,
+  addVec2D,
+  type ImagePosition2D,
+  type ImageDisplacement2D,
+  mulVec2D,
+  Rect2D,
+  subVec2D,
+} from "./coordinates";
 
 // Figuring out when to apply scaling is hard, so this wrapper handles
 // that by implementing a subset of Context2D rendering commands.
@@ -23,68 +25,46 @@ export class Context2DScaledWrapper {
   private context: CanvasRenderingContext2D;
 
   // Transform of the view/camera, in world units
-  private translation: CoordinatePair;
-  private scale: number;
+  private camera: Transform2D;
 
   constructor({ pixelRatio, context }: { pixelRatio: number; context: CanvasRenderingContext2D }) {
     this.pixelRatio = pixelRatio;
     this.context = context;
-    this.translation = { x: 0, y: 0 };
-    this.scale = 1;
+    this.camera = {
+      translation: createVec2D({ x: 0, y: 0 }),
+      scale: 1,
+    };
     this.context.imageSmoothingEnabled = false;
   }
 
-  private screenPixelsPerWorldUnit(): number {
-    return this.pixelRatio / this.scale;
+  public getCanvasExtent(): CursorDisplacement2D {
+    return createVec2D({
+      x: this.context.canvas.clientWidth,
+      y: this.context.canvas.clientHeight,
+    });
   }
-
-  /**
-   * The cursor's position is in canvas/screen space, which is physical pixels.
-   * Thus the world position the cursor points to is relative to the canvas and view parameters, and this method handles the conversion.
-   */
-  screenPositionToWorldPosition(cursorPosition: CoordinatePair): CoordinatePair {
-    // screen space -> view space -> world space
-    const viewPosition: CoordinatePair = {
-      x: cursorPosition.x - (0.5 * this.context.canvas.width) / this.pixelRatio,
-      y: cursorPosition.y - (0.5 * this.context.canvas.height) / this.pixelRatio,
-    };
-    const worldPosition: CoordinatePair = {
-      x: this.scale * viewPosition.x + this.translation.x,
-      y: this.scale * viewPosition.y + this.translation.y,
-    };
-
-    return worldPosition;
-  }
-
-  // Returns the width/height of the camera, in world coordinates (NOT view coordinates. Mind the scaling.)
-  viewPlaneWorldExtent(): ExtentPair {
-    return {
-      width: this.context.canvas.width / this.screenPixelsPerWorldUnit(),
-      height: this.context.canvas.height / this.screenPixelsPerWorldUnit(),
-    };
-  }
-  viewPlaneWorldOffset(): CoordinatePair {
-    return {
-      x: this.translation.x,
-      y: this.translation.y,
-    };
+  public getCamera(): Transform2D {
+    return this.camera;
   }
 
   // Sets context for transformation.
   // The parameters should match your camera, do not pass inverted parameters.
-  setTransform({
+  public setTransform({
     translation,
     scale,
     pixelPerfectDenominator,
   }: {
-    translation: CoordinatePair;
+    translation: WorldPosition2D;
     scale: number;
     pixelPerfectDenominator: number;
   }): void {
     // Ratio of world units to physical pixels
-    this.translation = translation;
-    this.scale =
-      Math.floor(pixelPerfectDenominator * scale * this.pixelRatio) / (pixelPerfectDenominator * this.pixelRatio);
+    this.camera = {
+      translation,
+      scale:
+        Math.floor(pixelPerfectDenominator * scale * this.pixelRatio) / (pixelPerfectDenominator * this.pixelRatio),
+    };
+
     // The rectangular canvas is the view plane of the camera.
     // So view space (0,0) is visible at the center of the canvas.
     // Thus, we offset by half the canvas pixels since (0,0) is in the corner of the canvas.
@@ -92,14 +72,25 @@ export class Context2DScaledWrapper {
       this.pixelRatio,
       0,
       0,
-      this.pixelRatio,
+      -this.pixelRatio,
       this.context.canvas.width / 2,
       this.context.canvas.height / 2,
     );
   }
 
-  getScale(): number {
-    return this.scale;
+  /**
+   * @returns Gives the rectangle that defines the area of world-space that is
+   *  visible to the camera.
+   */
+  public getVisibleWorldBox(): { min: WorldPosition2D; max: WorldPosition2D } {
+    const extent = Disp2D.viewToWorld({
+      view: createVec2D({ x: this.context.canvas.clientWidth, y: this.context.canvas.clientHeight }),
+      camera: this.camera,
+    });
+    return {
+      min: addVec2D(this.camera.translation, mulVec2D(-0.5, extent)),
+      max: addVec2D(this.camera.translation, mulVec2D(0.5, extent)),
+    };
   }
 
   // Sets context for further fill commands
@@ -107,30 +98,15 @@ export class Context2DScaledWrapper {
     this.context.fillStyle = fillStyle;
   }
 
-  private convertWorldPositionToView(position: CoordinatePair): CoordinatePair {
-    return {
-      x: (position.x - this.translation.x) / this.scale,
-      y: (position.y - this.translation.y) / this.scale,
-    };
-  }
-  private convertWorldExtentToView(extent: ExtentPair): ExtentPair {
-    return {
-      width: extent.width / this.scale,
-      height: extent.height / this.scale,
-    };
-  }
-
   /**
    * Draws a filled rectangle.
    */
   drawRect({
-    worldPosition,
-    worldExtent,
+    rect,
     fillStyle,
     insetBorder,
   }: {
-    worldPosition: CoordinatePair;
-    worldExtent: ExtentPair;
+    rect: { min: WorldPosition2D; max: WorldPosition2D };
     fillStyle: string;
     opacity?: number;
     insetBorder?: {
@@ -139,19 +115,20 @@ export class Context2DScaledWrapper {
     };
   }): void {
     this.context.fillStyle = fillStyle;
-    const position = this.convertWorldPositionToView(worldPosition);
-    const extent = this.convertWorldExtentToView(worldExtent);
+    const { min, max } = Rect2D.worldToView({ min: rect.min, max: rect.max, camera: this.camera });
 
-    this.context.fillRect(position.x, position.y, extent.width, extent.height);
+    const position = min;
+    const extent = subVec2D(max, min);
 
+    this.context.fillRect(position.x, position.y, extent.x, extent.y);
     if (insetBorder) {
       this.context.strokeStyle = insetBorder.style;
       this.context.lineWidth = insetBorder.widthPixels;
       this.context.strokeRect(
         position.x + insetBorder.widthPixels / 2,
         position.y + insetBorder.widthPixels / 2,
-        extent.width - insetBorder.widthPixels,
-        extent.height - insetBorder.widthPixels,
+        extent.x - insetBorder.widthPixels,
+        extent.y - insetBorder.widthPixels,
       );
     }
   }
@@ -160,11 +137,11 @@ export class Context2DScaledWrapper {
     worldStartPosition,
     worldEndPosition,
   }: {
-    worldStartPosition: CoordinatePair;
-    worldEndPosition: CoordinatePair;
+    worldStartPosition: WorldPosition2D;
+    worldEndPosition: WorldPosition2D;
   }): void {
-    const start = this.convertWorldPositionToView(worldStartPosition);
-    const end = this.convertWorldPositionToView(worldEndPosition);
+    const start = convertPos2DWorldToView({ world: worldStartPosition, camera: this.camera });
+    const end = convertPos2DWorldToView({ world: worldEndPosition, camera: this.camera });
 
     this.context.beginPath();
     this.context.moveTo(start.x, start.y);
@@ -184,21 +161,17 @@ export class Context2DScaledWrapper {
   /**
    * Draw tile region, stretching it to fit to exact pixel of the adjacent regions.
    */
-  drawRegion({
+  drawImageSnappedToGrid({
     image,
-    worldPosition,
-    worldExtent,
+    rect: { min, max },
     alpha,
   }: {
     image: ImageBitmap;
-    worldPosition: CoordinatePair;
-    worldExtent: ExtentPair;
+    rect: { min: WorldPosition2D; max: WorldPosition2D };
     alpha: number;
   }): void {
-    const position = this.convertWorldPositionToView(worldPosition);
-    const extent = this.convertWorldExtentToView(worldExtent);
-
-    const positionNext = { x: position.x + extent.width, y: position.y + extent.height };
+    const position = convertPos2DWorldToView({ world: min, camera: this.camera });
+    const positionNeighbor = convertPos2DWorldToView({ world: max, camera: this.camera });
 
     const previousAlpha = this.context.globalAlpha;
     this.context.globalAlpha = alpha;
@@ -212,11 +185,10 @@ export class Context2DScaledWrapper {
        * Compute dx2,dy2 in a consistent way such that they are actually the dx1/dy1 of adjacent regions.
        * This allows us to then render in a pixel-perfect way, in terms of leaving no gaps.
        */
-      const dx2 = Math.floor(this.pixelRatio * positionNext.x + this.context.canvas.width / 2);
-      const dy2 = Math.floor(this.pixelRatio * positionNext.y + this.context.canvas.height / 2);
+      const dx2 = Math.floor(this.pixelRatio * positionNeighbor.x + this.context.canvas.width / 2);
+      const dy2 = Math.floor(this.pixelRatio * positionNeighbor.y + this.context.canvas.height / 2);
 
       this.context.drawImage(image, 0, 0, image.width, image.height, dx1, dy1, dx2 - dx1, dy2 - dy1);
-
       this.context.setTransform(
         this.pixelRatio,
         0,
@@ -245,15 +217,15 @@ export class Context2DScaledWrapper {
     alpha,
   }: {
     image: ImageBitmap;
-    imageOffsetInPixels: CoordinatePair;
-    imageExtentInPixels: ExtentPair;
-    worldPosition: CoordinatePair;
-    worldExtent: ExtentPair;
+    imageOffsetInPixels: ImagePosition2D;
+    imageExtentInPixels: ImageDisplacement2D;
+    worldPosition: WorldPosition2D;
+    worldExtent: WorldDisplacement2D;
     pixelPerfect?: boolean;
     alpha: number;
   }): void {
-    const position = this.convertWorldPositionToView(worldPosition);
-    const extent = this.convertWorldExtentToView(worldExtent);
+    const position = convertPos2DWorldToView({ world: worldPosition, camera: this.camera });
+    const extent = Disp2D.worldToView({ world: worldExtent, camera: this.camera });
 
     pixelPerfect = pixelPerfect ?? false;
 
@@ -266,12 +238,12 @@ export class Context2DScaledWrapper {
         image,
         imageOffsetInPixels.x,
         imageOffsetInPixels.y,
-        imageExtentInPixels.width,
-        imageExtentInPixels.height,
+        imageExtentInPixels.x,
+        imageExtentInPixels.y,
         Math.round(this.pixelRatio * position.x + this.context.canvas.width / 2),
         Math.round(this.pixelRatio * position.y + this.context.canvas.height / 2),
-        Math.round((this.pixelRatio * extent.width) / imageExtentInPixels.width) * imageExtentInPixels.width,
-        Math.round((this.pixelRatio * extent.height) / imageExtentInPixels.height) * imageExtentInPixels.height,
+        Math.round((this.pixelRatio * extent.x) / imageExtentInPixels.x) * imageExtentInPixels.x,
+        Math.round((this.pixelRatio * extent.y) / imageExtentInPixels.y) * imageExtentInPixels.y,
       );
 
       this.context.setTransform(
@@ -287,20 +259,21 @@ export class Context2DScaledWrapper {
         image,
         imageOffsetInPixels.x,
         imageOffsetInPixels.y,
-        imageExtentInPixels.width,
-        imageExtentInPixels.height,
+        imageExtentInPixels.x,
+        imageExtentInPixels.y,
         position.x,
         position.y,
-        extent.width,
-        extent.height,
+        extent.x,
+        extent.y,
       );
     }
     this.context.globalAlpha = previousAlpha;
   }
 
-  drawRSText({ worldPosition, label }: { worldPosition: CoordinatePair; label: string }): void {
-    const position = this.convertWorldPositionToView(worldPosition);
-    const scale = Math.round(Math.max(2.0 * this.convertWorldExtentToView({ width: 1, height: 1 }).height, 16));
+  drawRSText({ position, label }: { position: WorldPosition2D; label: string }): void {
+    const positionView = convertPos2DWorldToView({ world: position, camera: this.camera });
+    const extentView = Disp2D.worldToView({ world: createVec2D({ x: 0, y: 0 }), camera: this.camera });
+    const scale = Math.round(Math.max(2.0 * extentView.y, 16));
 
     this.context.font = `${scale}px rssmall`;
     this.context.textAlign = "center";
@@ -308,9 +281,9 @@ export class Context2DScaledWrapper {
     this.context.textBaseline = "middle";
 
     this.context.fillStyle = "black";
-    this.context.fillText(label, position.x + scale / 16, position.y + scale / 16);
+    this.context.fillText(label, positionView.x + scale / 16, positionView.y + scale / 16);
 
     this.context.fillStyle = "yellow";
-    this.context.fillText(label, position.x, position.y);
+    this.context.fillText(label, positionView.x, positionView.y);
   }
 }
