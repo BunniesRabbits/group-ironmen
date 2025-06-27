@@ -1,8 +1,1 @@
-* text=auto
-
-# Adjust line endings for files that can be loaded on multiple platforms, e.g. Linux in Docker or Windows/Linux spun up on the host.
-*.json text
-*.js text
-
-# Protect scripts when running docker on Windows
-**/docker-entrypoint.sh text eol=lf
+* text=auto eol=lf
