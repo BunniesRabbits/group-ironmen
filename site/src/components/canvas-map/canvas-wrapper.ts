@@ -228,7 +228,7 @@ export class Context2DScaledWrapper {
 
   drawRSText({ position, label }: { position: WorldPosition2D; label: string }): void {
     const positionView = Pos2D.worldToView({ world: position, camera: this.camera });
-    const scale = 16;
+    const scale = 32;
 
     this.context.font = `${scale}px rssmall`;
     this.context.textAlign = "center";

@@ -681,14 +681,15 @@ export class CanvasMapRenderer {
   }
 
   /**
-   * Each player gets a highlighted square (like runelite tile markers), and a label of their name.
+   * Each player gets a highlighted square (like runelite tile markers), and a
+   * label of their name.
    */
   private drawPlayerPositionMarkers(context: Context2DScaledWrapper): void {
     for (const [player, { coords }] of this.playerPositions) {
-      const rect = {
-        min: coords,
-        max: Vec2D.add(coords, Vec2D.create<WorldDisplacement2D>({ x: 1, y: 1 })),
-      };
+      const rect = Rect2D.create({
+        position: coords,
+        extent: Vec2D.create<WorldDisplacement2D>({ x: 1, y: -1 }),
+      });
 
       context.drawRect({
         fillStyle: "rgb(0 200 255 / 50%)",
@@ -697,7 +698,7 @@ export class CanvasMapRenderer {
       });
       context.drawRSText({
         label: player,
-        position: coords,
+        position: Vec2D.add(coords, Vec2D.create<WorldDisplacement2D>({ x: 0.5, y: -1 })),
       });
     }
   }
