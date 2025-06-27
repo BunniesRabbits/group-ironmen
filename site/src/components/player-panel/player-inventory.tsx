@@ -3,7 +3,7 @@ import { useItemTooltip, type ItemTooltipProps } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../context/game-data-context";
 import * as Member from "../../data/member";
 import { useMemberInventoryContext, useMemberRunePouchContext } from "../../context/group-state-context";
-import { ItemID } from "../../data/items";
+import { composeItemIconHref, isRunePouch } from "../../data/items";
 
 import "./player-inventory.css";
 
@@ -25,12 +25,13 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
     const { itemID, quantity } = item;
 
     const itemDatum = itemData?.get(itemID);
+    const iconHref = composeItemIconHref(item, itemDatum);
 
     const overlayItemIcons = [];
     let tooltipProps: ItemTooltipProps | undefined = undefined;
     const href = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
 
-    if (itemDatum && ItemID.isRunePouch(itemID) && runePouch) {
+    if (itemDatum && isRunePouch(itemID) && runePouch) {
       let totalHighAlch = 0;
       let totalGePrice = 0;
       const runes: { name: string; quantity: number }[] = [];
@@ -73,7 +74,7 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
           showTooltip(tooltipProps);
         }}
       >
-        <img alt="osrs item" src={`/icons/items/${itemID}.webp`} />
+        <img alt="osrs item" src={iconHref} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", inset: 0, position: "absolute" }}>
           {overlayItemIcons}
         </div>

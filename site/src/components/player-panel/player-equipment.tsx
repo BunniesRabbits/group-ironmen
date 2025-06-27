@@ -6,6 +6,7 @@ import type * as Member from "../../data/member";
 import { useMemberEquipmentContext } from "../../context/group-state-context";
 
 import "./player-equipment.css";
+import { composeItemIconHref } from "../../data/items";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",
@@ -42,53 +43,61 @@ export const PlayerEquipment = ({ member }: { member: Member.Name }): ReactEleme
   const { items: itemData, gePrices: geData } = useContext(GameDataContext);
   const equipment = useMemberEquipmentContext(member);
 
+  const slotElements = [];
+  for (const slot of VisibleEquipmentSlots) {
+    const item = equipment?.get(slot);
+    if (!item) {
+      slotElements.push(
+        <div
+          key={slot}
+          className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+        >
+          <img
+            alt={`empty equipment ${slot} slot`}
+            className="equipment-slot-empty"
+            src={`/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`}
+          />
+        </div>,
+      );
+      continue;
+    }
+
+    const { itemID, quantity } = item;
+    const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
+
+    const itemDatum = itemData?.get(itemID);
+
+    const iconHref = composeItemIconHref(item, itemDatum);
+
+    const onPointerEnter = (): void => {
+      if (!itemDatum) return;
+
+      showTooltip({
+        type: "Item",
+        name: itemDatum.name,
+        quantity: quantity,
+        highAlch: itemDatum.highalch,
+        gePrice: geData?.get(item.itemID) ?? 0,
+      });
+    };
+    slotElements.push(
+      <a
+        href={wikiLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        key={slot}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={hideTooltip}
+        className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+      >
+        <img alt={itemDatum?.name ?? "equipment"} className="equipment-slot-item" src={iconHref} />
+      </a>,
+    );
+  }
+
   return (
     <div className="player-equipment">
-      {VisibleEquipmentSlots.map((slot) => {
-        const item = equipment?.get(slot);
-        if (item !== undefined) {
-          const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
-          const iconURL = `/icons/items/${item.itemID}.webp`;
-          const itemDatum = itemData?.get(item.itemID);
-          const onPointerEnter = (): void => {
-            if (!itemDatum) return;
-
-            showTooltip({
-              type: "Item",
-              name: itemDatum.name,
-              quantity: item.quantity,
-              highAlch: itemDatum.highalch,
-              gePrice: geData?.get(item.itemID) ?? 0,
-            });
-          };
-          return (
-            <a
-              href={wikiLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={slot}
-              onPointerEnter={onPointerEnter}
-              onPointerLeave={hideTooltip}
-              className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
-            >
-              <img alt={itemDatum?.name ?? "equipment"} className="equipment-slot-item" src={iconURL} />
-            </a>
-          );
-        } else {
-          return (
-            <div
-              key={slot}
-              className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
-            >
-              <img
-                alt={`empty equipment ${slot} slot`}
-                className="equipment-slot-empty"
-                src={`/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`}
-              />
-            </div>
-          );
-        }
-      })}
+      {slotElements}
       {tooltipElement}
     </div>
   );

@@ -9,14 +9,26 @@ export interface ItemStack {
 export type Item = z.infer<typeof ItemsDataEntrySchema>;
 export type ItemsDatabase = z.infer<typeof ItemsDataSchema>;
 
-export const ItemID = Object.freeze({
-  isRunePouch(id: ItemID): boolean {
-    const RUNE_POUCH = 12791;
-    const DIVINE_RUNE_POUCH = 27281;
-    return id === RUNE_POUCH || id === DIVINE_RUNE_POUCH;
-  },
-});
+export const composeItemIconHref = (
+  { itemID, quantity }: ItemStack,
+  itemDatum?: ItemsDatabase extends Map<unknown, infer I> ? I : never,
+): string => {
+  let id = itemID;
+  if (itemDatum?.stacks) {
+    for (const [stackBreakpoint, stackItemID] of itemDatum.stacks) {
+      if (stackBreakpoint > quantity) break;
 
+      id = stackItemID as ItemID;
+    }
+  }
+
+  return `/icons/items/${id}.webp`;
+};
+export const isRunePouch = (id: ItemID): boolean => {
+  const RUNE_POUCH = 12791;
+  const DIVINE_RUNE_POUCH = 27281;
+  return id === RUNE_POUCH || id === DIVINE_RUNE_POUCH;
+};
 export const fetchItemDataJSON = (): Promise<ItemsDatabase> =>
   import("/src/assets/item_data.json")
     .then((data) => {

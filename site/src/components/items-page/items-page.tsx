@@ -3,7 +3,7 @@ import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
 import type * as Member from "../../data/member";
 import { GameDataContext } from "../../context/game-data-context";
-import { type ItemID } from "../../data/items";
+import { composeItemIconHref, type ItemID } from "../../data/items";
 import { useGroupListMembersContext, useGroupStateContext } from "../../context/group-state-context";
 
 type ItemFilter = "All" | Member.Name;
@@ -153,8 +153,8 @@ export const ItemsPage = (): ReactElement => {
   }
   const { totalHighAlch, totalGEPrice, filteredItems } = [...(items ?? [])].reduce<ItemAggregates>(
     (previousValue, [itemID, quantityByMemberName]) => {
-      const item = itemData?.get(itemID);
-      if (!item?.name.toLocaleLowerCase().includes(searchString)) return previousValue;
+      const itemDatum = itemData?.get(itemID);
+      if (!itemDatum?.name.toLocaleLowerCase().includes(searchString)) return previousValue;
 
       let filteredTotalQuantity = 0;
       const filteredQuantities = new Map<Member.Name, number>();
@@ -167,14 +167,14 @@ export const ItemsPage = (): ReactElement => {
 
       if (filteredTotalQuantity <= 0) return previousValue;
 
-      const highAlch = item?.highalch ?? 0;
+      const highAlch = itemDatum?.highalch ?? 0;
       const gePrice = geData?.get(itemID) ?? 0;
       previousValue.totalHighAlch += filteredTotalQuantity * highAlch;
       previousValue.totalGEPrice += filteredTotalQuantity * gePrice;
 
       previousValue.filteredItems.push({
         itemID,
-        itemName: item?.name ?? "@UNKNOWN",
+        itemName: itemDatum?.name ?? "@UNKNOWN",
         quantityByMemberName: filteredQuantities,
         totalQuantity: filteredTotalQuantity,
         gePrice,
@@ -213,7 +213,7 @@ export const ItemsPage = (): ReactElement => {
       <ItemPanel
         key={itemID}
         itemID={itemID}
-        imageURL={`/icons/items/${itemID}.webp`}
+        imageURL={composeItemIconHref({ itemID, quantity: totalQuantity }, itemData?.get(itemID))}
         totalQuantity={totalQuantity}
         highAlchPer={highAlch}
         gePricePer={gePrice}
