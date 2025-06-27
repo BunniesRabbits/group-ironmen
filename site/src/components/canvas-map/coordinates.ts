@@ -1,10 +1,5 @@
 import type { DistinctPair } from "../../util";
 
-type Space = "Wiki" | "World" | "View" | "Cursor" | "Image" | "Region";
-type Category = "Position" | "Displacement";
-
-type Component<C extends Category, S extends Space> = DistinctPair<number, C, S>;
-
 /*
  * The crux of this is that positions and displacements (position - position)
  * are not interchangeable. They operate differently under linear operators,
@@ -15,12 +10,53 @@ type Component<C extends Category, S extends Space> = DistinctPair<number, C, S>
  * these extra discriminators, vectors of different categories cannot be
  * implicitly converted. This makes manually working with them difficult, but we
  * write helper functions that handle all the conversions and math correctly.
+ *
+ * Description of each coordinate space:
+ *
+ * Wiki:
+ *
+ *  The coordinates utilized by the wiki and the remote backend. Each unit is 1
+ *  square in runescape, with +Y pointing "up" or north in-game.
+ *
+ * World:
+ *
+ *  Same unit as Wiki coordinates, just with the Y-axis flipped and +Y pointing
+ *  "down" or south in-game. The flip was done to simplify rendering, although
+ *  it should theoretically be possible to not need to flip the axis until the
+ *  actual canvas draws.
+ *
+ * Region:
+ *
+ *  The coordinates referred to by the region/tile file names. For example,
+ *  Lumbridge castle is (52,50,0) (x,y,plane). These are scaled and shifted from
+ *  Wiki coordinates.
+ *
+ * View:
+ *
+ *  These coordinates are 1 to 1 with logical/CSS pixels. The origin in this
+ *  coordinate space is the center of the screen, where the camera is
+ *  positioned.
+ *
+ * Cursor:
+ *
+ *  These coordinates are what the pointer events use. The size of a unit is the
+ *  same as the view, just offset so the origin is in the (-,-) corner of the
+ *  screen. In the Javascript Web API, these coordinates are labelled (ClientX,
+ *  ClientY) or (ClientWidth, ClientHeight).
+ *
+ * Image:
+ *
+ *  Image coordinates are what are used when referring to the pixels of an image
+ *  resource utilized by the canvas 2D API.
  */
+type Space = "Wiki" | "World" | "Region" | "View" | "Cursor" | "Image";
+type Category = "Position" | "Displacement";
+
+type Component<C extends Category, S extends Space> = DistinctPair<number, C, S>;
 
 interface Vec2D<C extends Category, S extends Space> {
   x: Component<C, S>;
   y: Component<C, S>;
-  __DIMENSION__: "2D";
   __CATEGORY__: C;
   __SPACE__: S;
 }
@@ -32,63 +68,24 @@ interface Vec2D<C extends Category, S extends Space> {
 type SpaceOf<P extends { __SPACE__: Space }> = P["__SPACE__"];
 type CategoryOf<P extends { __CATEGORY__: Category }> = P["__CATEGORY__"];
 
-type Position2D<S extends Space> = Vec2D<"Position", S>;
-type Displacement2D<S extends Space> = Vec2D<"Displacement", S>;
-
 export interface Transform2D {
   translation: WorldPosition2D;
   scale: number;
 }
 
-/*
- * The coordinates utilized by the wiki and the remote backend. This is a
- * distinct coordinate system since there is a shift from the natural coordinate
- * system that I have not yet reconciled. Also, the y axis is flipped.
- */
 export type WikiPosition2D = Vec2D<"Position", "Wiki">;
 
-/*
- * These coordinates are 1 to 1 with Runescape squares, but translated from the
- * exact coordinates that the wiki/remote backend uses.
- */
 export type WorldPosition2D = Vec2D<"Position", "World">;
 export type WorldDisplacement2D = Vec2D<"Displacement", "World">;
-
-/*
- * Region coordinates are used by the grid of background tiles for the world map.
- */
 
 export type RegionPosition2D = Vec2D<"Position", "Region">;
 export type RegionDisplacement2D = Vec2D<"Displacement", "Region">;
 
-/*
- * These coordinates are 1 to 1 with logical/CSS pixels (the specifics are up to
- * the renderer). The origin in this coordinate space is the center of the
- * screen, with the rest of the screen extending in the +/- direction.
- */
-
 export type ViewPosition2D = Vec2D<"Position", "View">;
 export type ViewDisplacement2D = Vec2D<"Displacement", "View">;
 
-/*
- * These coordinates are what the pointer events use. They have the same origin
- * and orientation as the canvas pixel coordinates, but use the size of a
- * logical/CSS pixel.
- */
-
-/**
- * (ClientX, ClientY) in pointer events.
- */
 export type CursorPosition2D = Vec2D<"Position", "Cursor">;
-/**
- * (ClientWidth, ClientHeight) on DOM elements.
- */
 export type CursorDisplacement2D = Vec2D<"Displacement", "Cursor">;
-
-/*
- * Image coordinates are what are used when referring to an image resource
- * utilized by the canvas 2D API.
- */
 
 export type ImagePosition2D = Vec2D<"Position", "Image">;
 export type ImageDisplacement2D = Vec2D<"Displacement", "Image">;
@@ -229,6 +226,9 @@ export const Disp2D = Object.freeze({
   },
 });
 
+/**
+ * Functions that work on multiple categories of vector.
+ */
 export const Vec2D = Object.freeze({
   /**
    * Returns component-wise lhs === rhs.
@@ -260,6 +260,9 @@ export const Vec2D = Object.freeze({
     return lhs.x <= rhs.x && lhs.y <= rhs.y;
   },
 
+  /**
+   * Returns component-wise floor.
+   */
   floor<Vector extends Vec2D<Category, Space>>({ x, y }: Vector): Vector {
     return {
       x: Math.floor(x),
@@ -267,6 +270,9 @@ export const Vec2D = Object.freeze({
     } as Vector;
   },
 
+  /**
+   * Returns component-wise ceiling.
+   */
   ceil<Vector extends Vec2D<Category, Space>>({ x, y }: Vector): Vector {
     return {
       x: Math.ceil(x),
@@ -278,7 +284,7 @@ export const Vec2D = Object.freeze({
    * Returns p + d. Both arguments must be in the space coordinate space, with the
    * left hand side being a position and the right hand side being a displacement.
    */
-  add<Position extends Position2D<Space>, Displacement extends Displacement2D<SpaceOf<Position>>>(
+  add<Position extends Vec2D<"Position", Space>, Displacement extends Vec2D<"Displacement", SpaceOf<Position>>>(
     position: Position,
     displacement: Displacement,
   ): Position {
@@ -292,7 +298,7 @@ export const Vec2D = Object.freeze({
    * Returns lhs - rhs. Both arguments must be positions and must be the same
    * coordinate space.
    */
-  sub<Position extends Position2D<Space>, Displacement extends Displacement2D<SpaceOf<Position>>>(
+  sub<Position extends Vec2D<"Position", Space>, Displacement extends Vec2D<"Displacement", SpaceOf<Position>>>(
     lhs: Position,
     rhs: Position,
   ): Displacement {
@@ -344,6 +350,11 @@ export const Vec2D = Object.freeze({
   },
 });
 
+/**
+ * For a (min,max) style AABB, when converting coordinate spaces the min and max
+ * will swap and twist components due to changing axes. The functions in this
+ * helper object convert in a way that handles that.
+ */
 export const Rect2D = Object.freeze({
   create<Position extends Vec2D<"Position", Space>, Displacement extends Vec2D<"Displacement", SpaceOf<Position>>>({
     position,
