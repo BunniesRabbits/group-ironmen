@@ -41,7 +41,7 @@
     "serve": "tsx scripts/server.ts --prod",
     "lint": "eslint . && stylelint src/**/*.css",
     "lint:fix": "eslint . --fix && stylelint src/**/*.css --fix",
-    "precommit": "npm run lint",
+    "precommit": "npm run lint && tsc",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
