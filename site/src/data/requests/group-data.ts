@@ -925,12 +925,12 @@ const GetGroupDataResponseSchema = z
      * The items in the player's rune pouch.
      * When defined, it always contains all of the items.
      */
-    runePouch: z.optional(ItemCollectionSchema),
+    rune_pouch: z.optional(ItemCollectionSchema),
     /**
      * The items in the player's farming guild seed vault.
      * When defined, it always contains all of the items.
      */
-    seedVault: z.optional(ItemCollectionSchema),
+    seed_vault: z.optional(ItemCollectionSchema),
     /**
      * Information on NPC the player last interacted with.
      */

@@ -13,3 +13,10 @@
   visibility: hidden; /* Hidden until toggled on by a component */
   padding: 5px;
 }
+
+#tooltip hr {
+  background-color: rgb(255 255 255 / 60%);
+  margin-block: 4px;
+  border: none;
+  height: 1px;
+}

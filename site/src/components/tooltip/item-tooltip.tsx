@@ -3,12 +3,21 @@ import { Fragment, useRef, useState, type ReactElement } from "react";
 import "./tooltip.css";
 import { createPortal } from "react-dom";
 
-export interface ItemTooltipProps {
-  name: string;
-  quantity: number;
-  highAlch: number;
-  gePrice: number;
-}
+export type ItemTooltipProps =
+  | {
+      type: "Item";
+      name: string;
+      quantity: number;
+      highAlch: number;
+      gePrice: number;
+    }
+  | {
+      type: "Rune Pouch";
+      name: string;
+      totalHighAlch: number;
+      totalGePrice: number;
+      runes: { name: string; quantity: number }[];
+    };
 
 export const useItemTooltip = (): {
   tooltipElement: ReactElement;
@@ -27,12 +36,16 @@ export const useItemTooltip = (): {
     tooltipRef.current.style.visibility = "visible";
   };
 
-  const lines: { key: string; value: string }[] = [];
-  if (item) {
+  const lines: ({ key: string; value: string; type?: undefined } | { key: string; type: "separator" })[] = [];
+
+  if (item?.type === "Item") {
     if (item.quantity > 1) {
       lines.push({ key: "name", value: `${item.name} x ${item.quantity.toLocaleString()}` });
     } else {
       lines.push({ key: "name", value: `${item.name}` });
+    }
+    if (item.highAlch > 0 || item.gePrice > 0) {
+      lines.push({ key: "after-name", type: "separator" });
     }
 
     if (item.highAlch > 0) {
@@ -54,12 +67,33 @@ export const useItemTooltip = (): {
         lines.push({ key: "GE", value: `GE: ${unitPrice}gp` });
       }
     }
+  } else if (item?.type === "Rune Pouch") {
+    const { name, totalHighAlch, totalGePrice, runes } = item;
+
+    lines.push({ key: "name", value: name });
+    lines.push({ key: "after-name", type: "separator" });
+    lines.push({ key: "HA", value: `HA total: ${totalHighAlch.toLocaleString()}gp` });
+    lines.push({ key: "GE", value: `GE total: ${totalGePrice.toLocaleString()}gp` });
+    lines.push({ key: "after-prices", type: "separator" });
+    for (const { name, quantity } of runes) {
+      lines.push({ key: `rune ${name} ${quantity}`, value: `${quantity.toLocaleString()} ${name}` });
+    }
   }
 
-  const elements = lines.flatMap(({ key, value }, index) => {
-    if (index === 0) return [<Fragment key={key}>{value}</Fragment>];
-    return [<br key={`br ${key}`} />, <Fragment key={key}>{value}</Fragment>];
-  });
+  const elements = [];
+  let skipBreak = false;
+  for (const [index, line] of lines.entries()) {
+    if (line.type === "separator") {
+      elements.push(<hr key={`span ${index}`} />);
+      skipBreak = true;
+      continue;
+    }
+
+    const { key, value } = line;
+    if (index > 0 && !skipBreak) elements.push(<br key={`br ${key}`} />);
+    elements.push(<Fragment key={key}>{value}</Fragment>);
+    skipBreak = false;
+  }
 
   const tooltipElement = createPortal(elements, tooltipRef.current);
 

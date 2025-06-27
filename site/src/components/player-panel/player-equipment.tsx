@@ -54,6 +54,7 @@ export const PlayerEquipment = ({ member }: { member: Member.Name }): ReactEleme
             if (!itemDatum) return;
 
             showTooltip({
+              type: "Item",
               name: itemDatum.name,
               quantity: item.quantity,
               highAlch: itemDatum.highalch,

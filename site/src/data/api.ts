@@ -65,8 +65,8 @@ export default class Api {
       bank,
       equipment,
       inventory,
-      runePouch,
-      seedVault,
+      rune_pouch,
+      seed_vault,
       interacting,
       stats,
       last_updated,
@@ -100,13 +100,13 @@ export default class Api {
         updatedItems = true;
       }
 
-      if (runePouch !== undefined) {
-        memberData.runePouch = new Map(runePouch);
+      if (rune_pouch !== undefined) {
+        memberData.runePouch = new Map(rune_pouch);
         updatedItems = true;
       }
 
-      if (seedVault !== undefined) {
-        memberData.seedVault = new Map(seedVault);
+      if (seed_vault !== undefined) {
+        memberData.seedVault = new Map(seed_vault);
         updatedItems = true;
       }
 

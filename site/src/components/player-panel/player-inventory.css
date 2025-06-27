@@ -7,12 +7,13 @@
 }
 
 .player-inventory-item-box {
+  position: relative;
   padding-left: 4px;
   min-width: 0;
   min-height: 0;
 }
 
-.player-inventory-item-box > img {
+.player-inventory-item-box img {
   object-fit: contain;
   width: 100%;
   image-rendering: auto;
