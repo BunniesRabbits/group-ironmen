@@ -265,15 +265,18 @@ export class CanvasMapRenderer {
   handleScroll(amount: number): void {
     this.cursor.accumulatedScroll += amount;
   }
-  handlePlaneSelect(plane: number): void {
+  setPlane(plane: number): void {
     if (plane !== 0 && plane !== 1 && plane !== 2 && plane !== 3) return;
 
     this.plane = plane;
+    this.onVisiblePlaneUpdate?.(this.plane);
+    this.forceRenderNextFrame = true;
   }
 
   public onHoveredCoordinatesUpdate?: (coords: WikiPosition2D) => void;
   public onDraggingUpdate?: (dragging: boolean) => void;
   public onFollowPlayerUpdate?: (player: string | undefined) => void;
+  public onVisiblePlaneUpdate?: (plane: number) => void;
 
   public startFollowingPlayer({ player }: { player: string | undefined }): void {
     if (!player || !this.playerPositions.has(player)) {
@@ -291,19 +294,20 @@ export class CanvasMapRenderer {
       to: coords,
       timeRemainingMS: FOLLOW_ANIMATION_TIME_MS,
     };
-    this.plane = plane;
 
+    this.setPlane(plane);
     this.onFollowPlayerUpdate?.(this.camera.followPlayer);
   }
 
-  public updatePlayerPositionsFromOSRSCoordinates(positions: LabelledCoordinates[]): void {
+  public tryUpdatePlayerPositions(positions: LabelledCoordinates[]): void {
     for (const { label, coords: coordsWiki, plane } of positions) {
       const current = this.playerPositions.get(label);
       const coords = Pos2D.wikiToWorld(coordsWiki);
 
-      if (current && Vec2D.equals(coords, current.coords) && plane !== current.plane) continue;
+      if (current && Vec2D.equals(coords, current.coords) && plane === current.plane) continue;
 
       this.playerPositions.set(label, { coords, plane });
+      this.forceRenderNextFrame = true;
 
       if (this.camera.followPlayer !== label) continue;
 
@@ -312,9 +316,9 @@ export class CanvasMapRenderer {
         from: this.camera.position,
         to: Vec2D.create(coords),
       };
-      this.plane = plane;
+
+      this.setPlane(plane);
     }
-    this.forceRenderNextFrame = true;
   }
 
   private updateCursorVelocity(elapsed: number): void {

@@ -32,11 +32,12 @@ export const useCanvasMap = ({
   const [dragging, setDragging] = useState<boolean>();
   const [coordinates, setCoordinates] = useState<WikiPosition2D>();
   const [followedPlayer, setFollowedPlayer] = useState<string>();
+  const [visiblePlane, setVisiblePlane] = useState<number>(0);
   const animationFrameHandleRef = useRef<number>(undefined);
   const memberCoordinates = useGroupStateContext(memberCoordinatesSelector);
 
   if (memberCoordinates) {
-    renderer?.updatePlayerPositionsFromOSRSCoordinates(memberCoordinates);
+    renderer?.tryUpdatePlayerPositions(memberCoordinates);
   }
 
   const resizeCanvas = useCallback(() => {
@@ -103,11 +104,13 @@ export const useCanvasMap = ({
     renderer.onHoveredCoordinatesUpdate = setCoordinates;
     renderer.onDraggingUpdate = setDragging;
     renderer.onFollowPlayerUpdate = setFollowedPlayer;
+    renderer.onVisiblePlaneUpdate = setVisiblePlane;
 
     return (): void => {
       renderer.onHoveredCoordinatesUpdate = undefined;
       renderer.onDraggingUpdate = undefined;
       renderer.onFollowPlayerUpdate = undefined;
+      renderer.onVisiblePlaneUpdate = undefined;
     };
   }, [renderer]);
 
@@ -144,7 +147,7 @@ export const useCanvasMap = ({
   );
   const handleSelectPlane = useCallback(
     (plane: number) => {
-      renderer?.handlePlaneSelect(plane);
+      renderer?.setPlane(plane);
     },
     [renderer],
   );
@@ -158,13 +161,16 @@ export const useCanvasMap = ({
       <select
         id="canvas-map-plane-select"
         onChange={(e) => {
-          handleSelectPlane(e.target.selectedIndex);
+          const plane = parseInt(e.target.options[e.target.selectedIndex].value);
+          if (visiblePlane === plane) return;
+          handleSelectPlane(plane);
         }}
+        value={visiblePlane}
       >
-        <option value="1">Plane: 1</option>
-        <option value="2">Plane: 2</option>
-        <option value="3">Plane: 3</option>
-        <option value="4">Plane: 4</option>
+        <option value={0}>Plane: 1</option>
+        <option value={1}>Plane: 2</option>
+        <option value={2}>Plane: 3</option>
+        <option value={3}>Plane: 4</option>
       </select>
     </div>
   );
