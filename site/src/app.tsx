@@ -12,6 +12,7 @@ import { Tooltip } from "./components/tooltip/tooltip";
 import { useGroupListMembersContext } from "./context/group-state-context";
 
 import "./app.css";
+import { SkillGraph } from "./components/skill-graph/skill-graph";
 
 export const App = (): ReactElement => {
   const location = useLocation();
@@ -74,7 +75,14 @@ export const App = (): ReactElement => {
               </AuthedLayout>
             }
           />
-          <Route path="graphs" element={<AuthedLayout panels={panels} />} />
+          <Route
+            path="graphs"
+            element={
+              <AuthedLayout panels={panels}>
+                <SkillGraph />
+              </AuthedLayout>
+            }
+          />
           <Route
             path="panels"
             element={
