@@ -1,14 +1,19 @@
-.player-equipment-item-box:hover {
-  filter: brightness(1.25);
-}
-
 .player-equipment {
   position: relative;
   width: 175px;
   height: 200px;
 }
 
-.equipment-slot {
+.player-equipment-item-quantity {
+  color: var(--yellow);
+  position: absolute;
+  left: 0;
+  top: -0.125em;
+  min-height: 0;
+}
+
+.equipment-slot-empty,
+.equipment-slot-filled {
   position: absolute;
   display: flex;
   justify-content: center;
@@ -18,12 +23,13 @@
   height: 36px;
 }
 
-.equipment-slot.filled:hover {
-  filter: brightness(1.25);
+.dark-mode .equipment-slot-empty,
+.dark-mode .equipment-slot-filled {
+  background-image: url("/ui/170-0-dark.png");
 }
 
-.dark-mode .equipment-slot {
-  background-image: url("/ui/170-0-dark.png");
+.equipment-slot-filled:hover {
+  box-shadow: inset 0 0 0 1000px rgb(255 255 255 / 10%);
 }
 
 .equipment-slot-item {

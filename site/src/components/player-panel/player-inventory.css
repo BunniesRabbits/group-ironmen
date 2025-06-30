@@ -8,19 +8,39 @@
 
 .player-inventory-item-box {
   position: relative;
-  padding-left: 4px;
-  min-width: 0;
+  display: flex;
+  justify-content: space-around;
   min-height: 0;
 }
 
 .player-inventory-item-box img {
-  object-fit: contain;
-  width: 100%;
-  image-rendering: auto;
+  height: 100%;
 }
 
-.player-inventory-item-box-filled:hover {
+.player-inventory-item-box:hover {
   background: rgb(255 255 255 / 10%);
+}
+
+.player-inventory-pouch-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  position: absolute;
+  inset: 0;
+}
+
+.player-inventory-pouch-item-box {
+  position: relative;
+  font-size: 0.875em;
+  font-family: rstiny, ui-sans-serif, Arial, sans-serif;
+  min-height: 0;
+  min-width: 0;
+}
+
+.player-inventory-item-quantity {
+  position: absolute;
+  left: 0;
+  top: -0.125em;
+  min-height: 0;
 }
 
 .player-inventory-background {

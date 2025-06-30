@@ -40,6 +40,25 @@ export const fetchItemDataJSON = (): Promise<ItemsDatabase> =>
       return parseResult.data;
     });
 
+export const formatShortQuantity = (quantity: number): string => {
+  if (quantity >= 1000000000) {
+    return Math.floor(quantity / 1000000000) + "B";
+  } else if (quantity >= 10000000) {
+    return Math.floor(quantity / 1000000) + "M";
+  } else if (quantity >= 100000) {
+    return Math.floor(quantity / 1000) + "K";
+  }
+  return quantity.toString();
+};
+
+export const formatVeryShortQuantity = (quantity: number): string => {
+  if (quantity >= 1000 && quantity < 100000) {
+    return Math.floor(quantity / 1000) + "K";
+  }
+
+  return formatShortQuantity(quantity);
+};
+
 const ItemsDataEntrySchema = z.object({
   name: z.string(),
   highalch: z.uint32(),

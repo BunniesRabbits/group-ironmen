@@ -6,7 +6,7 @@ import type * as Member from "../../data/member";
 import { useMemberEquipmentContext } from "../../context/group-state-context";
 
 import "./player-equipment.css";
-import { composeItemIconHref } from "../../data/items";
+import { composeItemIconHref, formatShortQuantity } from "../../data/items";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",
@@ -48,26 +48,23 @@ export const PlayerEquipment = ({ member }: { member: Member.Name }): ReactEleme
     const item = equipment?.get(slot);
     if (!item) {
       slotElements.push(
-        <div
-          key={slot}
-          className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
-        >
-          <img
-            alt={`empty equipment ${slot} slot`}
-            className="equipment-slot-empty"
-            src={`/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`}
-          />
+        <div key={slot} className={`equipment-${slot.toLowerCase()} equipment-slot-empty`}>
+          <img alt={`empty equipment ${slot} slot`} src={`/ui/${EquipmentSlotEmptyIcons.get(slot) ?? ""}`} />
         </div>,
       );
       continue;
     }
 
     const { itemID, quantity } = item;
-    const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
-
     const itemDatum = itemData?.get(itemID);
 
+    const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
     const iconHref = composeItemIconHref(item, itemDatum);
+
+    let quantityOverlay = undefined;
+    if (quantity > 1) {
+      quantityOverlay = <span className="player-equipment-item-quantity">{formatShortQuantity(quantity)}</span>;
+    }
 
     const onPointerEnter = (): void => {
       if (!itemDatum) return;
@@ -88,9 +85,10 @@ export const PlayerEquipment = ({ member }: { member: Member.Name }): ReactEleme
         key={slot}
         onPointerEnter={onPointerEnter}
         onPointerLeave={hideTooltip}
-        className={`equipment-${slot.toLowerCase()} equipment-slot ${item !== undefined ? "filled" : ""}`}
+        className={`equipment-${slot.toLowerCase()} equipment-slot-filled`}
       >
         <img alt={itemDatum?.name ?? "equipment"} className="equipment-slot-item" src={iconHref} />
+        {quantityOverlay}
       </a>,
     );
   }

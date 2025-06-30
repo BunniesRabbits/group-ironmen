@@ -1,11 +1,53 @@
-import { useContext, type ReactElement } from "react";
+import { useContext, type ReactElement, type ReactNode } from "react";
 import { useItemTooltip, type ItemTooltipProps } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../context/game-data-context";
 import * as Member from "../../data/member";
 import { useMemberInventoryContext, useMemberRunePouchContext } from "../../context/group-state-context";
-import { composeItemIconHref, isRunePouch } from "../../data/items";
+import { composeItemIconHref, formatShortQuantity, formatVeryShortQuantity, isRunePouch } from "../../data/items";
 
 import "./player-inventory.css";
+
+interface ItemBoxPouchRuneProps {
+  iconSource: string;
+  name: string;
+  quantity: number;
+}
+const ItemBoxPouchRune = ({ iconSource, name, quantity }: ItemBoxPouchRuneProps): ReactElement => {
+  return (
+    <div className="player-inventory-pouch-item-box">
+      <img alt={name} src={iconSource} />
+      <span className="player-inventory-item-quantity">{formatVeryShortQuantity(quantity)}</span>
+    </div>
+  );
+};
+
+interface ItemBoxProps {
+  link: string;
+  iconSource: string;
+  quantity: number;
+  onPointerEnter: () => void;
+  children?: ReactNode;
+}
+const ItemBox = ({ link, iconSource, quantity, onPointerEnter, children }: ItemBoxProps): ReactElement => {
+  let quantityOverlay = undefined;
+  if (quantity > 1) {
+    quantityOverlay = <span className="player-inventory-item-quantity">{formatShortQuantity(quantity)}</span>;
+  }
+
+  return (
+    <a
+      href={link}
+      className="player-inventory-item-box"
+      target="_blank"
+      rel="noopener noreferrer"
+      onPointerEnter={onPointerEnter}
+    >
+      <img alt="osrs item" src={iconSource} />
+      {quantityOverlay}
+      {children}
+    </a>
+  );
+};
 
 export const PlayerInventory = ({ member }: { member: Member.Name }): ReactElement => {
   const { tooltipElement, hideTooltip, showTooltip } = useItemTooltip();
@@ -17,33 +59,43 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
   const itemElements = [];
   for (let index = 0; index < 28; index++) {
     const item = items?.at(index);
-    if (!item) {
-      itemElements.push(<span onPointerEnter={hideTooltip} className="player-inventory-item-box" key={index} />);
+    if (!item || !itemData?.has(item.itemID)) {
+      itemElements.push(<span onPointerEnter={hideTooltip} key={`empty ${index}`} />);
       continue;
     }
 
     const { itemID, quantity } = item;
+    const itemDatum = itemData.get(itemID)!;
 
-    const itemDatum = itemData?.get(itemID);
+    const wikiLinkHref = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
     const iconHref = composeItemIconHref(item, itemDatum);
 
-    const overlayItemIcons = [];
-    let tooltipProps: ItemTooltipProps | undefined = undefined;
-    const href = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${item.itemID}`;
+    let pouchOverlay = undefined;
 
-    if (itemDatum && isRunePouch(itemID) && runePouch) {
+    let tooltipProps: ItemTooltipProps = {
+      type: "Item",
+      name: itemDatum.name,
+      quantity: quantity,
+      highAlch: itemDatum.highalch,
+      gePrice: geData?.get(itemID) ?? 0,
+    };
+    if (isRunePouch(itemID) && runePouch) {
+      const overlayItemIcons = [];
       let totalHighAlch = 0;
       let totalGePrice = 0;
       const runes: { name: string; quantity: number }[] = [];
       for (const [runeID, runeQuantity] of runePouch) {
         const runeDatum = itemData?.get(runeID);
-        if (runeDatum) {
-          totalGePrice += (geData?.get(runeID) ?? 0) * runeQuantity;
-          totalHighAlch += runeDatum.highalch * runeQuantity;
-          runes.push({ name: runeDatum.name, quantity: runeQuantity });
-        }
+        if (!runeDatum) continue;
 
-        overlayItemIcons.push(<img alt="osrs item" src={`/icons/items/${runeID}.webp`} />);
+        totalGePrice += (geData?.get(runeID) ?? 0) * runeQuantity;
+        totalHighAlch += runeDatum.highalch * runeQuantity;
+        runes.push({ name: runeDatum.name, quantity: runeQuantity });
+
+        const runeIconSource = composeItemIconHref({ itemID: runeID, quantity: runeQuantity }, runeDatum);
+        overlayItemIcons.push(
+          <ItemBoxPouchRune iconSource={runeIconSource} name={runeDatum.name} quantity={runeQuantity} />,
+        );
       }
       tooltipProps = {
         type: "Rune Pouch",
@@ -52,33 +104,23 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
         totalGePrice,
         runes,
       };
-    } else if (itemDatum) {
-      tooltipProps = {
-        type: "Item",
-        name: itemDatum.name,
-        quantity: quantity,
-        highAlch: itemDatum.highalch,
-        gePrice: geData?.get(itemID) ?? 0,
-      };
+      if (overlayItemIcons.length > 0) {
+        pouchOverlay = <div className="player-inventory-pouch-container ">{overlayItemIcons}</div>;
+      }
     }
 
     itemElements.push(
-      <a
-        key={`${itemID} ${quantity} ${index}`}
-        href={href}
-        className="player-inventory-item-box player-inventory-item-box-filled"
-        target="_blank"
-        rel="noopener noreferrer"
+      <ItemBox
+        quantity={quantity}
+        link={wikiLinkHref}
+        iconSource={iconHref}
         onPointerEnter={() => {
           if (!tooltipProps) return;
           showTooltip(tooltipProps);
         }}
       >
-        <img alt="osrs item" src={iconHref} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", inset: 0, position: "absolute" }}>
-          {overlayItemIcons}
-        </div>
-      </a>,
+        {pouchOverlay}
+      </ItemBox>,
     );
   }
 
