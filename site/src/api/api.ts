@@ -258,6 +258,8 @@ export default class Api {
 
   public overwriteSomeUpdateCallbacks(callbacks: Partial<UpdateCallbacks>): void {
     Object.assign(this.callbacks, callbacks);
+
+    this.callbacks.onGameDataUpdate?.(this.gameData);
   }
 
   private queueGetGameData(): void {
