@@ -164,7 +164,7 @@ const buildDatasetsFromMemberSkillData = (
     datasets.push({ label: member, data: chartYNumbersForMember, borderColor: color, backgroundColor: color });
   }
 
-  return datasets;
+  return datasets.sort(({ label: labelA }, { label: labelB }) => labelA.localeCompare(labelB));
 };
 
 export const SkillGraph = (): ReactElement => {
