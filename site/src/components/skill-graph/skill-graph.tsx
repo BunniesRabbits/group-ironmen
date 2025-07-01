@@ -20,6 +20,9 @@ import * as Member from "../../game/member";
 
 import "./skill-graph.css";
 
+const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per hour"] as const;
+type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const options: ChartOptions<"line"> = {
@@ -31,6 +34,20 @@ const options: ChartOptions<"line"> = {
     title: {
       display: true,
       text: "Chart.js Line Chart",
+    },
+  },
+  scales: {
+    x: {
+      ticks: {
+        autoSkip: false,
+      },
+      grid: {
+        drawTicks: false,
+      },
+    },
+    y: {
+      type: "linear",
+      min: 0,
     },
   },
 };
@@ -86,6 +103,7 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
 const buildDatasetsFromMemberSkillData = (
   skillData: Map<Member.Name, { time: Date; data: Experience[] }[]>,
   dateBins: Date[],
+  yAxisOption: LineChartYAxisOption,
 ): { label: string; data: number[]; borderColor: string; backgroundColor: string }[] => {
   /**
    * The backend only sends samples it has, so there are gaps. We need to
@@ -136,6 +154,27 @@ const buildDatasetsFromMemberSkillData = (
       chartYNumbersForMember.push(previous ?? 0);
     }
 
+    switch (yAxisOption) {
+      case "Cumulative Experience Gained": {
+        const start = chartYNumbersForMember[0] ?? 0;
+        for (let i = 0; i < chartYNumbersForMember.length; i++) {
+          chartYNumbersForMember[i] -= start;
+        }
+        break;
+      }
+      case "Experience per hour": {
+        // Iterate backwards to avoid overwriting.
+        for (let i = chartYNumbersForMember.length - 1; i >= 1; i--) {
+          const hoursPerSample = DateFNS.differenceInHours(dateBins[i], dateBins[i - 1]);
+          const experienceGained = chartYNumbersForMember[i] - chartYNumbersForMember[i - 1];
+          chartYNumbersForMember[i] = experienceGained / hoursPerSample;
+        }
+        break;
+      }
+      case "Total Experience":
+        break;
+    }
+
     datasets.push({ label: member, data: chartYNumbersForMember, borderColor: "#118811", backgroundColor: "#118811" });
   }
 
@@ -144,6 +183,7 @@ const buildDatasetsFromMemberSkillData = (
 
 export const SkillGraph = (): ReactElement => {
   const [period, setPeriod] = useState<AggregatePeriod>("Day");
+  const [yAxisOption, setYAxisOption] = useState<LineChartYAxisOption>("Total Experience");
   const [chartData, setChartData] = useState<ChartData<"line", number[], string>>({ labels: [], datasets: [] });
   const { fetchSkillData } = useContext(APIContext);
   const updateChartPromiseRef = useRef<Promise<void>>(undefined);
@@ -156,14 +196,21 @@ export const SkillGraph = (): ReactElement => {
         const { dates, labels } = enumerateLabelsForPeriod(period);
 
         setChartData({
-          labels,
-          datasets: buildDatasetsFromMemberSkillData(skillData, dates),
+          labels: labels.slice(1),
+          datasets: buildDatasetsFromMemberSkillData(skillData, dates, yAxisOption).map(
+            ({ label, data, borderColor, backgroundColor }) => ({
+              label,
+              borderColor,
+              backgroundColor,
+              data: data.slice(1),
+            }),
+          ),
         });
       })
       .finally(() => {
         updateChartPromiseRef.current = undefined;
       });
-  }, [period, fetchSkillData]);
+  }, [period, yAxisOption, fetchSkillData]);
 
   const style = getComputedStyle(document.body);
   ChartJS.defaults.color = style.getPropertyValue("--primary-text");
@@ -172,7 +219,7 @@ export const SkillGraph = (): ReactElement => {
   return (
     <>
       <div id="skill-graph-control-container">
-        <div id="skill-graph-period-select" className="rsborder-tiny rsbackground rsbackground-hover">
+        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
           <select
             value={period}
             onChange={({ target }) => {
@@ -181,10 +228,27 @@ export const SkillGraph = (): ReactElement => {
               setPeriod(selected);
             }}
           >
-            <option value="Day">Period: 24 Hours</option>
-            <option value="Week">Period: 7 Days</option>
-            <option value="Month">Period: 30 Days</option>
-            <option value="Year">Period: 12 Months</option>
+            {AggregatePeriod.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+          <select
+            value={yAxisOption}
+            onChange={({ target }) => {
+              const selected = target.options[target.selectedIndex].value as LineChartYAxisOption;
+              if (yAxisOption === selected || !LineChartYAxisOption.includes(selected)) return;
+              setYAxisOption(selected);
+            }}
+          >
+            {LineChartYAxisOption.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
           </select>
         </div>
       </div>

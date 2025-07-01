@@ -1,5 +1,6 @@
 #skill-graph-control-container {
   display: flex;
+  gap: 8px;
   overflow-x: auto;
 }
 
@@ -10,7 +11,7 @@
   justify-content: space-around;
 }
 
-#skill-graph-period-select > select {
+.skill-graph-dropdown > select {
   padding: 8px;
 }
 
