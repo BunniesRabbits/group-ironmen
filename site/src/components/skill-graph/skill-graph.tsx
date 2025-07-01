@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   type ChartData,
+  type ChartOptions,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { AggregatePeriod } from "../../api/requests/skill-data";
@@ -21,7 +22,7 @@ import "./skill-graph.css";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-const options = {
+const options: ChartOptions<"line"> = {
   responsive: true,
   plugins: {
     legend: {
@@ -187,7 +188,7 @@ export const SkillGraph = (): ReactElement => {
           </select>
         </div>
       </div>
-      <div className="rsborder rsbackground">
+      <div id="skill-graph-container" className="rsborder rsbackground">
         <Line id="skill-graph-canvas" className="rsborder-tiny" options={options} data={chartData} />
       </div>
     </>

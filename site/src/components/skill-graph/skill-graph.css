@@ -5,6 +5,7 @@
 
 #skill-graph-container {
   min-width: 0;
+  display: flex;
   height: max(40vh, 300px);
   justify-content: space-around;
 }
