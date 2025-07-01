@@ -15,10 +15,13 @@ import { Line } from "react-chartjs-2";
 import { AggregatePeriod } from "../../api/requests/skill-data";
 import * as DateFNS from "date-fns";
 import { APIContext } from "../../context/api-context";
-import type { Experience } from "../../game/skill";
+import { Skill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
 
 import "./skill-graph.css";
+
+const SkillFilteringOption = ["Overall", ...Skill] as const;
+type SkillFilteringOption = (typeof SkillFilteringOption)[number];
 
 const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per Hour"] as const;
 type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
@@ -76,8 +79,18 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
 const buildDatasetsFromMemberSkillData = (
   skillData: Map<Member.Name, { time: Date; data: Experience[] }[]>,
   dateBins: Date[],
-  yAxisOption: LineChartYAxisOption,
+  options: {
+    yAxisUnit: LineChartYAxisOption;
+    skillFilter: SkillFilteringOption;
+  },
 ): { label: string; data: number[]; borderColor: string; backgroundColor: string }[] => {
+  const sumFilteredExperience = (skills: Experience[]): Experience =>
+    skills.reduce((sum, xp, index) => {
+      if (options.skillFilter !== "Overall" && Skill[index] !== options.skillFilter) return sum;
+
+      return sum + xp;
+    }, 0) as Experience;
+
   /**
    * The backend only sends samples it has, so there are gaps. We need to
    * fill those gaps and interpolate the existing samples into our buckets.
@@ -105,9 +118,7 @@ const buildDatasetsFromMemberSkillData = (
 
     // Bin all of our samples received from the server
     for (const { time: sampleDate, data: sampleAllSkillsExperience } of memberSkillData) {
-      const sampleExperience = sampleAllSkillsExperience.reduce((sum, value) => {
-        return sum + value;
-      }, 0) as Experience;
+      const sampleExperience = sumFilteredExperience(sampleAllSkillsExperience);
 
       const binIndex = DateFNS.closestIndexTo(sampleDate, dateBins)!;
       swapBinIfNewer({ experience: sampleExperience, sampleDate }, binIndex);
@@ -127,7 +138,7 @@ const buildDatasetsFromMemberSkillData = (
       chartYNumbersForMember.push(previous ?? 0);
     }
 
-    switch (yAxisOption) {
+    switch (options.yAxisUnit) {
       case "Cumulative Experience Gained": {
         const start = chartYNumbersForMember[0] ?? 0;
         for (let i = 0; i < chartYNumbersForMember.length; i++) {
@@ -158,6 +169,7 @@ const buildDatasetsFromMemberSkillData = (
 export const SkillGraph = (): ReactElement => {
   const [period, setPeriod] = useState<AggregatePeriod>("Day");
   const [yAxisOption, setYAxisOption] = useState<LineChartYAxisOption>("Total Experience");
+  const [skillFilter, setSkillFilter] = useState<SkillFilteringOption>("Overall");
   const [chartData, setChartData] = useState<ChartData<"line", number[], string>>({ labels: [], datasets: [] });
   const { fetchSkillData } = useContext(APIContext);
   const updateChartPromiseRef = useRef<Promise<void>>(undefined);
@@ -169,22 +181,29 @@ export const SkillGraph = (): ReactElement => {
       .then((skillData) => {
         const { dates, labels } = enumerateLabelsForPeriod(period);
 
+        /*
+         * Slice the data, since there is an extra sample sent (e.g. 24 hours
+         * ago when we already chart now). This also makes "per hour" options
+         * well defined, since our calculations look backwards to determine
+         * rates, and the first sample can't look backwards.
+         */
         setChartData({
           labels: labels.slice(1),
-          datasets: buildDatasetsFromMemberSkillData(skillData, dates, yAxisOption).map(
-            ({ label, data, borderColor, backgroundColor }) => ({
-              label,
-              borderColor,
-              backgroundColor,
-              data: data.slice(1),
-            }),
-          ),
+          datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
+            yAxisUnit: yAxisOption,
+            skillFilter: skillFilter,
+          }).map(({ label, data, borderColor, backgroundColor }) => ({
+            label,
+            borderColor,
+            backgroundColor,
+            data: data.slice(1),
+          })),
         });
       })
       .finally(() => {
         updateChartPromiseRef.current = undefined;
       });
-  }, [period, yAxisOption, fetchSkillData]);
+  }, [period, yAxisOption, skillFilter, fetchSkillData]);
 
   const style = getComputedStyle(document.body);
   ChartJS.defaults.font.family = "rssmall";
@@ -253,6 +272,22 @@ export const SkillGraph = (): ReactElement => {
             }}
           >
             {LineChartYAxisOption.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+          <select
+            value={skillFilter}
+            onChange={({ target }) => {
+              const selected = target.options[target.selectedIndex].value as SkillFilteringOption;
+              if (skillFilter === selected || !SkillFilteringOption.includes(selected)) return;
+              setSkillFilter(selected);
+            }}
+          >
+            {SkillFilteringOption.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
