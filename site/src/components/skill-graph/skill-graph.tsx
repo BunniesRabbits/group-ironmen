@@ -20,37 +20,10 @@ import * as Member from "../../game/member";
 
 import "./skill-graph.css";
 
-const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per hour"] as const;
+const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per Hour"] as const;
 type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
-
-const options: ChartOptions<"line"> = {
-  responsive: true,
-  plugins: {
-    legend: {
-      position: "top" as const,
-    },
-    title: {
-      display: true,
-      text: "Chart.js Line Chart",
-    },
-  },
-  scales: {
-    x: {
-      ticks: {
-        autoSkip: false,
-      },
-      grid: {
-        drawTicks: false,
-      },
-    },
-    y: {
-      type: "linear",
-      min: 0,
-    },
-  },
-};
 
 /**
  * Returns the finitely enumerated x-axis labels for a given aggregate period.
@@ -162,7 +135,7 @@ const buildDatasetsFromMemberSkillData = (
         }
         break;
       }
-      case "Experience per hour": {
+      case "Experience per Hour": {
         // Iterate backwards to avoid overwriting.
         for (let i = chartYNumbersForMember.length - 1; i >= 1; i--) {
           const hoursPerSample = DateFNS.differenceInHours(dateBins[i], dateBins[i - 1]);
@@ -175,7 +148,8 @@ const buildDatasetsFromMemberSkillData = (
         break;
     }
 
-    datasets.push({ label: member, data: chartYNumbersForMember, borderColor: "#118811", backgroundColor: "#118811" });
+    const color = `hsl(${Member.computeMemberHueDegrees(member)}deg 80% 50%)`;
+    datasets.push({ label: member, data: chartYNumbersForMember, borderColor: color, backgroundColor: color });
   }
 
   return datasets;
@@ -213,8 +187,42 @@ export const SkillGraph = (): ReactElement => {
   }, [period, yAxisOption, fetchSkillData]);
 
   const style = getComputedStyle(document.body);
+  ChartJS.defaults.font.family = "rssmall";
+  ChartJS.defaults.font.size = 16;
   ChartJS.defaults.color = style.getPropertyValue("--primary-text");
   ChartJS.defaults.scale.grid.color = style.getPropertyValue("--graph-grid-border");
+
+  const options: ChartOptions<"line"> = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+      },
+      title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
+    },
+    layout: {
+      padding: 4,
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: "Time",
+        },
+        ticks: {
+          autoSkip: false,
+        },
+        grid: {
+          drawTicks: false,
+        },
+      },
+      y: {
+        title: { display: true, text: yAxisOption },
+        type: "linear",
+        min: 0,
+      },
+    },
+  };
 
   return (
     <>
