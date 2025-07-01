@@ -1,7 +1,7 @@
 import { type ReactElement, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { AppNavigation } from "./components/app-navigation/app-navigation";
-import { loadValidatedCredentials } from "./data/credentials";
+import { loadValidatedCredentials } from "./api/credentials";
 
 export const UnauthedLayout = ({ children }: { children?: ReactNode }): ReactElement => {
   return (

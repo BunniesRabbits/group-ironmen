@@ -1,8 +1,8 @@
 import z from "zod/v4";
-import type { ItemID } from "../items";
+import type { ItemID } from "../../game/items";
 import type { GroupCredentials } from "../credentials";
-import * as Member from "../member";
-import * as CollectionLog from "../collection-log";
+import * as Member from "../../game/member";
+import * as CollectionLog from "../../game/collection-log";
 
 export type Response = z.infer<typeof CollectionLogSchema>;
 export const fetchGroupCollectionLogs = ({

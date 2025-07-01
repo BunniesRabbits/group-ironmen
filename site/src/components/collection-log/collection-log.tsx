@@ -1,10 +1,10 @@
 import { Fragment, useContext, useState, type ReactElement } from "react";
 import { GameDataContext } from "../../context/game-data-context";
-import * as CollectionLog from "../../data/collection-log";
-import type * as Member from "../../data/member";
+import * as CollectionLog from "../../game/collection-log";
+import type * as Member from "../../game/member";
 import { useCollectionLogItemTooltip } from "./collection-log-tooltip";
 import { PlayerIcon } from "../player-icon/player-icon";
-import type { ItemID } from "../../data/items";
+import type { ItemID } from "../../game/items";
 
 import "./collection-log.css";
 

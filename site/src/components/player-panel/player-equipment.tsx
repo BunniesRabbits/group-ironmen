@@ -1,12 +1,12 @@
 import { useContext, type ReactElement } from "react";
 import { useItemTooltip } from "../tooltip/item-tooltip";
 import { GameDataContext } from "../../context/game-data-context";
-import { EquipmentSlot } from "../../data/equipment";
-import type * as Member from "../../data/member";
+import { EquipmentSlot } from "../../game/equipment";
+import type * as Member from "../../game/member";
 import { useMemberEquipmentContext } from "../../context/group-state-context";
 
 import "./player-equipment.css";
-import { composeItemIconHref, formatShortQuantity } from "../../data/items";
+import { composeItemIconHref, formatShortQuantity } from "../../game/items";
 
 const VisibleEquipmentSlots: EquipmentSlot[] = [
   "Head",

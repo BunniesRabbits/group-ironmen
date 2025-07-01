@@ -11,11 +11,11 @@ import {
   type ChartData,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { AggregatePeriod } from "../../data/requests/skill-data";
+import { AggregatePeriod } from "../../api/requests/skill-data";
 import * as DateFNS from "date-fns";
 import { APIContext } from "../../context/api-context";
-import type { Experience } from "../../data/skill";
-import * as Member from "../../data/member";
+import type { Experience } from "../../game/skill";
+import * as Member from "../../game/member";
 
 import "./skill-graph.css";
 

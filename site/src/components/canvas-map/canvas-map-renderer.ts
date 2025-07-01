@@ -1,4 +1,4 @@
-import { fetchMapJSON, type MapMetadata } from "../../data/map-data";
+import { fetchMapJSON, type MapMetadata } from "../../game/map-data";
 import type { Distinct } from "../../util";
 import type { Context2DScaledWrapper } from "./canvas-wrapper";
 import {

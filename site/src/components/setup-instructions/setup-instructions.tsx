@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { MenLink } from "../men-link/men-link";
 import "./setup-instructions.css";
-import { loadValidatedCredentials } from "../../data/credentials";
+import { loadValidatedCredentials } from "../../api/credentials";
 
 export const SetupInstructions = (): ReactElement => {
   const [tokenVisible, setTokenVisible] = useState(false);

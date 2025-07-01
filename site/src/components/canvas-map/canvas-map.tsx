@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { Context2DScaledWrapper } from "./canvas-wrapper";
 import { CanvasMapRenderer, type LabelledCoordinates } from "./canvas-map-renderer";
 import { useGroupStateContext } from "../../context/group-state-context";
-import type { GroupState } from "../../data/api";
+import type { GroupState } from "../../api/api";
 import { Vec2D, type WikiPosition2D } from "./coordinates";
 
 import "./canvas-map.css";

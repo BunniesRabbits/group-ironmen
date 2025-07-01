@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import * as RequestSkillData from "../data/requests/skill-data";
+import * as RequestSkillData from "../api/requests/skill-data";
 
 interface APIContext {
   /**

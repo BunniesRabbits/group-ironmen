@@ -2,7 +2,7 @@ import { defineConfig, type PluginOption } from "vite";
 import fs from "fs";
 import path from "path";
 import react from "@vitejs/plugin-react";
-import { MapMetadataSchema } from "./src/data/map-data";
+import { MapMetadataSchema } from "./src/game/map-data";
 
 const mapJsonPlugin = (): PluginOption => ({
   name: "mapTilesJson",

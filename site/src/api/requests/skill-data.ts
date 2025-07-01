@@ -1,7 +1,7 @@
 import z from "zod/v4";
-import * as Member from "../member";
+import * as Member from "../../game/member";
 import { DateSchema } from "./shared";
-import type { Experience } from "../skill";
+import type { Experience } from "../../game/skill";
 import type { GroupCredentials } from "../credentials";
 
 export const AggregatePeriod = ["Day", "Week", "Month", "Year"] as const;

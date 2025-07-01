@@ -1,7 +1,7 @@
 import { Fragment, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { PlayerIcon } from "../player-icon/player-icon";
-import type * as Member from "../../data/member";
+import type * as Member from "../../game/member";
 
 export interface CollectionLogItemTooltipProps {
   name: string;

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 
 import "./login-page.css";
-import Api from "../../data/api";
+import Api from "../../api/api";
 import { useNavigate } from "react-router-dom";
-import { loadValidatedCredentials } from "../../data/credentials";
+import { loadValidatedCredentials } from "../../api/credentials";
 
 export const LoginPage = (): ReactElement => {
   const [error, setError] = useState<string>();

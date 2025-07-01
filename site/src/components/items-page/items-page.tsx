@@ -1,9 +1,9 @@
 import { type ReactElement, Fragment, useContext, useState } from "react";
 import { SearchElement } from "../search-element/search-element";
 import "./items-page.css";
-import type * as Member from "../../data/member";
+import type * as Member from "../../game/member";
 import { GameDataContext } from "../../context/game-data-context";
-import { composeItemIconHref, type ItemID } from "../../data/items";
+import { composeItemIconHref, type ItemID } from "../../game/items";
 import { useGroupListMembersContext, useGroupStateContext } from "../../context/group-state-context";
 
 type ItemFilter = "All" | Member.Name;

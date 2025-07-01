@@ -5,10 +5,10 @@ import { PlayerEquipment } from "./player-equipment";
 import { PlayerStats } from "./player-stats";
 import { PlayerQuests } from "./player-quests";
 import { PlayerDiaries } from "./player-diaries";
-import * as Member from "../../data/member";
+import * as Member from "../../game/member";
 import { useModal } from "../modal/modal";
 import { CollectionLogWindow } from "../collection-log/collection-log";
-import type { GroupState } from "../../data/api";
+import type { GroupState } from "../../api/api";
 import { useGroupStateContext } from "../../context/group-state-context";
 
 import "./player-panel.css";

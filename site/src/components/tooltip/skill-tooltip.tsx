@@ -2,7 +2,7 @@ import { useRef, useState, type ReactElement } from "react";
 
 import "./tooltip.css";
 import { createPortal } from "react-dom";
-import { type Experience } from "../../data/skill";
+import { type Experience } from "../../game/skill";
 import { StatBar } from "../player-panel/stat-bar";
 
 export type SkillTooltipProps =

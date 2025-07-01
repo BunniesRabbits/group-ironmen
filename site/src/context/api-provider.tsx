@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from "react";
-import Api from "../data/api";
-import type { GameData, GroupState } from "../data/api";
+import Api from "../api/api";
+import type { GameData, GroupState } from "../api/api";
 import { GroupStateContext } from "./group-state-context";
 import { useLocation } from "react-router-dom";
 import { GameDataContext } from "./game-data-context";
-import { loadValidatedCredentials } from "../data/credentials";
+import { loadValidatedCredentials } from "../api/credentials";
 import { APIContext } from "./api-context";
-import * as RequestSkillData from "../data/requests/skill-data";
+import * as RequestSkillData from "../api/requests/skill-data";
 
 export const APIProvider = ({ children }: { children: ReactNode }): ReactElement => {
   const location = useLocation();

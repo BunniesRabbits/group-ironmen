@@ -1,16 +1,16 @@
-import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "./items";
-import { fetchQuestDataJSON, type QuestDatabase } from "./quests";
-import { fetchDiaryDataJSON, type DiaryDatabase } from "./diaries";
+import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "../game/items";
+import { fetchQuestDataJSON, type QuestDatabase } from "../game/quests";
+import { fetchDiaryDataJSON, type DiaryDatabase } from "../game/diaries";
+import type * as Member from "../game/member";
+import type { CollectionLogInfo } from "../game/collection-log";
+import { Skill, type Experience } from "../game/skill";
 import type { GroupCredentials } from "./credentials";
-import type * as Member from "./member";
 import { fetchGEPrices, type GEPrices } from "./requests/ge-prices";
 import { fetchGroupData, type Response as GetGroupDataResponse } from "./requests/group-data";
 import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
-import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
-import { Skill, type Experience } from "./skill";
-import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
 import * as RequestSkillData from "./requests/skill-data";
+import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;

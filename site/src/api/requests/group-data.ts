@@ -1,11 +1,11 @@
 import z from "zod/v4";
-import type { QuestStatus } from "../quests";
-import { Skill, type Experience } from "../skill";
-import { DiaryTier, type DiaryRegion } from "../diaries";
-import { EquipmentSlot } from "../equipment";
-import type { ItemID, ItemStack } from "../items";
+import type { QuestStatus } from "../../game/quests";
+import { Skill, type Experience } from "../../game/skill";
+import { DiaryTier, type DiaryRegion } from "../../game/diaries";
+import { EquipmentSlot } from "../../game/equipment";
+import type { ItemID, ItemStack } from "../../game/items";
 import type { GroupCredentials } from "../credentials";
-import * as Member from "../member";
+import * as Member from "../../game/member";
 import { DateSchema } from "./shared";
 
 export type Response = z.infer<typeof GetGroupDataResponseSchema>;

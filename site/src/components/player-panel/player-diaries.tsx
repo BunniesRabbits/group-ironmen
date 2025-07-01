@@ -1,10 +1,10 @@
 import { useContext, type ReactElement, type ReactNode } from "react";
 import { StatBar } from "./stat-bar";
-import { DiaryRegion, DiaryTier } from "../../data/diaries";
+import { DiaryRegion, DiaryTier } from "../../game/diaries";
 import { useModal } from "../modal/modal";
-import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../data/skill";
+import { computeVirtualLevelFromXP, SkillIconsBySkill, type Level, type Skill } from "../../game/skill";
 import { GameDataContext } from "../../context/game-data-context";
-import type * as Member from "../../data/member";
+import type * as Member from "../../game/member";
 import {
   useMemberDiariesContext,
   useMemberQuestsContext,

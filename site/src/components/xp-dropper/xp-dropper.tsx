@@ -1,6 +1,6 @@
 import { type ReactElement } from "react";
-import type * as Member from "../../data/member";
-import { SkillIconsBySkill } from "../../data/skill";
+import type * as Member from "../../game/member";
+import { SkillIconsBySkill } from "../../game/skill";
 
 import "./xp-dropper.css";
 

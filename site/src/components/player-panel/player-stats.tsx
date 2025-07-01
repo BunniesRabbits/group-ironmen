@@ -2,7 +2,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import "./player-stats.css";
 import { StatBar } from "./stat-bar";
-import * as Member from "../../data/member";
+import * as Member from "../../game/member";
 import { PlayerIcon } from "../player-icon/player-icon";
 import { XpDropper } from "../xp-dropper/xp-dropper";
 import {

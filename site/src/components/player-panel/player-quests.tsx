@@ -1,8 +1,8 @@
 import { useContext, useState, type ReactElement } from "react";
-import type { QuestDifficulty, QuestStatus } from "../../data/quests";
+import type { QuestDifficulty, QuestStatus } from "../../game/quests";
 import { SearchElement } from "../search-element/search-element";
 import { GameDataContext } from "../../context/game-data-context";
-import type * as Member from "../../data/member";
+import type * as Member from "../../game/member";
 
 import "./player-quests.css";
 import { useMemberQuestsContext } from "../../context/group-state-context";

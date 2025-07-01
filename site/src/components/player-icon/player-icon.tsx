@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import * as Member from "../../data/member";
+import * as Member from "../../game/member";
 
 /**
  * cyrb53 (c) 2018 bryc (github.com/bryc)

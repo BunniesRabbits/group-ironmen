@@ -2,7 +2,7 @@ import "./men-homepage.css";
 import { MenLink } from "../men-link/men-link.tsx";
 import { SocialLinks } from "../social-links/social-links.tsx";
 import type { ReactElement } from "react";
-import { loadValidatedCredentials } from "../../data/credentials.ts";
+import { loadValidatedCredentials } from "../../api/credentials.ts";
 
 export const MenHomepage = (): ReactElement => {
   const credentials = loadValidatedCredentials();

@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
-import type { GroupState } from "../data/api";
-import type * as Member from "../data/member";
+import type { GroupState } from "../api/api";
+import type * as Member from "../game/member";
 
 type GroupStateSelector<T> = (state: GroupState | undefined) => T;
 
