@@ -17,6 +17,7 @@ import * as DateFNS from "date-fns";
 import { APIContext } from "../../context/api-context";
 import { Skill, SkillIconsBySkill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
+import { LoadingScreen } from "../loading-screen/loading-screen";
 
 import "./skill-graph.css";
 
@@ -173,11 +174,14 @@ export const SkillGraph = (): ReactElement => {
   const [chartData, setChartData] = useState<ChartData<"line", number[], string>>({ labels: [], datasets: [] });
   const { fetchSkillData } = useContext(APIContext);
   const updateChartPromiseRef = useRef<Promise<void>>(undefined);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (updateChartPromiseRef.current || !fetchSkillData) return;
 
+    setLoading(true);
     updateChartPromiseRef.current = fetchSkillData(period)
+      .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 200)))
       .then((skillData) => {
         const { dates, labels } = enumerateLabelsForPeriod(period);
 
@@ -202,6 +206,7 @@ export const SkillGraph = (): ReactElement => {
       })
       .finally(() => {
         updateChartPromiseRef.current = undefined;
+        setLoading(false);
       });
   }, [period, yAxisOption, skillFilter, fetchSkillData]);
 
@@ -246,6 +251,15 @@ export const SkillGraph = (): ReactElement => {
   let skillIconSource = "/ui/3579-0.png";
   if (Skill.includes(skillFilter as Skill)) {
     skillIconSource = SkillIconsBySkill.get(skillFilter as Skill)?.href ?? skillIconSource;
+  }
+
+  let loadingOverlay = undefined;
+  if (loading) {
+    loadingOverlay = (
+      <div id="skill-graph-loading-overlay">
+        <LoadingScreen />
+      </div>
+    );
   }
 
   return (
@@ -303,6 +317,7 @@ export const SkillGraph = (): ReactElement => {
       <div id="skill-graph-container" className="rsborder rsbackground">
         <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
         <Line id="skill-graph-canvas" className="rsborder-tiny" options={options} data={chartData} />
+        {loadingOverlay}
       </div>
     </>
   );
