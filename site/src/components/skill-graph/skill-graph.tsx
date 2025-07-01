@@ -15,7 +15,7 @@ import { Line } from "react-chartjs-2";
 import { AggregatePeriod } from "../../api/requests/skill-data";
 import * as DateFNS from "date-fns";
 import { APIContext } from "../../context/api-context";
-import { Skill, type Experience } from "../../game/skill";
+import { Skill, SkillIconsBySkill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
 
 import "./skill-graph.css";
@@ -243,6 +243,11 @@ export const SkillGraph = (): ReactElement => {
     },
   };
 
+  let skillIconSource = "/ui/3579-0.png";
+  if (Skill.includes(skillFilter as Skill)) {
+    skillIconSource = SkillIconsBySkill.get(skillFilter as Skill)?.href ?? skillIconSource;
+  }
+
   return (
     <>
       <div id="skill-graph-control-container">
@@ -296,6 +301,7 @@ export const SkillGraph = (): ReactElement => {
         </div>
       </div>
       <div id="skill-graph-container" className="rsborder rsbackground">
+        <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
         <Line id="skill-graph-canvas" className="rsborder-tiny" options={options} data={chartData} />
       </div>
     </>

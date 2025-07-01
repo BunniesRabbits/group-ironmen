@@ -6,6 +6,7 @@
 
 #skill-graph-container {
   min-width: 0;
+  position: relative;
   display: flex;
   height: max(40vh, 300px);
   justify-content: space-around;
@@ -18,4 +19,21 @@
 #skill-graph-canvas {
   box-sizing: border-box;
   background: rgb(255 255 255 / 5%);
+}
+
+#skill-graph-skill-image {
+  position: absolute;
+  height: 50%;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin: auto;
+  transform: translateY(-50%);
+  image-rendering: pixelated;
+  opacity: 0.2;
+  aspect-ratio: 1;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
