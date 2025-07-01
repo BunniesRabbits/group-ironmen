@@ -6,6 +6,7 @@ import { EquipmentSlot } from "../equipment";
 import type { ItemID, ItemStack } from "../items";
 import type { GroupCredentials } from "../credentials";
 import * as Member from "../member";
+import { DateSchema } from "./shared";
 
 export type Response = z.infer<typeof GetGroupDataResponseSchema>;
 
@@ -198,27 +199,6 @@ const QuestsSchema = z
 const isBitSet = (value: number, offset: number): boolean => {
   return (value & (1 << offset)) !== 0;
 };
-
-const DateSchema = z.iso
-  .datetime()
-  .transform((date: string) => date.split(/\D+/))
-  .refine((fragments) => {
-    // console.log(fragments);
-    return fragments.length === 8;
-  })
-  .transform((fragments) => {
-    return new Date(
-      Date.UTC(
-        parseInt(fragments[0]),
-        parseInt(fragments[1]) - 1,
-        parseInt(fragments[2]),
-        parseInt(fragments[3]),
-        parseInt(fragments[4]),
-        parseInt(fragments[5]),
-        parseFloat(`${fragments[6].slice(0, 3)}.${fragments[6].slice(3)}`),
-      ),
-    );
-  });
 
 const NPCInteractionSchema = z
   .object({

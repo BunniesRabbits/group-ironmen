@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from "react";
+import Api from "../data/api";
 import type { GameData, GroupState } from "../data/api";
 import { GroupStateContext } from "./group-state-context";
-import Api from "../data/api";
 import { useLocation } from "react-router-dom";
 import { GameDataContext } from "./game-data-context";
 import { loadValidatedCredentials } from "../data/credentials";
 import { APIContext } from "./api-context";
+import * as RequestSkillData from "../data/requests/skill-data";
 
 export const APIProvider = ({ children }: { children: ReactNode }): ReactElement => {
   const location = useLocation();
@@ -17,19 +18,14 @@ export const APIProvider = ({ children }: { children: ReactNode }): ReactElement
     if (api === undefined) return;
 
     api.startFetchingEverything();
-
-    return (): void => {
-      api.close();
-    };
-  }, [api]);
-
-  useEffect(() => {
-    if (api === undefined) return;
-
     api.setUpdateCallbacks({
       onGroupUpdate: (group) => setGroup(structuredClone(group)),
       onGameDataUpdate: (data) => setGameData(structuredClone(data)),
     });
+
+    return (): void => {
+      api.close();
+    };
   }, [api]);
 
   useEffect(() => {
@@ -45,8 +41,17 @@ export const APIProvider = ({ children }: { children: ReactNode }): ReactElement
     setApi(undefined);
   }, [setApi]);
 
+  const fetchSkillData = useCallback(
+    (period: RequestSkillData.AggregatePeriod) => {
+      if (!api) return Promise.reject(new Error("No existing API connection."));
+
+      return api.fetchSkillData(period);
+    },
+    [api],
+  );
+
   return (
-    <APIContext value={{ close }}>
+    <APIContext value={{ close, fetchSkillData: api ? fetchSkillData : undefined }}>
       <GameDataContext value={gameData}>
         <GroupStateContext value={group}>{children}</GroupStateContext>
       </GameDataContext>

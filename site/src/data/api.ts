@@ -10,6 +10,7 @@ import type { CollectionLogInfo } from "./collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import { Skill, type Experience } from "./skill";
 import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
+import * as RequestSkillData from "./requests/skill-data";
 
 function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
   return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
@@ -412,5 +413,10 @@ export default class Api {
     return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.name }), {
       headers: { Authorization: this.credentials.token },
     });
+  }
+  async fetchSkillData(period: RequestSkillData.AggregatePeriod): Promise<RequestSkillData.Response> {
+    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
+
+    return RequestSkillData.fetchSkillData({ baseURL: this.baseURL, credentials: this.credentials, period });
   }
 }
