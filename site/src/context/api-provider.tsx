@@ -1,60 +1,48 @@
-import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import Api from "../api/api";
-import type { GameData, GroupState } from "../api/api";
-import { GroupStateContext } from "./group-state-context";
-import { useLocation } from "react-router-dom";
+import type { GameData } from "../api/api";
 import { GameDataContext } from "./game-data-context";
-import { loadValidatedCredentials } from "../api/credentials";
+import { loadValidatedCredentials, type GroupCredentials } from "../api/credentials";
 import { APIContext } from "./api-context";
 import * as RequestSkillData from "../api/requests/skill-data";
 
 export const APIProvider = ({ children }: { children: ReactNode }): ReactElement => {
-  const location = useLocation();
-  const [group, setGroup] = useState<GroupState>();
   const [gameData, setGameData] = useState<GameData>({});
+  const [credentials, setCredentials] = useState<GroupCredentials | undefined>(loadValidatedCredentials());
   const [api, setApi] = useState<Api>();
 
   useEffect(() => {
-    if (api === undefined) return;
+    if (!credentials) return;
+    const newApi = new Api(credentials);
 
-    api.startFetchingEverything();
-    api.setUpdateCallbacks({
-      onGroupUpdate: (group) => setGroup(structuredClone(group)),
+    newApi.overwriteSomeUpdateCallbacks({
       onGameDataUpdate: (data) => setGameData(structuredClone(data)),
     });
 
+    setApi(newApi);
+
     return (): void => {
-      api.close();
+      newApi.close();
     };
-  }, [api]);
+  }, [credentials]);
 
-  useEffect(() => {
-    if (api !== undefined) return;
+  const apiContext: APIContext = {
+    logOut: (): void => setCredentials(undefined),
+    logIn: (credentials: GroupCredentials): void => setCredentials(credentials),
+  };
 
-    const credentials = loadValidatedCredentials();
-    if (credentials === undefined) return;
-
-    setApi(new Api(credentials));
-  }, [location, api]);
-
-  const close = useCallback(() => {
-    setApi(undefined);
-  }, [setApi]);
-
-  const fetchSkillData = useCallback(
-    (period: RequestSkillData.AggregatePeriod) => {
-      if (!api) return Promise.reject(new Error("No existing API connection."));
-
+  if (api?.isOpen()) {
+    apiContext.fetchSkillData = (period: RequestSkillData.AggregatePeriod): ReturnType<Api["fetchSkillData"]> => {
       return api.fetchSkillData(period);
-    },
-    [api],
-  );
+    };
+    apiContext.setUpdateCallbacks = (callbacks: Parameters<Api["overwriteSomeUpdateCallbacks"]>[0]): void => {
+      api.overwriteSomeUpdateCallbacks(callbacks);
+    };
+  }
 
   return (
-    <APIContext value={{ close, fetchSkillData: api ? fetchSkillData : undefined }}>
-      <GameDataContext value={gameData}>
-        <GroupStateContext value={group}>{children}</GroupStateContext>
-      </GameDataContext>
+    <APIContext value={apiContext}>
+      <GameDataContext value={gameData}>{children}</GameDataContext>
     </APIContext>
   );
 };

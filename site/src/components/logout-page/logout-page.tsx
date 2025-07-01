@@ -4,12 +4,12 @@ import { wipeCredentials } from "../../api/credentials";
 import { APIContext } from "../../context/api-context";
 
 export const LogoutPage = (): ReactElement => {
-  const { close } = useContext(APIContext);
+  const { logOut } = useContext(APIContext);
 
   useEffect(() => {
-    close?.();
+    logOut?.();
     wipeCredentials();
-  }, [close]);
+  }, [logOut]);
 
   return <Navigate to="/" />;
 };

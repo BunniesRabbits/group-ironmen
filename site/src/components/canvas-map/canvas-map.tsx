@@ -6,6 +6,7 @@ import type { GroupState } from "../../api/api";
 import { Vec2D, type WikiPosition2D } from "./coordinates";
 
 import "./canvas-map.css";
+import { createPortal } from "react-dom";
 
 const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoordinates[] => {
   if (!state) return [];
@@ -17,15 +18,7 @@ const memberCoordinatesSelector = (state: GroupState | undefined): LabelledCoord
   ];
 };
 
-export const useCanvasMap = ({
-  interactive,
-}: {
-  interactive: boolean;
-}): {
-  coordinateIndicator: ReactElement;
-  controls: ReactElement;
-  backgroundMap: ReactElement;
-} => {
+export const CanvasMap = ({ interactive }: { interactive: boolean }): ReactElement => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pixelRatioRef = useRef<number>(1);
   const [renderer, setRenderer] = useState<CanvasMapRenderer>();
@@ -193,8 +186,6 @@ export const useCanvasMap = ({
     );
   }
 
-  const coordinateIndicator = <div id="canvas-map-coordinates">{coordinatesView}</div>;
-
   const backgroundMap = (
     <div id="canvas-map-container">
       <canvas
@@ -209,12 +200,29 @@ export const useCanvasMap = ({
       />
     </div>
   );
-  const controls = (
-    <div id="canvas-map-controls">
-      {planeSelect}
-      {teleportButtons}
-    </div>
-  );
 
-  return { coordinateIndicator, controls, backgroundMap };
+  let portal = undefined;
+  const portalDestination = document.getElementById("main-content");
+  if (portalDestination && interactive) {
+    const coordinateIndicator = (
+      <div key="coordinates" id="canvas-map-coordinates">
+        {coordinatesView}
+      </div>
+    );
+    const controls = (
+      <div key="controls" id="canvas-map-controls">
+        {planeSelect}
+        {teleportButtons}
+      </div>
+    );
+
+    portal = createPortal([coordinateIndicator, controls], portalDestination);
+  }
+
+  return (
+    <>
+      {backgroundMap}
+      {portal}
+    </>
+  );
 };

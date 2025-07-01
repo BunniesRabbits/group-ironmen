@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { useCallback, useContext, useEffect, useState, type ReactElement } from "react";
+import Api from "../../api/api";
+import { APIContext } from "../../context/api-context";
+import { loadValidatedCredentials } from "../../api/credentials";
+import { useNavigate } from "react-router-dom";
 
 import "./login-page.css";
-import Api from "../../api/api";
-import { useNavigate } from "react-router-dom";
-import { loadValidatedCredentials } from "../../api/credentials";
 
 export const LoginPage = (): ReactElement => {
+  const { logIn: openApi } = useContext(APIContext);
   const [error, setError] = useState<string>();
   const [fetching, setFetching] = useState<boolean>();
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ export const LoginPage = (): ReactElement => {
     void navigate("/group");
   }, [navigate]);
 
-  const action = useCallback(
+  const tryLogin = useCallback(
     async (formData: FormData): Promise<void> => {
       const groupName = formData.get("group-name")?.valueOf();
       const groupToken = formData.get("group-token")?.valueOf();
@@ -29,12 +31,14 @@ export const LoginPage = (): ReactElement => {
 
       setFetching(true);
       setError(undefined);
-      return new Api({ name: groupName, token: groupToken })
+      const tempApi = new Api({ name: groupName, token: groupToken });
+      return tempApi
         .fetchAmILoggedIn()
         .then((response) => {
           if (response.ok) {
             localStorage.setItem("groupName", groupName);
             localStorage.setItem("groupToken", groupToken);
+            openApi?.({ name: groupName, token: groupToken });
             void navigate("/group");
             return;
           }
@@ -51,15 +55,16 @@ export const LoginPage = (): ReactElement => {
           console.error("login-page login failed:", reason);
         })
         .finally(() => {
+          tempApi.close();
           setFetching(false);
         });
     },
-    [setFetching, setError, navigate],
+    [setFetching, setError, navigate, openApi],
   );
 
   return (
     <div className="login-page">
-      <form className="login-page-form rsborder rsbackground" action={action}>
+      <form className="login-page-form rsborder rsbackground" action={tryLogin}>
         <label htmlFor="login-group-name">Group name</label>
         <input name="group-name" placeholder="Group name" maxLength={16} />
         <label htmlFor="login-group-token">Group Token</label>

@@ -51,6 +51,10 @@ export default class Api {
 
   private gameData: GameData = {};
 
+  public isOpen(): boolean {
+    return !this.closed;
+  }
+
   private updateGroupData(response: GetGroupDataResponse): void {
     let updatedAny = false;
     let updatedItems = false;
@@ -252,7 +256,7 @@ export default class Api {
 
   private callbacks: Partial<UpdateCallbacks> = {};
 
-  public setUpdateCallbacks(callbacks: Partial<UpdateCallbacks>): void {
+  public overwriteSomeUpdateCallbacks(callbacks: Partial<UpdateCallbacks>): void {
     Object.assign(this.callbacks, callbacks);
   }
 
@@ -378,33 +382,35 @@ export default class Api {
     this.callbacks?.onGroupUpdate?.(this.group);
   }
 
-  /**
-   * WARNING: Make sure callbacks (all named `on*****Update`) are set up to receive the data!
-   * Some callbacks may only be called once and data can be missed.
-   *
-   * Kicks off fetching the group data once a second from the backend.
-   * Only queues a new fetch when the old fetch resolves,
-   * so with slow internet speeds the updates will be slower.
-   * Call close() to stop further queuing.
-   */
-  public startFetchingEverything(): void {
-    this.queueGetGameData();
-    this.queueFetchGroupData();
-    void this.getGroupDataPromise!.then(() => this.queueFetchGroupCollectionLogs());
-
-    window.setInterval(() => this.cleanupXPDrops(), 4000);
-  }
-
   close(): void {
     this.callbacks = {};
     this.closed = true;
+
+    this.getGroupDataPromise = undefined;
+    this.getGroupCollectionLogsPromise = undefined;
+
+    this.groupDataValidUpToDate = new Date(0);
+    this.group = { items: new Map(), members: new Map(), xpDrops: new Map() };
+
     window.clearInterval(this.xpDropCleanupInterval);
+    this.xpDropCounter = 0;
+
+    this.gameData = {};
   }
+
   constructor(credentials: GroupCredentials) {
     this.baseURL = __API_URL__;
     this.credentials = credentials;
     this.closed = false;
     this.group = { items: new Map(), members: new Map(), xpDrops: new Map() };
+
+    this.queueGetGameData();
+    this.queueFetchGroupData();
+    if (this.getGroupDataPromise) {
+      void this.getGroupDataPromise.then(() => this.queueFetchGroupCollectionLogs());
+    }
+
+    window.setInterval(() => this.cleanupXPDrops(), 4000);
   }
 
   async fetchAmILoggedIn(): Promise<Response> {
