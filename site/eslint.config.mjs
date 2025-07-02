@@ -4,10 +4,21 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import prettier from "eslint-plugin-prettier/recommended";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 export default tseslint.config(
   { ignores: ["node_modules, dist"] },
   { name: "Prettier", extends: [prettier], files: ["**/*.{ts,tsx}"] },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ...jsxA11y.flatConfigs.strict,
+    languageOptions: {
+      ...jsxA11y.flatConfigs.strict.languageOptions,
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   {
     name: "Typescript",
     extends: [

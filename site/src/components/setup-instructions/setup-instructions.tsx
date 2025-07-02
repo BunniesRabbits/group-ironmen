@@ -24,14 +24,14 @@ export const SetupInstructions = (): ReactElement => {
                 (credentials?.token ?? "00000000-0000-0000-0000-000000000000")
               ) : (
                 <>
-                  <div
+                  <button
                     id="setup-credential-hide"
                     onClick={() => {
                       setTokenVisible(true);
                     }}
                   >
-                    Click to show
-                  </div>
+                    Click to show token
+                  </button>
                   {"00000000-0000-0000-0000-000000000000"}
                 </>
               )}

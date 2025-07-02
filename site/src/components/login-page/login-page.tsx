@@ -66,9 +66,9 @@ export const LoginPage = (): ReactElement => {
     <div className="login-page">
       <form className="login-page-form rsborder rsbackground" action={tryLogin}>
         <label htmlFor="login-group-name">Group name</label>
-        <input name="group-name" placeholder="Group name" maxLength={16} />
+        <input name="login-group-name" placeholder="Group name" maxLength={16} />
         <label htmlFor="login-group-token">Group Token</label>
-        <input name="group-token" placeholder="Group token" maxLength={60} type="password" />
+        <input name="login-group-token" placeholder="Group token" maxLength={60} type="password" />
         <div className="validation-error">{error}</div>
         <button disabled={fetching} id="login-page-submit" className="men-button" type="submit">
           Login

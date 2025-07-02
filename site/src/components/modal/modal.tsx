@@ -85,7 +85,7 @@ export const useModal = <OtherPropsT,>({
 
   const modal = isOpen ? (
     <>
-      <div id="modal-clickbox" onClick={close} />
+      <button id="modal-clickbox" onClick={close} aria-label="Exit Modal" />
       <div id="modal">
         <Children onCloseModal={close} {...otherProps} />
       </div>
