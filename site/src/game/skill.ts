@@ -29,7 +29,8 @@ export type Skill = (typeof Skill)[number];
 export type Experience = Distinct<number, "Experience">;
 export type Level = Distinct<number, "Level">;
 
-const SkillIcons: { skill: Skill; iconURL: string }[] = [
+const SkillIcons: { skill: Skill | "Overall"; iconURL: string }[] = [
+  { skill: "Overall", iconURL: "/ui/3579-0.png" },
   { skill: "Attack", iconURL: "/ui/197-0.png" },
   { skill: "Hitpoints", iconURL: "/ui/203-0.png" },
   { skill: "Mining", iconURL: "/ui/209-0.png" },
@@ -54,7 +55,7 @@ const SkillIcons: { skill: Skill; iconURL: string }[] = [
   { skill: "Construction", iconURL: "/ui/221-0.png" },
   { skill: "Hunter", iconURL: "/ui/220-0.png" },
 ];
-export const SkillIconsBySkill = new Map<Skill, URL>(
+export const SkillIconsBySkill = new Map<Skill | "Overall", URL>(
   SkillIcons.map(({ skill, iconURL }) => [skill, new URL(iconURL, import.meta.url)] as [Skill, URL]),
 );
 

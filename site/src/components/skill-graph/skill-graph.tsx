@@ -34,67 +34,79 @@ type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
 ChartJS.register(CategoryScale, TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 /**
- * Returns the finitely enumerated x-axis labels for a given aggregate period.
+ * Returns the finitely enumerated x-axis positions for a given aggregate
+ * period. Each position should be assigned a y-value then displayed on the
+ * chart.
  */
-const enumerateLabelsForPeriod = (
-  period: AggregatePeriod,
-): { dates: Date[]; labels: string[]; earliest: Date; now: Date } => {
+const enumerateDateBinsForPeriod = (period: AggregatePeriod): Date[] => {
   const now = new Date(Date.now());
 
-  const results: { dates: Date[]; labels: string[]; earliest: Date; now: Date } = {
-    dates: [],
-    labels: [],
-    earliest: new Date(Date.now()),
-    now,
-  };
-
-  let formatString = "";
+  const dates: Date[] = [];
 
   switch (period) {
     case "Day": {
-      formatString = "p";
       const start = DateFNS.startOfHour(DateFNS.sub(now, { days: 1 }), { in: utc });
-      results.earliest = start;
-      for (const date of DateFNS.eachHourOfInterval({ start, end: now })) {
-        results.dates.push(date);
-      }
+      dates.push(...DateFNS.eachHourOfInterval({ start, end: now }));
       break;
     }
     case "Week": {
-      formatString = "PP";
       const start = DateFNS.startOfDay(DateFNS.sub(now, { weeks: 1 }), { in: utc });
-      results.earliest = start;
-      for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
-        results.dates.push(date);
-      }
+      dates.push(...DateFNS.eachDayOfInterval({ start, end: now }));
       break;
     }
     case "Month": {
-      formatString = "MMM d";
       const start = DateFNS.startOfDay(DateFNS.sub(now, { months: 1 }), { in: utc });
-      results.earliest = start;
-      for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
-        results.dates.push(date);
-      }
+      dates.push(...DateFNS.eachDayOfInterval({ start, end: now }));
       break;
     }
     case "Year": {
-      formatString = "MMM y";
       const start = DateFNS.startOfMonth(DateFNS.sub(now, { years: 1 }), { in: utc });
-      results.earliest = start;
-      for (const date of DateFNS.eachMonthOfInterval({ start, end: now })) {
-        results.dates.push(date);
-      }
+      dates.push(...DateFNS.eachMonthOfInterval({ start, end: now }));
     }
   }
 
-  for (const date of results.dates) {
-    results.labels.push(DateFNS.format(date, formatString));
-  }
-  results.dates.push(now);
-  results.labels.push(DateFNS.format(now, "MMM d pp"));
+  dates.push(now);
 
-  return results;
+  return dates;
+};
+
+/**
+ * Returns the array of experience linearly interpolated between two samples
+ * based on time. If one of the endpoints is undefined, the other is returned.
+ * At least one of sampleA and sampleB needs to be defined.
+ */
+const interpolateSkillSamples = (
+  sampleA: { time: Date; data: Experience[] } | undefined,
+  sampleB: { time: Date; data: Experience[] } | undefined,
+  interpolationTime: Date,
+): Experience[] => {
+  if (!sampleA && !sampleB) {
+    throw new Error("Both XP samples to be interpolated can't be undefined.");
+  }
+
+  if (!sampleA && sampleB) {
+    return [...sampleB.data];
+  }
+  if (!sampleB && sampleA) {
+    return [...sampleA.data];
+  }
+
+  if (sampleA!.data.length !== sampleB!.data.length)
+    throw new Error("Interpolated xp samples don't have same exp length");
+
+  // The intermediate results are signed, so we preserve the ordering and the signs cancel out
+  const overallHours = DateFNS.differenceInSeconds(sampleB!.time, sampleA!.time);
+  const fractionOfInterval = DateFNS.differenceInSeconds(interpolationTime, sampleA!.time) / overallHours;
+
+  const result: Experience[] = [];
+  for (let i = 0; i < sampleA!.data.length; i++) {
+    const interpolatedExperience = Math.floor(
+      sampleA!.data[i] * (1 - fractionOfInterval) + sampleB!.data[i] * fractionOfInterval,
+    ) as Experience;
+    result.push(interpolatedExperience);
+  }
+
+  return result;
 };
 
 /**
@@ -102,8 +114,6 @@ const enumerateLabelsForPeriod = (
  * with all samples binned and data filled in for display on the chart.
  *
  * SkillData values should be sorted by date in ascending order already.
- *
- * For gaps, older existing samples are extrapolated forward.
  */
 const buildDatasetsFromMemberSkillData = (
   skillData: Map<Member.Name, { time: Date; data: Experience[] }[]>,
@@ -120,62 +130,32 @@ const buildDatasetsFromMemberSkillData = (
       return sum + xp;
     }, 0) as Experience;
 
-  const interpolateSamples = (
-    sampleA: { time: Date; data: Experience[] } | undefined,
-    sampleB: { time: Date; data: Experience[] } | undefined,
-    interpolationTime: Date,
-  ): Experience[] => {
-    if (!sampleA && !sampleB) {
-      throw new Error("Both XP samples to be interpolated can't be undefined.");
-    }
-
-    if (!sampleA && sampleB) {
-      return [...sampleB.data];
-    }
-    if (!sampleB && sampleA) {
-      return [...sampleA.data];
-    }
-
-    if (sampleA!.data.length !== sampleB!.data.length)
-      throw new Error("Interpolated xp samples don't have same exp length");
-
-    // The intermediate results are signed, so we preserve the ordering and the signs cancel out
-    const overallHours = DateFNS.differenceInSeconds(sampleB!.time, sampleA!.time);
-    const fractionOfInterval = DateFNS.differenceInSeconds(interpolationTime, sampleA!.time) / overallHours;
-
-    const result: Experience[] = [];
-    for (let i = 0; i < sampleA!.data.length; i++) {
-      const interpolatedExperience = Math.floor(
-        sampleA!.data[i] * (1 - fractionOfInterval) + sampleB!.data[i] * fractionOfInterval,
-      ) as Experience;
-      result.push(interpolatedExperience);
-    }
-
-    return result;
-  };
-
   /**
    * We interpret the skillData samples as a polynomial, and sample the points
    * along of the polynomial for our bins. Our best guess is linear
    * interpolation, which will lead to aliasing but we can't do much better
-   * without building up the backend a bit more.
+   * without building up the backend a bit more. Since we clamped our date bins
+   * to UTC midnight, which the server also does, we aren't interpolating a lot,
+   * just where there are gaps.
    */
   const datasets = [];
   let discontinuityIndex: number | undefined = undefined;
   for (const [member, memberSkillData] of skillData) {
-    // console.log("sampled", member, memberSkillData, dateBins);
     const interpolatedSamples: Experience[] = [];
 
     let skillDataIndex = 0;
     while (interpolatedSamples.length < dateBins.length) {
+      /*
+       * Assume these are in chronological order, because the input data was
+       * sorted down in the react component.
+       */
       const firstSample = memberSkillData.at(skillDataIndex);
       const secondSample = memberSkillData.at(skillDataIndex + 1);
 
-      // We assume firstSample occurs chronologically before secondSample
-
-      // Reached the end of all samples, can only forward fill the newest
-      // sample. We assume that secondSample is undefined too, since it occurs
-      // later in the array.
+      /*
+       * firstSample is undefined if we reached the end of all samples. At this
+       * point, we can only forward fill the newest sample.
+       */
       if (!firstSample) {
         const previous = interpolatedSamples.at(-1) ?? (0 as Experience);
         interpolatedSamples.push(previous);
@@ -185,10 +165,12 @@ const buildDatasetsFromMemberSkillData = (
       const dateBinIndex = interpolatedSamples.length;
       const dateBin = dateBins[dateBinIndex];
 
-      // If we are about to sample before the interval, we need to come up with
-      // some data to put in. This only occurs if the polynomial does not cover
-      // all datebins, like if the server is missing data from the past or a
-      // member was recently added.
+      /*
+       * If we are about to sample before the interval, we need to come up with
+       * some data to put in. This only occurs if the polynomial does not cover
+       * all datebins, like if the server is missing data from the past or a
+       * member was recently added. This should be a fairly rare occurrence.
+       */
       if (DateFNS.compareAsc(firstSample.time, dateBin) > 0) {
         discontinuityIndex ??= interpolatedSamples.length;
         interpolatedSamples.push(sumFilteredExperience(firstSample.data));
@@ -202,30 +184,29 @@ const buildDatasetsFromMemberSkillData = (
       }
 
       // console.log(dateBin, firstSample, secondSample, interpolatedSamples);
-      interpolatedSamples.push(sumFilteredExperience(interpolateSamples(firstSample, secondSample, dateBin)));
+      interpolatedSamples.push(sumFilteredExperience(interpolateSkillSamples(firstSample, secondSample, dateBin)));
     }
 
-    const chartYNumbersForMember: [Date, number][] = [];
+    const chartPoints: [Date, number][] = [];
     switch (options.yAxisUnit) {
       case "Cumulative Experience Gained": {
         const start = interpolatedSamples[1] ?? 0;
         for (let i = 0; i < interpolatedSamples.length; i++) {
-          chartYNumbersForMember[i] = [dateBins[i], interpolatedSamples[i] - start];
+          chartPoints[i] = [dateBins[i], interpolatedSamples[i] - start];
         }
         break;
       }
       case "Experience per Hour": {
-        // Iterate backwards to avoid overwriting.
         for (let i = 0; i < interpolatedSamples.length; i++) {
           const hoursPerSample = DateFNS.differenceInHours(dateBins[i], dateBins[i - 1]);
           const experienceGained = interpolatedSamples[i] - interpolatedSamples[i - 1];
-          chartYNumbersForMember[i] = [dateBins[i], experienceGained / hoursPerSample];
+          chartPoints[i] = [dateBins[i], experienceGained / hoursPerSample];
         }
         break;
       }
       case "Total Experience":
         for (let i = 0; i < interpolatedSamples.length; i++) {
-          chartYNumbersForMember[i] = [dateBins[i], interpolatedSamples[i]];
+          chartPoints[i] = [dateBins[i], interpolatedSamples[i]];
         }
         break;
     }
@@ -233,7 +214,7 @@ const buildDatasetsFromMemberSkillData = (
     const color = `hsl(${Member.computeMemberHueDegrees(member)}deg 80% 50%)`;
     datasets.push({
       label: member,
-      data: chartYNumbersForMember,
+      data: chartPoints,
       borderColor: color,
       backgroundColor: color,
     });
@@ -316,7 +297,7 @@ const buildTableRowsFromMemberSkillData = (
       name,
       colorCSS: `hsl(69deg, 60%, 60%)`,
       fillFraction: overallFraction,
-      iconSource: "/ui/3579-0.png",
+      iconSource: SkillIconsBySkill.get("Overall")?.href ?? "",
       quantity: total,
     };
     const skillRows: SkillGraphTableRow[] = [];
@@ -375,9 +356,8 @@ export const SkillGraph = (): ReactElement => {
     updateChartPromiseRef.current = fetchSkillData(period)
       .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 200)))
       .then((skillData) => {
-        const { dates } = enumerateLabelsForPeriod(period);
+        const dates = enumerateDateBinsForPeriod(period);
 
-        // console.log("dates:", dates, "labels:", labels, "earliest:", earliest, "now:", now);
         // Filter and sort the data, so that calculations like xp/hr down the road are well formed.
         for (const member of skillData.keys()) {
           const sorted = skillData
@@ -397,58 +377,61 @@ export const SkillGraph = (): ReactElement => {
          * calculations look backwards to determine rates, and the first sample
          * can't look backwards.
          */
+        const data = {
+          datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
+            yAxisUnit: yAxisOption,
+            skillFilter: skillFilter,
+          }).map(({ label, data, borderColor, backgroundColor }) => {
+            return {
+              label,
+              borderColor,
+              backgroundColor,
+              data: data.slice(1),
+              pointBorderWidth: 0,
+              pointHoverBorderWidth: 0,
+              pointHoverRadius: 3,
+              pointRadius: 0,
+              borderWidth: 2,
+            };
+          }),
+        };
+        const options: ChartOptions<"line"> = {
+          maintainAspectRatio: false,
+          animation: false,
+          normalized: true,
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "top" as const,
+            },
+            title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
+          },
+          interaction: {
+            intersect: false,
+            mode: "index",
+          },
+          layout: {
+            padding: 16,
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Time",
+              },
+              type: "time",
+            },
+            y: {
+              title: { display: true, text: yAxisOption },
+              type: "linear",
+              min: 0,
+            },
+          },
+        };
+
         setChart({
-          data: {
-            datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
-              yAxisUnit: yAxisOption,
-              skillFilter: skillFilter,
-            }).map(({ label, data, borderColor, backgroundColor }) => {
-              return {
-                label,
-                borderColor,
-                backgroundColor,
-                data: data.slice(1),
-                pointBorderWidth: 0,
-                pointHoverBorderWidth: 0,
-                pointHoverRadius: 3,
-                pointRadius: 0,
-                borderWidth: 2,
-              };
-            }),
-          },
-          options: {
-            maintainAspectRatio: false,
-            animation: false,
-            normalized: true,
-            responsive: true,
-            plugins: {
-              legend: {
-                position: "top" as const,
-              },
-              title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
-            },
-            interaction: {
-              intersect: false,
-              mode: "index",
-            },
-            layout: {
-              padding: 16,
-            },
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: "Time",
-                },
-                type: "time",
-              },
-              y: {
-                title: { display: true, text: yAxisOption },
-                type: "linear",
-                min: 0,
-              },
-            },
-          },
+          data,
+          options,
         });
 
         setTableRowData(
@@ -470,10 +453,7 @@ export const SkillGraph = (): ReactElement => {
   ChartJS.defaults.color = style.getPropertyValue("--primary-text");
   ChartJS.defaults.scale.grid.color = style.getPropertyValue("--graph-grid-border");
 
-  let skillIconSource = "/ui/3579-0.png";
-  if (Skill.includes(skillFilter as Skill)) {
-    skillIconSource = SkillIconsBySkill.get(skillFilter as Skill)?.href ?? skillIconSource;
-  }
+  const skillIconSource = SkillIconsBySkill.get(skillFilter)?.href ?? "";
 
   let loadingOverlay = undefined;
   if (loading) {
@@ -502,57 +482,67 @@ export const SkillGraph = (): ReactElement => {
     );
   }
 
+  const periodDropdown = (
+    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+      <select
+        value={period}
+        onChange={({ target }) => {
+          const selected = target.options[target.selectedIndex].value as AggregatePeriod;
+          if (period === selected || !AggregatePeriod.includes(selected)) return;
+          setPeriod(selected);
+        }}
+      >
+        {AggregatePeriod.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  const yAxisDropdown = (
+    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+      <select
+        value={yAxisOption}
+        onChange={({ target }) => {
+          const selected = target.options[target.selectedIndex].value as LineChartYAxisOption;
+          if (yAxisOption === selected || !LineChartYAxisOption.includes(selected)) return;
+          setYAxisOption(selected);
+        }}
+      >
+        {LineChartYAxisOption.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  const filteringDropdown = (
+    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+      <select
+        value={skillFilter}
+        onChange={({ target }) => {
+          const selected = target.options[target.selectedIndex].value as SkillFilteringOption;
+          if (skillFilter === selected || !SkillFilteringOption.includes(selected)) return;
+          setSkillFilter(selected);
+        }}
+      >
+        {SkillFilteringOption.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <>
       <div id="skill-graph-control-container">
-        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-          <select
-            value={period}
-            onChange={({ target }) => {
-              const selected = target.options[target.selectedIndex].value as AggregatePeriod;
-              if (period === selected || !AggregatePeriod.includes(selected)) return;
-              setPeriod(selected);
-            }}
-          >
-            {AggregatePeriod.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-          <select
-            value={yAxisOption}
-            onChange={({ target }) => {
-              const selected = target.options[target.selectedIndex].value as LineChartYAxisOption;
-              if (yAxisOption === selected || !LineChartYAxisOption.includes(selected)) return;
-              setYAxisOption(selected);
-            }}
-          >
-            {LineChartYAxisOption.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-          <select
-            value={skillFilter}
-            onChange={({ target }) => {
-              const selected = target.options[target.selectedIndex].value as SkillFilteringOption;
-              if (skillFilter === selected || !SkillFilteringOption.includes(selected)) return;
-              setSkillFilter(selected);
-            }}
-          >
-            {SkillFilteringOption.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        {periodDropdown}
+        {yAxisDropdown}
+        {filteringDropdown}
       </div>
       <div id="skill-graph-body" className="rsborder rsbackground">
         <div id="skill-graph-container" className="rsborder-tiny">
