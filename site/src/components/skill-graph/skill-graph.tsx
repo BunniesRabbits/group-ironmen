@@ -22,8 +22,10 @@ import { LoadingScreen } from "../loading-screen/loading-screen";
 import { SkillsInBackendOrder } from "../../api/requests/group-data";
 import { utc } from "@date-fns/utc";
 
-import "chartjs-adapter-date-fns";
 import "./skill-graph.css";
+
+import "chartjs-adapter-date-fns";
+ChartJS.register(CategoryScale, TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const SkillFilteringOption = ["Overall", ...Skill] as const;
 type SkillFilteringOption = (typeof SkillFilteringOption)[number];
@@ -31,7 +33,11 @@ type SkillFilteringOption = (typeof SkillFilteringOption)[number];
 const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per Hour"] as const;
 type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
 
-ChartJS.register(CategoryScale, TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+interface SkillGraphOptions {
+  period: AggregatePeriod;
+  yAxisUnit: LineChartYAxisOption;
+  skillFilter: SkillFilteringOption;
+}
 
 /**
  * Returns the finitely enumerated x-axis positions for a given aggregate
@@ -116,7 +122,7 @@ const interpolateSkillSamples = (
  * SkillData values should be sorted by date in ascending order already.
  */
 const buildDatasetsFromMemberSkillData = (
-  skillData: Map<Member.Name, { time: Date; data: Experience[] }[]>,
+  groupSkillSamplePoints: Map<Member.Name, { time: Date; data: Experience[] }[]>,
   dateBins: Date[],
   options: {
     yAxisUnit: LineChartYAxisOption;
@@ -139,8 +145,7 @@ const buildDatasetsFromMemberSkillData = (
    * just where there are gaps.
    */
   const datasets = [];
-  let discontinuityIndex: number | undefined = undefined;
-  for (const [member, memberSkillData] of skillData) {
+  for (const [member, memberSkillData] of groupSkillSamplePoints) {
     const interpolatedSamples: Experience[] = [];
 
     let skillDataIndex = 0;
@@ -176,10 +181,10 @@ const buildDatasetsFromMemberSkillData = (
        * member? To differentiate between missing data vs date bin mismatch
        */
       if (DateFNS.compareAsc(firstSample.time, dateBin) > 0) {
-        discontinuityIndex ??= interpolatedSamples.length;
         switch (options.yAxisUnit) {
           case "Total Experience":
           case "Cumulative Experience Gained":
+          default:
             interpolatedSamples.push(0 as Experience);
             break;
           case "Experience per Hour":
@@ -195,7 +200,6 @@ const buildDatasetsFromMemberSkillData = (
         continue;
       }
 
-      // console.log(dateBin, firstSample, secondSample, interpolatedSamples);
       interpolatedSamples.push(sumFilteredExperience(interpolateSkillSamples(firstSample, secondSample, dateBin)));
     }
 
@@ -354,15 +358,51 @@ interface SkillChart {
   options: ChartOptions<"line">;
 }
 
+interface SkillGraphDropdownProps<TOption extends string> {
+  current: TOption;
+  options: readonly TOption[];
+  setter: (value: TOption) => void;
+}
+const SkillGraphDropdown = <TOption extends string>({
+  current,
+  options,
+  setter,
+}: SkillGraphDropdownProps<TOption>): ReactElement => {
+  return (
+    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
+      <select
+        value={current}
+        onChange={({ target }) => {
+          const selected = target.options[target.selectedIndex].value;
+          if (!options.includes(selected as TOption)) return;
+          setter(selected as TOption);
+        }}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
 export const SkillGraph = (): ReactElement => {
-  const [period, setPeriod] = useState<AggregatePeriod>("Day");
-  const [yAxisOption, setYAxisOption] = useState<LineChartYAxisOption>("Total Experience");
-  const [skillFilter, setSkillFilter] = useState<SkillFilteringOption>("Overall");
-  const [chart, setChart] = useState<SkillChart>({ data: { datasets: [] }, options: {} });
+  const [options, setOptions] = useState<SkillGraphOptions>({
+    period: "Day",
+    yAxisUnit: "Total Experience",
+    skillFilter: "Overall",
+  });
+  const { period, yAxisUnit, skillFilter } = options;
+
   const [tableRowData, setTableRowData] = useState<SkillGraphTableRow[]>([]);
-  const { fetchSkillData } = useContext(APIContext);
-  const updateChartPromiseRef = useRef<Promise<void>>(undefined);
+  const [chart, setChart] = useState<SkillChart>({ data: { datasets: [] }, options: {} });
+
   const [loading, setLoading] = useState<boolean>(true);
+  const updateChartPromiseRef = useRef<Promise<void>>(undefined);
+
+  const { fetchSkillData } = useContext(APIContext);
 
   useEffect(() => {
     if (!fetchSkillData) return;
@@ -396,8 +436,8 @@ export const SkillGraph = (): ReactElement => {
          */
         const data = {
           datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
-            yAxisUnit: yAxisOption,
-            skillFilter: skillFilter,
+            yAxisUnit,
+            skillFilter,
           }).map(({ label, data, borderColor, backgroundColor }) => {
             return {
               label,
@@ -423,7 +463,7 @@ export const SkillGraph = (): ReactElement => {
             },
             title: {
               display: true,
-              text: `Group ${yAxisOption} for the Preceding ${period}`,
+              text: `Group ${yAxisUnit} for the Preceding ${period}`,
             },
           },
           interaction: {
@@ -442,7 +482,7 @@ export const SkillGraph = (): ReactElement => {
               type: "time",
             },
             y: {
-              title: { display: true, text: yAxisOption },
+              title: { display: true, text: yAxisUnit },
               type: "linear",
               min: 0,
             },
@@ -456,7 +496,7 @@ export const SkillGraph = (): ReactElement => {
 
         setTableRowData(
           buildTableRowsFromMemberSkillData(skillData, {
-            yAxisUnit: yAxisOption,
+            yAxisUnit: yAxisUnit,
             skillFilter: skillFilter,
           }),
         );
@@ -468,7 +508,7 @@ export const SkillGraph = (): ReactElement => {
         setLoading(false);
       });
     updateChartPromiseRef.current = promise;
-  }, [period, yAxisOption, skillFilter, fetchSkillData]);
+  }, [period, yAxisUnit, skillFilter, fetchSkillData]);
 
   const style = getComputedStyle(document.body);
   ChartJS.defaults.font.family = "rssmall";
@@ -476,16 +516,11 @@ export const SkillGraph = (): ReactElement => {
   ChartJS.defaults.color = style.getPropertyValue("--primary-text");
   ChartJS.defaults.scale.grid.color = style.getPropertyValue("--graph-grid-border");
 
-  const skillIconSource = SkillIconsBySkill.get(skillFilter)?.href ?? "";
-
-  let loadingOverlay = undefined;
-  if (loading) {
-    loadingOverlay = (
-      <div id="skill-graph-loading-overlay">
-        <LoadingScreen />
-      </div>
-    );
-  }
+  const loadingOverlay = loading ? (
+    <div id="skill-graph-loading-overlay">
+      <LoadingScreen />
+    </div>
+  ) : undefined;
 
   const tableRowElements = [];
   for (const { colorCSS, fillFraction, iconSource, name, quantity } of tableRowData) {
@@ -505,71 +540,33 @@ export const SkillGraph = (): ReactElement => {
     );
   }
 
-  const periodDropdown = (
-    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-      <select
-        value={period}
-        onChange={({ target }) => {
-          const selected = target.options[target.selectedIndex].value as AggregatePeriod;
-          if (period === selected || !AggregatePeriod.includes(selected)) return;
-          setPeriod(selected);
-        }}
-      >
-        {AggregatePeriod.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-  const yAxisDropdown = (
-    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-      <select
-        value={yAxisOption}
-        onChange={({ target }) => {
-          const selected = target.options[target.selectedIndex].value as LineChartYAxisOption;
-          if (yAxisOption === selected || !LineChartYAxisOption.includes(selected)) return;
-          setYAxisOption(selected);
-        }}
-      >
-        {LineChartYAxisOption.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-  const filteringDropdown = (
-    <div className="skill-graph-dropdown rsborder-tiny rsbackground rsbackground-hover">
-      <select
-        value={skillFilter}
-        onChange={({ target }) => {
-          const selected = target.options[target.selectedIndex].value as SkillFilteringOption;
-          if (skillFilter === selected || !SkillFilteringOption.includes(selected)) return;
-          setSkillFilter(selected);
-        }}
-      >
-        {SkillFilteringOption.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
   return (
     <>
       <div id="skill-graph-control-container">
-        {periodDropdown}
-        {yAxisDropdown}
-        {filteringDropdown}
+        <SkillGraphDropdown
+          current={period}
+          options={AggregatePeriod}
+          setter={(period) => setOptions({ ...options, period })}
+        />
+        <SkillGraphDropdown
+          current={yAxisUnit}
+          options={LineChartYAxisOption}
+          setter={(yAxisUnit) => setOptions({ ...options, yAxisUnit })}
+        />
+        <SkillGraphDropdown
+          current={skillFilter}
+          options={SkillFilteringOption}
+          setter={(skillFilter) => setOptions({ ...options, skillFilter })}
+        />
       </div>
       <div id="skill-graph-body" className="rsborder rsbackground">
         <div id="skill-graph-container" className="rsborder-tiny">
-          <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
+          <img
+            alt={skillFilter}
+            id="skill-graph-skill-image"
+            loading="lazy"
+            src={SkillIconsBySkill.get(skillFilter)?.href ?? ""}
+          />
           <Line id="skill-graph-canvas" options={chart.options} data={chart.data} />
         </div>
         <table id="skill-graph-xp-change-table">
