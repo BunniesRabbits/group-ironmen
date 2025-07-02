@@ -18,9 +18,9 @@ import { APIContext } from "../../context/api-context";
 import { Skill, SkillIconsBySkill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";
+import { SkillsInBackendOrder } from "../../api/requests/group-data";
 
 import "./skill-graph.css";
-import { SkillsInBackendOrder } from "../../api/requests/group-data";
 
 const SkillFilteringOption = ["Overall", ...Skill] as const;
 type SkillFilteringOption = (typeof SkillFilteringOption)[number];
@@ -193,7 +193,6 @@ const buildTableRowsFromMemberSkillData = (
 ): SkillGraphTableRow[] => {
   // Aggregates we so we can compute what fraction of total gains over a period each member did
   let groupGainTotal = 0 as Experience;
-  const groupGainTotalPerSkill: Experience[] = [];
 
   // Individual gains to display for the individual rows
   const groupGains: { name: Member.Name; total: Experience; perSkill: Experience[] }[] = [];
@@ -229,7 +228,6 @@ const buildTableRowsFromMemberSkillData = (
 
         memberGain.perSkill[skillIndex] = xpGain;
         memberGain.total = (memberGain.total + xpGain) as Experience;
-        groupGainTotalPerSkill[skillIndex] = ((groupGainTotalPerSkill.at(skillIndex) ?? 0) + xpGain) as Experience;
         groupGainTotal = (groupGainTotal + xpGain) as Experience;
       }
     }
@@ -255,10 +253,11 @@ const buildTableRowsFromMemberSkillData = (
       continue;
     }
 
+    const overallFraction = total / groupGainTotal;
     const header: SkillGraphTableRow = {
       name,
       colorCSS: `hsl(69deg, 60%, 60%)`,
-      fillFraction: total / groupGainTotal,
+      fillFraction: overallFraction,
       iconSource: "/ui/3579-0.png",
       quantity: total,
     };
@@ -271,12 +270,12 @@ const buildTableRowsFromMemberSkillData = (
         continue;
       }
 
-      const fraction = xpGain / Math.max(xpGain, groupGainTotalPerSkill.at(skillIndex) ?? 0);
+      const fraction = xpGain / total;
 
       skillRows.push({
         name: skill,
         colorCSS: `hsl(69deg, 60%, 60%)`,
-        fillFraction: fraction,
+        fillFraction: fraction * overallFraction,
         iconSource: SkillIconsBySkill.get(skill)!.href,
         quantity: xpGain,
       });
