@@ -4,12 +4,21 @@
   overflow-x: auto;
 }
 
+#skill-graph-body {
+  display: flex;
+  overflow-y: auto;
+  position: relative;
+  flex-direction: column;
+  flex: 1;
+}
+
 #skill-graph-container {
   min-width: 0;
   position: relative;
-  display: flex;
   height: max(40vh, 300px);
+  display: flex;
   justify-content: space-around;
+  flex-shrink: 0;
 }
 
 .skill-graph-dropdown > select {
@@ -18,6 +27,7 @@
 
 #skill-graph-canvas {
   position: absolute;
+  height: 300px;
   box-sizing: border-box;
   background: rgb(255 255 255 / 5%);
 }
@@ -44,4 +54,21 @@
   opacity: 0.8;
   position: absolute;
   inset: 0;
+}
+
+#skill-graph-xp-change-table {
+  margin: 8px 24px;
+  font-size: 16px;
+  border-collapse: collapse;
+}
+
+#skill-graph-xp-change-table img {
+  width: 1em;
+  margin-inline: 0.5em;
+  object-fit: contain;
+}
+
+.skill-graph-xp-change-table-label {
+  display: flex;
+  align-items: center;
 }

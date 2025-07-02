@@ -20,6 +20,7 @@ import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";
 
 import "./skill-graph.css";
+import { SkillsInBackendOrder } from "../../api/requests/group-data";
 
 const SkillFilteringOption = ["Overall", ...Skill] as const;
 type SkillFilteringOption = (typeof SkillFilteringOption)[number];
@@ -32,36 +33,52 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 /**
  * Returns the finitely enumerated x-axis labels for a given aggregate period.
  */
-const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; labels: string[] } => {
+const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; labels: string[]; earliest: Date } => {
   const now = new Date(Date.now());
 
-  const results: { dates: Date[]; labels: string[] } = { dates: [], labels: [] };
+  const results: { dates: Date[]; labels: string[]; earliest: Date } = {
+    dates: [],
+    labels: [],
+    earliest: new Date(Date.now()),
+  };
   let formatString = "";
 
   switch (period) {
-    case "Day":
+    case "Day": {
       formatString = "p";
-      for (const date of DateFNS.eachHourOfInterval({ start: DateFNS.subDays(now, 1), end: now })) {
+      const start = DateFNS.subDays(now, 1);
+      results.earliest = start;
+      for (const date of DateFNS.eachHourOfInterval({ start, end: now })) {
         results.dates.push(date);
       }
       break;
-    case "Week":
+    }
+    case "Week": {
       formatString = "PP";
-      for (const date of DateFNS.eachDayOfInterval({ start: DateFNS.subWeeks(now, 1), end: now })) {
+      const start = DateFNS.subWeeks(now, 1);
+      results.earliest = start;
+      for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
       }
       break;
-    case "Month":
+    }
+    case "Month": {
       formatString = "MMM d";
-      for (const date of DateFNS.eachDayOfInterval({ start: DateFNS.subMonths(now, 1), end: now })) {
+      const start = DateFNS.subMonths(now, 1);
+      results.earliest = start;
+      for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
       }
       break;
-    case "Year":
+    }
+    case "Year": {
       formatString = "MMM y";
-      for (const date of DateFNS.eachMonthOfInterval({ start: DateFNS.subYears(now, 1), end: now })) {
+      const start = DateFNS.subYears(now, 1);
+      results.earliest = start;
+      for (const date of DateFNS.eachMonthOfInterval({ start, end: now })) {
         results.dates.push(date);
       }
+    }
   }
 
   for (const date of results.dates) {
@@ -167,11 +184,124 @@ const buildDatasetsFromMemberSkillData = (
   return datasets.sort(({ label: labelA }, { label: labelB }) => labelA.localeCompare(labelB));
 };
 
+const buildTableRowsFromMemberSkillData = (
+  skillData: Map<Member.Name, { time: Date; data: Experience[] }[]>,
+  options: {
+    yAxisUnit: LineChartYAxisOption;
+    skillFilter: SkillFilteringOption;
+  },
+): SkillGraphTableRow[] => {
+  // Aggregates we so we can compute what fraction of total gains over a period each member did
+  let groupGainTotal = 0 as Experience;
+  const groupGainTotalPerSkill: Experience[] = [];
+
+  // Individual gains to display for the individual rows
+  const groupGains: { name: Member.Name; total: Experience; perSkill: Experience[] }[] = [];
+
+  for (const [member, samples] of skillData) {
+    const memberGain = { name: member, total: 0 as Experience, perSkill: [] as Experience[] };
+
+    const samplesSortedOldestFirst = samples.sort(({ time: timeA }, { time: timeB }) =>
+      DateFNS.compareAsc(timeA, timeB),
+    );
+
+    /*
+     * TODO: New members AND members that haven't logged in a lot both have 1
+     * sample, and we cannot differentiate them even though we'd like to display
+     * new member's gains over a month/year. This is fairly minor, since this
+     * only happens if the new member hasn't played enough to be logged multiple
+     * times.
+     */
+    if (samplesSortedOldestFirst.length >= 2) {
+      const startingSkills = samplesSortedOldestFirst.at(0)!.data;
+      const endingSkills = samplesSortedOldestFirst.at(-1)!.data;
+
+      const skillIndexMax = Math.max(startingSkills.length, endingSkills.length);
+      for (let skillIndex = 0; skillIndex < skillIndexMax; skillIndex++) {
+        const skill = SkillsInBackendOrder[skillIndex];
+        if (options.skillFilter !== "Overall" && skill !== options.skillFilter) {
+          continue;
+        }
+
+        const start = startingSkills.at(skillIndex) ?? 0;
+        const end = endingSkills.at(skillIndex) ?? 0;
+        const xpGain = Math.max(0, end - start) as Experience;
+
+        memberGain.perSkill[skillIndex] = xpGain;
+        memberGain.total = (memberGain.total + xpGain) as Experience;
+        groupGainTotalPerSkill[skillIndex] = ((groupGainTotalPerSkill.at(skillIndex) ?? 0) + xpGain) as Experience;
+        groupGainTotal = (groupGainTotal + xpGain) as Experience;
+      }
+    }
+
+    groupGains.push(memberGain);
+  }
+
+  const rows: SkillGraphTableRow[] = [];
+
+  groupGains.sort(({ total: a }, { total: b }) => b - a);
+
+  for (const { name, total, perSkill } of groupGains) {
+    if (options.skillFilter !== "Overall") {
+      const skill: Skill = options.skillFilter;
+
+      rows.push({
+        name,
+        colorCSS: `hsl(69deg, 60%, 60%)`,
+        fillFraction: total / groupGainTotal,
+        iconSource: SkillIconsBySkill.get(skill)!.href,
+        quantity: total,
+      });
+      continue;
+    }
+
+    const header: SkillGraphTableRow = {
+      name,
+      colorCSS: `hsl(69deg, 60%, 60%)`,
+      fillFraction: total / groupGainTotal,
+      iconSource: "/ui/3579-0.png",
+      quantity: total,
+    };
+    const skillRows: SkillGraphTableRow[] = [];
+    for (let skillIndex = 0; skillIndex < perSkill.length; skillIndex++) {
+      const xpGain = perSkill.at(skillIndex);
+      const skill = SkillsInBackendOrder[skillIndex];
+
+      if (!xpGain || xpGain <= 0 || !skill) {
+        continue;
+      }
+
+      const fraction = xpGain / Math.max(xpGain, groupGainTotalPerSkill.at(skillIndex) ?? 0);
+
+      skillRows.push({
+        name: skill,
+        colorCSS: `hsl(69deg, 60%, 60%)`,
+        fillFraction: fraction,
+        iconSource: SkillIconsBySkill.get(skill)!.href,
+        quantity: xpGain,
+      });
+    }
+
+    rows.push(header);
+    rows.push(...skillRows.sort(({ quantity: a }, { quantity: b }) => b - a));
+  }
+  return rows;
+};
+
+interface SkillGraphTableRow {
+  iconSource: string;
+  name: string;
+  quantity: number;
+  colorCSS: string;
+  fillFraction: number;
+}
+
 export const SkillGraph = (): ReactElement => {
   const [period, setPeriod] = useState<AggregatePeriod>("Day");
   const [yAxisOption, setYAxisOption] = useState<LineChartYAxisOption>("Total Experience");
   const [skillFilter, setSkillFilter] = useState<SkillFilteringOption>("Overall");
   const [chartData, setChartData] = useState<ChartData<"line", number[], string>>({ labels: [], datasets: [] });
+  const [tableRowData, setTableRowData] = useState<SkillGraphTableRow[]>([]);
   const { fetchSkillData } = useContext(APIContext);
   const updateChartPromiseRef = useRef<Promise<void>>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
@@ -183,7 +313,12 @@ export const SkillGraph = (): ReactElement => {
     updateChartPromiseRef.current = fetchSkillData(period)
       .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 200)))
       .then((skillData) => {
-        const { dates, labels } = enumerateLabelsForPeriod(period);
+        const { dates, labels, earliest } = enumerateLabelsForPeriod(period);
+
+        for (const member of skillData.keys()) {
+          const filtered = skillData.get(member)!.filter(({ time }) => DateFNS.compareAsc(time, earliest) >= 0);
+          skillData.set(member, filtered);
+        }
 
         /*
          * Slice the data, since there is an extra sample sent (e.g. 24 hours
@@ -203,6 +338,13 @@ export const SkillGraph = (): ReactElement => {
             data: data.slice(1),
           })),
         });
+
+        setTableRowData(
+          buildTableRowsFromMemberSkillData(skillData, {
+            yAxisUnit: yAxisOption,
+            skillFilter: skillFilter,
+          }),
+        );
       })
       .finally(() => {
         updateChartPromiseRef.current = undefined;
@@ -262,6 +404,24 @@ export const SkillGraph = (): ReactElement => {
     );
   }
 
+  const tableRowElements = [];
+  for (const { colorCSS, fillFraction, iconSource, name, quantity } of tableRowData) {
+    const fillPercent = Math.max(0, Math.min(100, Math.round(100 * fillFraction)));
+    tableRowElements.push(
+      <tr
+        style={{
+          background: `linear-gradient(90deg, ${colorCSS} ${fillPercent}%, transparent ${fillPercent}%)`,
+        }}
+      >
+        <td className="skill-graph-xp-change-table-label">
+          <img alt="attack" src={iconSource} />
+          {name}
+        </td>
+        <td className="skill-graph-xp-change-data">+{quantity.toLocaleString()}</td>
+      </tr>,
+    );
+  }
+
   return (
     <>
       <div id="skill-graph-control-container">
@@ -314,9 +474,14 @@ export const SkillGraph = (): ReactElement => {
           </select>
         </div>
       </div>
-      <div id="skill-graph-container" className="rsborder rsbackground">
-        <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
-        <Line id="skill-graph-canvas" className="rsborder-tiny" options={options} data={chartData} />
+      <div id="skill-graph-body" className="rsborder rsbackground">
+        <div id="skill-graph-container" className="rsborder-tiny">
+          <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
+          <Line id="skill-graph-canvas" options={options} data={chartData} />
+        </div>
+        <table id="skill-graph-xp-change-table">
+          <tbody>{tableRowElements}</tbody>
+        </table>
         {loadingOverlay}
       </div>
     </>

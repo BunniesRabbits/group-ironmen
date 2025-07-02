@@ -149,7 +149,10 @@ const InventoryFromBackend = z
     }, []),
   );
 
-const SkillsInBackendOrder: Skill[] = [
+/**
+ * Skills in the order that the backend sends the flat arrays of experience in.
+ */
+export const SkillsInBackendOrder: Skill[] = [
   "Agility",
   "Attack",
   "Construction",
