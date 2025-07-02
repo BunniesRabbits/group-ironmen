@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState, type ReactElement } from "reac
 import {
   Chart as ChartJS,
   CategoryScale,
+  TimeScale,
   LinearScale,
   PointElement,
   LineElement,
@@ -20,6 +21,7 @@ import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";
 import { SkillsInBackendOrder } from "../../api/requests/group-data";
 
+import "chartjs-adapter-date-fns";
 import "./skill-graph.css";
 
 const SkillFilteringOption = ["Overall", ...Skill] as const;
@@ -28,25 +30,29 @@ type SkillFilteringOption = (typeof SkillFilteringOption)[number];
 const LineChartYAxisOption = ["Total Experience", "Cumulative Experience Gained", "Experience per Hour"] as const;
 type LineChartYAxisOption = (typeof LineChartYAxisOption)[number];
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 /**
  * Returns the finitely enumerated x-axis labels for a given aggregate period.
  */
-const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; labels: string[]; earliest: Date } => {
+const enumerateLabelsForPeriod = (
+  period: AggregatePeriod,
+): { dates: Date[]; labels: string[]; earliest: Date; now: Date } => {
   const now = new Date(Date.now());
 
-  const results: { dates: Date[]; labels: string[]; earliest: Date } = {
+  const results: { dates: Date[]; labels: string[]; earliest: Date; now: Date } = {
     dates: [],
     labels: [],
     earliest: new Date(Date.now()),
+    now,
   };
+
   let formatString = "";
 
   switch (period) {
     case "Day": {
       formatString = "p";
-      const start = DateFNS.subDays(now, 1);
+      const start = DateFNS.startOfHour(DateFNS.sub(now, { days: 1, hours: 1 }));
       results.earliest = start;
       for (const date of DateFNS.eachHourOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -55,7 +61,7 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
     }
     case "Week": {
       formatString = "PP";
-      const start = DateFNS.subWeeks(now, 1);
+      const start = DateFNS.startOfDay(DateFNS.sub(now, { weeks: 1, days: 1 }));
       results.earliest = start;
       for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -64,7 +70,7 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
     }
     case "Month": {
       formatString = "MMM d";
-      const start = DateFNS.subMonths(now, 1);
+      const start = DateFNS.startOfDay(DateFNS.sub(now, { months: 1, days: 1 }));
       results.earliest = start;
       for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -73,7 +79,7 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
     }
     case "Year": {
       formatString = "MMM y";
-      const start = DateFNS.subYears(now, 1);
+      const start = DateFNS.startOfMonth(DateFNS.sub(now, { years: 1, months: 1 }));
       results.earliest = start;
       for (const date of DateFNS.eachMonthOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -84,6 +90,8 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
   for (const date of results.dates) {
     results.labels.push(DateFNS.format(date, formatString));
   }
+  results.dates.push(now);
+  results.labels.push(DateFNS.format(now, "MMM d pp"));
 
   return results;
 };
@@ -91,6 +99,8 @@ const enumerateLabelsForPeriod = (period: AggregatePeriod): { dates: Date[]; lab
 /**
  * Takes in a bunch of experience samples for all members, then outputs the data
  * with all samples binned and data filled in for display on the chart.
+ *
+ * SkillData values should be sorted by date in ascending order already.
  *
  * For gaps, older existing samples are extrapolated forward.
  */
@@ -101,7 +111,7 @@ const buildDatasetsFromMemberSkillData = (
     yAxisUnit: LineChartYAxisOption;
     skillFilter: SkillFilteringOption;
   },
-): { label: string; data: number[]; borderColor: string; backgroundColor: string }[] => {
+): { label: string; data: [Date, number][]; borderColor: string; backgroundColor: string }[] => {
   const sumFilteredExperience = (skills: Experience[]): Experience =>
     skills.reduce((sum, xp, index) => {
       if (options.skillFilter !== "Overall" && Skill[index] !== options.skillFilter) return sum;
@@ -109,76 +119,122 @@ const buildDatasetsFromMemberSkillData = (
       return sum + xp;
     }, 0) as Experience;
 
-  /**
-   * The backend only sends samples it has, so there are gaps. We need to
-   * fill those gaps and interpolate the existing samples into our buckets.
-   */
-  const datasets = [];
-  for (const [member, memberSkillData] of skillData) {
-    const binnedSamples: ({ experience: Experience; sampleDate: Date } | undefined)[] = Array<undefined>(
-      dateBins.length,
-    ).fill(undefined);
-
-    const swapBinIfNewer = (incoming: { experience: Experience; sampleDate: Date }, index: number): void => {
-      if (index < 0 || index >= binnedSamples.length) throw new Error("Out of bounds bin swap");
-
-      const currentBinnedSample = binnedSamples.at(index);
-      if (!currentBinnedSample) {
-        binnedSamples[index] = structuredClone(incoming);
-        return;
-      }
-
-      const incomingDateIsNewer = DateFNS.compareAsc(incoming.sampleDate, currentBinnedSample?.sampleDate) >= 0;
-      if (!incomingDateIsNewer) return;
-
-      binnedSamples[index] = structuredClone(incoming);
-    };
-
-    // Bin all of our samples received from the server
-    for (const { time: sampleDate, data: sampleAllSkillsExperience } of memberSkillData) {
-      const sampleExperience = sumFilteredExperience(sampleAllSkillsExperience);
-
-      const binIndex = DateFNS.closestIndexTo(sampleDate, dateBins)!;
-      swapBinIfNewer({ experience: sampleExperience, sampleDate }, binIndex);
+  const interpolateSamples = (
+    sampleA: { time: Date; data: Experience[] } | undefined,
+    sampleB: { time: Date; data: Experience[] } | undefined,
+    interpolationTime: Date,
+  ): Experience[] => {
+    if (!sampleA && !sampleB) {
+      throw new Error("Both XP samples to be interpolated can't be undefined.");
     }
 
-    // Fill the gaps
-    const chartYNumbersForMember: number[] = [];
-    for (let i = 0; i < binnedSamples.length; i++) {
-      const sample = binnedSamples.at(i);
+    if (!sampleA && sampleB) {
+      return [...sampleB.data];
+    }
+    if (!sampleB && sampleA) {
+      return [...sampleA.data];
+    }
 
-      if (sample) {
-        chartYNumbersForMember.push(sample.experience);
+    if (sampleA!.data.length !== sampleB!.data.length)
+      throw new Error("Interpolated xp samples don't have same exp length");
+
+    // The intermediate results are signed, so we preserve the ordering and the signs cancel out
+    const overallHours = DateFNS.differenceInSeconds(sampleB!.time, sampleA!.time);
+    const fractionOfInterval = DateFNS.differenceInSeconds(interpolationTime, sampleA!.time) / overallHours;
+
+    const result: Experience[] = [];
+    for (let i = 0; i < sampleA!.data.length; i++) {
+      const interpolatedExperience = (sampleA!.data[i] * (1 - fractionOfInterval) +
+        sampleB!.data[i] * fractionOfInterval) as Experience;
+      result.push(interpolatedExperience);
+    }
+
+    return result;
+  };
+
+  /**
+   * We interpret the skillData samples as a polynomial, and sample the points
+   * along of the polynomial for our bins. Our best guess is linear
+   * interpolation, which will lead to aliasing but we can't do much better
+   * without building up the backend a bit more.
+   */
+  const datasets = [];
+  let discontinuityIndex: number | undefined = undefined;
+  for (const [member, memberSkillData] of skillData) {
+    // console.log("sampled", member, memberSkillData, dateBins);
+    const interpolatedSamples: Experience[] = [];
+
+    let skillDataIndex = 0;
+    while (interpolatedSamples.length < dateBins.length) {
+      const firstSample = memberSkillData.at(skillDataIndex);
+      const secondSample = memberSkillData.at(skillDataIndex + 1);
+
+      // We assume firstSample occurs chronologically before secondSample
+
+      // Reached the end of all samples, can only forward fill the newest
+      // sample. We assume that secondSample is undefined too, since it occurs
+      // later in the array.
+      if (!firstSample) {
+        const previous = interpolatedSamples.at(-1) ?? (0 as Experience);
+        interpolatedSamples.push(previous);
         continue;
       }
 
-      const previous = chartYNumbersForMember.at(chartYNumbersForMember.length - 1);
-      chartYNumbersForMember.push(previous ?? 0);
+      const dateBinIndex = interpolatedSamples.length;
+      const dateBin = dateBins[dateBinIndex];
+
+      // If we are about to sample before the interval, we need to come up with
+      // some data to put in. This only occurs if the polynomial does not cover
+      // all datebins, like if the server is missing data from the past or a
+      // member was recently added.
+      if (DateFNS.compareAsc(firstSample.time, dateBin) > 0) {
+        discontinuityIndex ??= interpolatedSamples.length;
+        interpolatedSamples.push(0 as Experience);
+        continue;
+      }
+
+      // If we are about to sample after the interval, we increment the interval
+      if (secondSample && DateFNS.compareAsc(dateBin, secondSample.time) > 0) {
+        skillDataIndex += 1;
+        continue;
+      }
+
+      // console.log(dateBin, firstSample, secondSample, interpolatedSamples);
+      interpolatedSamples.push(sumFilteredExperience(interpolateSamples(firstSample, secondSample, dateBin)));
     }
 
+    const chartYNumbersForMember: [Date, number][] = [];
     switch (options.yAxisUnit) {
       case "Cumulative Experience Gained": {
-        const start = chartYNumbersForMember[0] ?? 0;
-        for (let i = 0; i < chartYNumbersForMember.length; i++) {
-          chartYNumbersForMember[i] -= start;
+        const start = interpolatedSamples[1] ?? 0;
+        for (let i = 0; i < interpolatedSamples.length; i++) {
+          chartYNumbersForMember[i] = [dateBins[i], interpolatedSamples[i] - start];
         }
         break;
       }
       case "Experience per Hour": {
         // Iterate backwards to avoid overwriting.
-        for (let i = chartYNumbersForMember.length - 1; i >= 1; i--) {
+        for (let i = 0; i < interpolatedSamples.length; i++) {
           const hoursPerSample = DateFNS.differenceInHours(dateBins[i], dateBins[i - 1]);
-          const experienceGained = chartYNumbersForMember[i] - chartYNumbersForMember[i - 1];
-          chartYNumbersForMember[i] = experienceGained / hoursPerSample;
+          const experienceGained = interpolatedSamples[i] - interpolatedSamples[i - 1];
+          chartYNumbersForMember[i] = [dateBins[i], experienceGained / hoursPerSample];
         }
         break;
       }
       case "Total Experience":
+        for (let i = 0; i < interpolatedSamples.length; i++) {
+          chartYNumbersForMember[i] = [dateBins[i], interpolatedSamples[i]];
+        }
         break;
     }
 
     const color = `hsl(${Member.computeMemberHueDegrees(member)}deg 80% 50%)`;
-    datasets.push({ label: member, data: chartYNumbersForMember, borderColor: color, backgroundColor: color });
+    datasets.push({
+      label: member,
+      data: chartYNumbersForMember,
+      borderColor: color,
+      backgroundColor: color,
+    });
   }
 
   return datasets.sort(({ label: labelA }, { label: labelB }) => labelA.localeCompare(labelB));
@@ -295,11 +351,16 @@ interface SkillGraphTableRow {
   fillFraction: number;
 }
 
+interface SkillChart {
+  data: ChartData<"line", [Date, number][], string>;
+  options: ChartOptions<"line">;
+}
+
 export const SkillGraph = (): ReactElement => {
   const [period, setPeriod] = useState<AggregatePeriod>("Day");
   const [yAxisOption, setYAxisOption] = useState<LineChartYAxisOption>("Total Experience");
   const [skillFilter, setSkillFilter] = useState<SkillFilteringOption>("Overall");
-  const [chartData, setChartData] = useState<ChartData<"line", number[], string>>({ labels: [], datasets: [] });
+  const [chart, setChart] = useState<SkillChart>({ data: { datasets: [] }, options: {} });
   const [tableRowData, setTableRowData] = useState<SkillGraphTableRow[]>([]);
   const { fetchSkillData } = useContext(APIContext);
   const updateChartPromiseRef = useRef<Promise<void>>(undefined);
@@ -312,30 +373,80 @@ export const SkillGraph = (): ReactElement => {
     updateChartPromiseRef.current = fetchSkillData(period)
       .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 200)))
       .then((skillData) => {
-        const { dates, labels, earliest } = enumerateLabelsForPeriod(period);
+        const { dates } = enumerateLabelsForPeriod(period);
 
+        // console.log("dates:", dates, "labels:", labels, "earliest:", earliest, "now:", now);
+        // Filter and sort the data, so that calculations like xp/hr down the road are well formed.
         for (const member of skillData.keys()) {
-          const filtered = skillData.get(member)!.filter(({ time }) => DateFNS.compareAsc(time, earliest) >= 0);
-          skillData.set(member, filtered);
+          const sorted = skillData
+            .get(member)!
+            .sort(({ time: timeA }, { time: timeB }) => DateFNS.compareAsc(timeA, timeB));
+          if (sorted.length === 0) continue;
         }
 
         /*
-         * Slice the data, since there is an extra sample sent (e.g. 24 hours
-         * ago when we already chart now). This also makes "per hour" options
-         * well defined, since our calculations look backwards to determine
-         * rates, and the first sample can't look backwards.
+         * Slice the data, since our calculations up until now included an extra
+         * interval.
+         *
+         * For example, if today is JUNE 8 and the period is a week, we get
+         * samples and process JUNE 1.
+         *
+         * This also makes "per hour" options well defined, since our
+         * calculations look backwards to determine rates, and the first sample
+         * can't look backwards.
          */
-        setChartData({
-          labels: labels.slice(1),
-          datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
-            yAxisUnit: yAxisOption,
-            skillFilter: skillFilter,
-          }).map(({ label, data, borderColor, backgroundColor }) => ({
-            label,
-            borderColor,
-            backgroundColor,
-            data: data.slice(1),
-          })),
+        setChart({
+          data: {
+            datasets: buildDatasetsFromMemberSkillData(skillData, dates, {
+              yAxisUnit: yAxisOption,
+              skillFilter: skillFilter,
+            }).map(({ label, data, borderColor, backgroundColor }) => {
+              return {
+                label,
+                borderColor,
+                backgroundColor,
+                data: data.slice(1),
+                pointBorderWidth: 0,
+                pointHoverBorderWidth: 0,
+                pointHoverRadius: 3,
+                pointRadius: 0,
+                borderWidth: 2,
+              };
+            }),
+          },
+          options: {
+            maintainAspectRatio: false,
+            animation: false,
+            normalized: true,
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top" as const,
+              },
+              title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
+            },
+            interaction: {
+              intersect: false,
+              mode: "index",
+            },
+            layout: {
+              padding: 16,
+            },
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: "Time",
+                },
+                type: "time",
+              },
+              y: {
+                title: { display: true, text: yAxisOption },
+                type: "linear",
+                min: 0,
+              },
+            },
+          },
         });
 
         setTableRowData(
@@ -356,38 +467,6 @@ export const SkillGraph = (): ReactElement => {
   ChartJS.defaults.font.size = 16;
   ChartJS.defaults.color = style.getPropertyValue("--primary-text");
   ChartJS.defaults.scale.grid.color = style.getPropertyValue("--graph-grid-border");
-
-  const options: ChartOptions<"line"> = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top" as const,
-      },
-      title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
-    },
-    layout: {
-      padding: 4,
-    },
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: "Time",
-        },
-        ticks: {
-          autoSkip: false,
-        },
-        grid: {
-          drawTicks: false,
-        },
-      },
-      y: {
-        title: { display: true, text: yAxisOption },
-        type: "linear",
-        min: 0,
-      },
-    },
-  };
 
   let skillIconSource = "/ui/3579-0.png";
   if (Skill.includes(skillFilter as Skill)) {
@@ -476,7 +555,7 @@ export const SkillGraph = (): ReactElement => {
       <div id="skill-graph-body" className="rsborder rsbackground">
         <div id="skill-graph-container" className="rsborder-tiny">
           <img alt={skillFilter} id="skill-graph-skill-image" loading="lazy" src={skillIconSource} />
-          <Line id="skill-graph-canvas" options={options} data={chartData} />
+          <Line id="skill-graph-canvas" options={chart.options} data={chart.data} />
         </div>
         <table id="skill-graph-xp-change-table">
           <tbody>{tableRowElements}</tbody>

@@ -6,7 +6,7 @@ import type { CollectionLogInfo } from "../game/collection-log";
 import { Skill, type Experience } from "../game/skill";
 import type { GroupCredentials } from "./credentials";
 import { fetchGEPrices, type GEPrices } from "./requests/ge-prices";
-import { fetchGroupData, type Response as GetGroupDataResponse } from "./requests/group-data";
+import { fetchGroupData, SkillsInBackendOrder, type Response as GetGroupDataResponse } from "./requests/group-data";
 import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import * as RequestSkillData from "./requests/skill-data";
@@ -425,6 +425,26 @@ export default class Api {
   async fetchSkillData(period: RequestSkillData.AggregatePeriod): Promise<RequestSkillData.Response> {
     if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
 
-    return RequestSkillData.fetchSkillData({ baseURL: this.baseURL, credentials: this.credentials, period });
+    return RequestSkillData.fetchSkillData({ baseURL: this.baseURL, credentials: this.credentials, period }).then(
+      (data) => {
+        for (const member of data.keys()) {
+          const skillDataForMember = data.get(member) ?? [];
+
+          const currentState = this.group.members.get(member);
+          if (!currentState?.skills) continue;
+
+          const skillsFlat: Experience[] = [];
+          for (const skill of SkillsInBackendOrder) {
+            skillsFlat.push(currentState.skills[skill]);
+          }
+
+          skillDataForMember.push({
+            time: new Date(Date.now()),
+            data: skillsFlat,
+          });
+        }
+        return data;
+      },
+    );
   }
 }
