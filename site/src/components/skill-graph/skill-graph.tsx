@@ -169,11 +169,23 @@ const buildDatasetsFromMemberSkillData = (
        * If we are about to sample before the interval, we need to come up with
        * some data to put in. This only occurs if the polynomial does not cover
        * all datebins, like if the server is missing data from the past or a
-       * member was recently added. This should be a fairly rare occurrence.
+       * member was recently added. This should be a fairly rare occurrence, so
+       * we push whatever makes the data look nicest.
+       *
+       * TODO: have backend send dates indicating the start of history for each
+       * member? To differentiate between missing data vs date bin mismatch
        */
       if (DateFNS.compareAsc(firstSample.time, dateBin) > 0) {
         discontinuityIndex ??= interpolatedSamples.length;
-        interpolatedSamples.push(sumFilteredExperience(firstSample.data));
+        switch (options.yAxisUnit) {
+          case "Total Experience":
+          case "Cumulative Experience Gained":
+            interpolatedSamples.push(0 as Experience);
+            break;
+          case "Experience per Hour":
+            interpolatedSamples.push(sumFilteredExperience(firstSample.data));
+            break;
+        }
         continue;
       }
 
