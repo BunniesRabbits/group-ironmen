@@ -223,12 +223,13 @@ const buildDatasetsFromMemberSkillData = (
         break;
     }
 
-    const color = `hsl(${Member.computeMemberHueDegrees(member)}deg 80% 50%)`;
+    const borderColor = `hsl(${Member.computeMemberHueDegrees(member)}deg 80% 40%)`;
+    const backgroundColor = `hsl(${Member.computeMemberHueDegrees(member)}deg 70% 30%)`;
     datasets.push({
       label: member,
       data: chartPoints,
-      borderColor: color,
-      backgroundColor: color,
+      borderColor,
+      backgroundColor,
     });
   }
 
@@ -304,15 +305,17 @@ const buildTableRowsFromMemberSkillData = (
       continue;
     }
 
+    const colorCSS = `hsl(${Member.computeMemberHueDegrees(name)}deg 80% 30%)`;
     const overallFraction = total / groupGainTotal;
     const header: SkillGraphTableRow = {
       name,
-      colorCSS: `hsl(69deg, 60%, 60%)`,
+      colorCSS,
       fillFraction: overallFraction,
       iconSource: SkillIconsBySkill.get("Overall")?.href ?? "",
       quantity: total,
     };
     const skillRows: SkillGraphTableRow[] = [];
+
     for (let skillIndex = 0; skillIndex < perSkill.length; skillIndex++) {
       const xpGain = perSkill.at(skillIndex);
       const skill = SkillsInBackendOrder[skillIndex];
@@ -325,7 +328,7 @@ const buildTableRowsFromMemberSkillData = (
 
       skillRows.push({
         name: skill,
-        colorCSS: `hsl(69deg, 60%, 60%)`,
+        colorCSS,
         fillFraction: fraction * overallFraction,
         iconSource: SkillIconsBySkill.get(skill)!.href,
         quantity: xpGain,
@@ -416,7 +419,10 @@ export const SkillGraph = (): ReactElement => {
             legend: {
               position: "top" as const,
             },
-            title: { display: true, text: `Group ${yAxisOption} for the Preceding ${period}` },
+            title: {
+              display: true,
+              text: `Group ${yAxisOption} for the Preceding ${period}`,
+            },
           },
           interaction: {
             intersect: false,
@@ -478,7 +484,7 @@ export const SkillGraph = (): ReactElement => {
 
   const tableRowElements = [];
   for (const { colorCSS, fillFraction, iconSource, name, quantity } of tableRowData) {
-    const fillPercent = Math.max(0, Math.min(100, Math.round(100 * fillFraction)));
+    const fillPercent = Math.max(0.1, Math.min(100, 100 * fillFraction));
     tableRowElements.push(
       <tr
         style={{
