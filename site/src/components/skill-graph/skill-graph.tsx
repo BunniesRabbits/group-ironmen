@@ -365,12 +365,14 @@ export const SkillGraph = (): ReactElement => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (updateChartPromiseRef.current || !fetchSkillData) return;
+    if (!fetchSkillData) return;
 
     setLoading(true);
-    updateChartPromiseRef.current = fetchSkillData(period)
-      .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 200)))
+    const promise = fetchSkillData(period)
+      .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 2000)))
       .then((skillData) => {
+        if (updateChartPromiseRef.current !== promise) return;
+
         const dates = enumerateDateBinsForPeriod(period);
 
         // Filter and sort the data, so that calculations like xp/hr down the road are well formed.
@@ -460,9 +462,12 @@ export const SkillGraph = (): ReactElement => {
         );
       })
       .finally(() => {
+        if (updateChartPromiseRef.current !== promise) return;
+
         updateChartPromiseRef.current = undefined;
         setLoading(false);
       });
+    updateChartPromiseRef.current = promise;
   }, [period, yAxisOption, skillFilter, fetchSkillData]);
 
   const style = getComputedStyle(document.body);
