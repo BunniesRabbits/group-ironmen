@@ -144,8 +144,9 @@ const buildDatasetsFromMemberSkillData = (
 
     const result: Experience[] = [];
     for (let i = 0; i < sampleA!.data.length; i++) {
-      const interpolatedExperience = (sampleA!.data[i] * (1 - fractionOfInterval) +
-        sampleB!.data[i] * fractionOfInterval) as Experience;
+      const interpolatedExperience = Math.floor(
+        sampleA!.data[i] * (1 - fractionOfInterval) + sampleB!.data[i] * fractionOfInterval,
+      ) as Experience;
       result.push(interpolatedExperience);
     }
 
