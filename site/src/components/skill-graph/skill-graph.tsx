@@ -39,6 +39,19 @@ interface SkillGraphOptions {
   skillFilter: SkillFilteringOption;
 }
 
+interface SkillGraphTableRow {
+  iconSource: string;
+  name: string;
+  quantity: number;
+  colorCSS: string;
+  fillFraction: number;
+}
+
+interface SkillChart {
+  data: ChartData<"line", [Date, number][], string>;
+  options: ChartOptions<"line">;
+}
+
 /**
  * Returns the finitely enumerated x-axis positions for a given aggregate
  * period. Each position should be assigned a y-value then displayed on the
@@ -74,6 +87,62 @@ const enumerateDateBinsForPeriod = (period: AggregatePeriod): Date[] => {
   dates.push(now);
 
   return dates;
+};
+
+const buildLineChartOptions = ({ period, yAxisUnit }: SkillGraphOptions): ChartOptions<"line"> => {
+  /*
+   * Let ChartJS + DateFNS adapter make their best guess for the unit, but not
+   * go ridiculously low since we know the scale of our charts.
+   */
+  const minimumTimeUnitPerPeriod: Record<
+    AggregatePeriod,
+    "millisecond" | "second" | "minute" | "hour" | "day" | "week" | "month" | "quarter" | "year"
+  > = {
+    Day: "hour",
+    Week: "day",
+    Month: "day",
+    Year: "month",
+  };
+
+  return {
+    maintainAspectRatio: false,
+    animation: false,
+    normalized: true,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+      },
+      title: {
+        display: true,
+        text: `Group ${yAxisUnit} for the Preceding ${period}`,
+      },
+    },
+    interaction: {
+      intersect: false,
+      mode: "index",
+    },
+    layout: {
+      padding: 16,
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: "Time",
+        },
+        type: "time",
+        time: {
+          minUnit: minimumTimeUnitPerPeriod[period],
+        },
+      },
+      y: {
+        title: { display: true, text: yAxisUnit },
+        type: "linear",
+        min: 0,
+      },
+    },
+  };
 };
 
 /**
@@ -118,6 +187,11 @@ const interpolateSkillSamples = (
 /**
  * Takes in a bunch of experience samples for all members, then outputs the data
  * with all samples binned and data filled in for display on the chart.
+ *
+ * The reason that we bin the dates is that we want all members to have both be
+ * true:
+ *  1) All member datasets have the same number of points on the chart
+ *  2) All points across datasets share the same x-value.
  *
  * SkillData values should be sorted by date in ascending order already.
  */
@@ -345,19 +419,6 @@ const buildTableRowsFromMemberSkillData = (
   return rows;
 };
 
-interface SkillGraphTableRow {
-  iconSource: string;
-  name: string;
-  quantity: number;
-  colorCSS: string;
-  fillFraction: number;
-}
-
-interface SkillChart {
-  data: ChartData<"line", [Date, number][], string>;
-  options: ChartOptions<"line">;
-}
-
 interface SkillGraphDropdownProps<TOption extends string> {
   current: TOption;
   options: readonly TOption[];
@@ -394,7 +455,6 @@ export const SkillGraph = (): ReactElement => {
     yAxisUnit: "Total Experience",
     skillFilter: "Overall",
   });
-  const { period, yAxisUnit, skillFilter } = options;
 
   const [tableRowData, setTableRowData] = useState<SkillGraphTableRow[]>([]);
   const [chart, setChart] = useState<SkillChart>({ data: { datasets: [] }, options: {} });
@@ -407,6 +467,7 @@ export const SkillGraph = (): ReactElement => {
   useEffect(() => {
     if (!fetchSkillData) return;
 
+    const { period, yAxisUnit, skillFilter } = options;
     setLoading(true);
     const promise = fetchSkillData(period)
       .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 2000)))
@@ -452,46 +513,9 @@ export const SkillGraph = (): ReactElement => {
             };
           }),
         };
-        const options: ChartOptions<"line"> = {
-          maintainAspectRatio: false,
-          animation: false,
-          normalized: true,
-          responsive: true,
-          plugins: {
-            legend: {
-              position: "top" as const,
-            },
-            title: {
-              display: true,
-              text: `Group ${yAxisUnit} for the Preceding ${period}`,
-            },
-          },
-          interaction: {
-            intersect: false,
-            mode: "index",
-          },
-          layout: {
-            padding: 16,
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: "Time",
-              },
-              type: "time",
-            },
-            y: {
-              title: { display: true, text: yAxisUnit },
-              type: "linear",
-              min: 0,
-            },
-          },
-        };
-
         setChart({
           data,
-          options,
+          options: buildLineChartOptions(options),
         });
 
         setTableRowData(
@@ -508,7 +532,9 @@ export const SkillGraph = (): ReactElement => {
         setLoading(false);
       });
     updateChartPromiseRef.current = promise;
-  }, [period, yAxisUnit, skillFilter, fetchSkillData]);
+  }, [options, fetchSkillData]);
+
+  const { period, yAxisUnit, skillFilter } = options;
 
   const style = getComputedStyle(document.body);
   ChartJS.defaults.font.family = "rssmall";
