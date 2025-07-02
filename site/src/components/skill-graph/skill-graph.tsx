@@ -20,6 +20,7 @@ import { Skill, SkillIconsBySkill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";
 import { SkillsInBackendOrder } from "../../api/requests/group-data";
+import { utc } from "@date-fns/utc";
 
 import "chartjs-adapter-date-fns";
 import "./skill-graph.css";
@@ -52,7 +53,7 @@ const enumerateLabelsForPeriod = (
   switch (period) {
     case "Day": {
       formatString = "p";
-      const start = DateFNS.startOfHour(DateFNS.sub(now, { days: 1, hours: 1 }));
+      const start = DateFNS.startOfHour(DateFNS.sub(now, { days: 1 }), { in: utc });
       results.earliest = start;
       for (const date of DateFNS.eachHourOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -61,7 +62,7 @@ const enumerateLabelsForPeriod = (
     }
     case "Week": {
       formatString = "PP";
-      const start = DateFNS.startOfDay(DateFNS.sub(now, { weeks: 1, days: 1 }));
+      const start = DateFNS.startOfDay(DateFNS.sub(now, { weeks: 1 }), { in: utc });
       results.earliest = start;
       for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -70,7 +71,7 @@ const enumerateLabelsForPeriod = (
     }
     case "Month": {
       formatString = "MMM d";
-      const start = DateFNS.startOfDay(DateFNS.sub(now, { months: 1, days: 1 }));
+      const start = DateFNS.startOfDay(DateFNS.sub(now, { months: 1 }), { in: utc });
       results.earliest = start;
       for (const date of DateFNS.eachDayOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -79,7 +80,7 @@ const enumerateLabelsForPeriod = (
     }
     case "Year": {
       formatString = "MMM y";
-      const start = DateFNS.startOfMonth(DateFNS.sub(now, { years: 1, months: 1 }));
+      const start = DateFNS.startOfMonth(DateFNS.sub(now, { years: 1 }), { in: utc });
       results.earliest = start;
       for (const date of DateFNS.eachMonthOfInterval({ start, end: now })) {
         results.dates.push(date);
@@ -190,7 +191,7 @@ const buildDatasetsFromMemberSkillData = (
       // member was recently added.
       if (DateFNS.compareAsc(firstSample.time, dateBin) > 0) {
         discontinuityIndex ??= interpolatedSamples.length;
-        interpolatedSamples.push(0 as Experience);
+        interpolatedSamples.push(sumFilteredExperience(firstSample.data));
         continue;
       }
 
