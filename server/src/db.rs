@@ -654,9 +654,9 @@ WHERE time < ($1::timestamptz - interval '{1}') AND (member_id, time) NOT IN (
             AggregatePeriod::Year => "year",
         },
         match period {
-            AggregatePeriod::Day => "1 day",
-            AggregatePeriod::Month => "1 month",
-            AggregatePeriod::Year => "1 year",
+            AggregatePeriod::Day => "1 day 2 hour",
+            AggregatePeriod::Month => "1 month 2 day",
+            AggregatePeriod::Year => "1 year 2 month",
         }
     );
     let delete_old_rows_stmt = transaction.prepare_cached(&s).await?;
