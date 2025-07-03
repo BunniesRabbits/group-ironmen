@@ -10,14 +10,26 @@
 }
 
 #create-group-window {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  gap: 4px;
+  min-width: 260px;
   padding: 16px;
 }
 
-#create-group-group-name-errors {
-  display: flex;
-  flex-direction: column;
+#create-group-window > button {
+  align-self: center;
+}
+
+#create-group-window > .validation-error {
+  align-self: center;
+  font-size: 24px;
+}
+
+#create-group-loading-overlay {
+  background-color: black;
+  opacity: 0.6;
+  position: absolute;
+  inset: 0;
 }

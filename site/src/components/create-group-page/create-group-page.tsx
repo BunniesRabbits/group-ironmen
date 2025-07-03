@@ -16,25 +16,41 @@ import type { GroupCredentials } from "../../api/credentials";
 import z from "zod/v4";
 
 import "./create-group-page.css";
+import { LoadingScreen } from "../loading-screen/loading-screen";
 
 /**
  * This page is where users can submit initial name and members for a group.
  */
 
-const NameSchema = z
-  .string("Name is required.")
-  .refine((name) => name === name.trim(), { error: "Name cannot begin or end with spaces." })
+const GroupNameSchema = z
+  .string("Group name is required.")
+  .refine((name) => name === name.trim(), { error: "Group name cannot begin or end with spaces." })
   .refine((name) => !/[^A-Za-z 0-9-_]/g.test(name), {
-    error: "Names must use characters 'A-Z', 'a-z', '0-9', and '-', '_', or ' '.",
+    error: "Group name must use characters 'A-Z', 'a-z', '0-9', and '-', '_', or ' '.",
   })
   .refine((name) => name.length >= 1 && name.length <= 16, {
     error: ({ input }) => {
-      if ((input as string).length === 0) return "Name is required.";
-      return "Name must be between 1 and 16 characters.";
+      if ((input as string).length === 0) return "Group name is required.";
+      return "Group name must be between 1 and 16 characters.";
     },
   })
   .transform((name) => name.trim());
-const MemberNamesSchema = NameSchema.transform((name) => name as Member.Name)
+
+const MemberNameSchema = z
+  .string("Member name is required.")
+  .refine((name) => name === name.trim(), { error: "Member name cannot begin or end with spaces." })
+  .refine((name) => !/[^A-Za-z 0-9-_]/g.test(name), {
+    error: "Member name must use characters 'A-Z', 'a-z', '0-9', and '-', '_', or ' '.",
+  })
+  .refine((name) => name.length >= 1 && name.length <= 16, {
+    error: ({ input }) => {
+      if ((input as string).length === 0) return "Member name is required.";
+      return "Member name must be between 1 and 16 characters.";
+    },
+  })
+  .transform((name) => name.trim());
+
+const MemberNamesSchema = MemberNameSchema.transform((name) => name as Member.Name)
   .array()
   .nonempty();
 const MemberCountSchema = z
@@ -61,7 +77,7 @@ const createGroupFormAction = async (formData: FormData): Promise<FormSubmission
   const memberNamesRaw = formData.getAll("member-name");
   const memberCountRaw = formData.get("group-member-count");
 
-  const groupNameParsed = NameSchema.safeParse(groupNameRaw);
+  const groupNameParsed = GroupNameSchema.safeParse(groupNameRaw);
   const memberCountParsed = MemberCountSchema.safeParse(memberCountRaw);
   const memberNamesParsed = MemberNamesSchema.safeParse(memberNamesRaw);
 
@@ -88,6 +104,7 @@ const createGroupFormAction = async (formData: FormData): Promise<FormSubmission
   }
 
   return Api.fetchCreateGroup(groupNameParsed.data, memberNamesParsed.data)
+    .then((response) => new Promise<typeof response>((resolve) => setTimeout(() => resolve(response), 500)))
     .then((credentials) => {
       return { type: "Success", credentials } satisfies FormSubmissionResult;
     })
@@ -104,19 +121,25 @@ export const CreateGroupPage = (): ReactElement => {
   const [pending, setPending] = useState(false);
   const [formState, setFormState] = useState<FormSubmissionResult>({ type: "Pending" });
 
-  const action = useCallback((formData: FormData) => {
-    setPending(true);
-    createGroupFormAction(formData)
-      .then((result) => {
-        setFormState(result);
-      })
-      .catch((reason) => {
-        console.error("Unexpected error during form submission:", reason);
-      })
-      .finally(() => {
-        setPending(false);
-      });
-  }, []);
+  const action = useCallback(
+    (formData: FormData) => {
+      setPending(true);
+      if (formState?.type === "Pending") {
+        setFormState({ ...formState, serverErrors: undefined });
+      }
+      createGroupFormAction(formData)
+        .then((result) => {
+          setFormState(result);
+        })
+        .catch((reason) => {
+          console.error("Unexpected error during form submission:", reason);
+        })
+        .finally(() => {
+          setPending(false);
+        });
+    },
+    [formState],
+  );
 
   /*
    * Intercept form reset, since for specifically <select> components, both
@@ -164,7 +187,7 @@ export const CreateGroupPage = (): ReactElement => {
           placeholder="Group Name"
           maxLength={16}
         />
-        <div id="create-group-group-name-errors" className="validation-error">
+        <div className="validation-error">
           {groupNameErrors?.map((error, index) => (
             <Fragment key={error}>
               {index > 0 ? <br /> : undefined}
@@ -208,7 +231,7 @@ export const CreateGroupPage = (): ReactElement => {
             <option value={5}>5 Members</option>
           </select>
         </div>
-        <div id="create-group-group-name-errors" className="validation-error">
+        <div className="validation-error">
           {memberCountErrors?.map((error, index) => (
             <Fragment key={error}>
               {index > 0 ? <br /> : undefined}
@@ -264,10 +287,16 @@ export const CreateGroupPage = (): ReactElement => {
     );
   })();
 
+  const pendingOverlay = pending ? (
+    <div id="create-group-loading-overlay">
+      <LoadingScreen />
+    </div>
+  ) : undefined;
+
   return (
     <div id="create-group-container">
       <form ref={formRef} id="create-group-window" className="rsborder rsbackground" action={action}>
-        <div className="create-group__step create-group__step-members">
+        <div>
           <h3>Pick a name for your group</h3>
           <p>
             This does <span className="emphasize">not</span> need to be the in-game name.
@@ -292,6 +321,7 @@ export const CreateGroupPage = (): ReactElement => {
           Create group
         </button>
         {serverErrorsElement}
+        {pendingOverlay}
       </form>
     </div>
   );
