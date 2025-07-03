@@ -2,6 +2,7 @@ import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } fr
 import { fetchQuestDataJSON, type QuestDatabase } from "../game/quests";
 import { fetchDiaryDataJSON, type DiaryDatabase } from "../game/diaries";
 import type * as Member from "../game/member";
+import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
 import type { CollectionLogInfo } from "../game/collection-log";
 import { Skill, type Experience } from "../game/skill";
 import type { GroupCredentials } from "./credentials";
@@ -10,11 +11,7 @@ import { fetchGroupData, SkillsInBackendOrder, type Response as GetGroupDataResp
 import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsResponse } from "./requests/collection-log";
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import * as RequestSkillData from "./requests/skill-data";
-import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
-
-function makeAmILoggedInURL(args: { baseURL: string; groupName: string }): string {
-  return `${args.baseURL}/group/${args.groupName}/am-i-logged-in`;
-}
+import * as RequestCreateGroup from "./requests/create-group";
 
 export interface GroupState {
   items: Map<ItemID, Map<Member.Name, number>>;
@@ -260,6 +257,7 @@ export default class Api {
     Object.assign(this.callbacks, callbacks);
 
     this.callbacks.onGameDataUpdate?.(this.gameData);
+    this.callbacks.onGroupUpdate?.(this.group);
   }
 
   private queueGetGameData(): void {
@@ -415,13 +413,16 @@ export default class Api {
     window.setInterval(() => this.cleanupXPDrops(), 4000);
   }
 
-  async fetchAmILoggedIn(): Promise<Response> {
-    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
-
-    return fetch(makeAmILoggedInURL({ baseURL: this.baseURL, groupName: this.credentials.name }), {
-      headers: { Authorization: this.credentials.token },
+  static async fetchAmILoggedIn({ name, token }: GroupCredentials): Promise<Response> {
+    const url = `${__API_URL__}/group/${name}/am-i-logged-in`;
+    return fetch(url, {
+      headers: { Authorization: token },
     });
   }
+  static async fetchCreateGroup(groupName: string, memberNames: Member.Name[]): Promise<RequestCreateGroup.Response> {
+    return RequestCreateGroup.fetchCreateGroup(groupName, memberNames);
+  }
+
   async fetchSkillData(period: RequestSkillData.AggregatePeriod): Promise<RequestSkillData.Response> {
     if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
 

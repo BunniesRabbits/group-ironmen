@@ -208,6 +208,16 @@ input.invalid {
   border: 1px solid var(--invalid);
 }
 
+input.valid {
+  border: 1px solid rgb(0 0 0 / 0%);
+}
+
+.rsborder-tiny.invalid {
+  outline: 1px solid var(--invalid);
+  outline-offset: -2px;
+  box-sizing: border-box;
+}
+
 .select-container {
   display: inline-flex;
   padding: 5px;

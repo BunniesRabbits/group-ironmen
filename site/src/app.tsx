@@ -10,6 +10,7 @@ import { ItemsPage } from "./components/items-page/items-page";
 import { Tooltip } from "./components/tooltip/tooltip";
 import { PanelsPage } from "./components/panels-page/panels-page";
 import { SkillGraph } from "./components/skill-graph/skill-graph";
+import { CreateGroupPage } from "./components/create-group-page/create-group-page";
 
 import "./app.css";
 
@@ -25,6 +26,14 @@ export const App = (): ReactElement => {
           element={
             <UnauthedLayout>
               <MenHomepage />
+            </UnauthedLayout>
+          }
+        />
+        <Route
+          path="/create-group"
+          element={
+            <UnauthedLayout>
+              <CreateGroupPage />
             </UnauthedLayout>
           }
         />
