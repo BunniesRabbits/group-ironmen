@@ -351,6 +351,15 @@ ul {
   z-index: 1;
 }
 
+*:focus {
+  /* 
+   * Sorta hacky, but an easy way to get consistent focus behavior across all
+   * input. Good outlines for specific elements should be implemented, and the
+   * important tag dropped. 
+   */
+  outline: auto !important;
+}
+
 .active {
   outline: 1px solid rgb(200 200 200);
 }
