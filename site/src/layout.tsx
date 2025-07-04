@@ -34,12 +34,10 @@ export const AuthedLayout = ({ children, showPanels }: { children?: ReactNode; s
 
   return (
     <>
-      <div id="overlay" className="pointer-passthrough">
-        {sidePanels}
-        <div id="main-content" className="pointer-passthrough">
-          <AppNavigation groupName={credentials?.name} />
-          {children}
-        </div>
+      {sidePanels}
+      <div id="main-content" className="pointer-passthrough">
+        <AppNavigation groupName={credentials?.name} />
+        {children}
       </div>
     </>
   );

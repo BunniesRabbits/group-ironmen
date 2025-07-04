@@ -42,12 +42,18 @@ a {
   color: unset;
 }
 
-html,
+html {
+  width: 100%;
+  height: 100%;
+}
+
 body {
   width: 100%;
   height: 100%;
-  padding: 0;
+  box-sizing: border-box;
+  padding: 8px;
   margin: 0;
+  gap: 8px;
   background: var(--background);
   color: var(--primary-text);
   overflow: hidden;
@@ -55,6 +61,7 @@ body {
   font-size: 16px;
   font-family: rssmall, ui-sans-serif, Arial, sans-serif;
   text-shadow: 1.3px 1.3px var(--black);
+  display: flex;
 }
 
 h1,
@@ -336,19 +343,12 @@ ul {
   pointer-events: none;
 }
 
-#overlay {
-  position: absolute;
-  gap: 16px;
-  inset: 0;
-  display: flex;
-  padding: 20px 8px;
-}
-
 #main-content {
   display: flex;
   flex-direction: column;
   flex: 1;
   gap: 8px;
+  z-index: 1;
 }
 
 .active {
@@ -370,7 +370,7 @@ ul {
 #side-panels-container {
   display: flex;
   flex-direction: column;
-  padding: 1em;
+  padding: 4px;
   gap: 16px;
   list-style: none;
   overflow-y: auto;
@@ -378,7 +378,7 @@ ul {
   height: 100%;
 }
 
-@media only screen and (width <= 700px) {
+@media only screen and (width <= 800px) {
   #side-panels-container {
     display: none;
   }

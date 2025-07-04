@@ -1,23 +1,16 @@
 #men-homepage {
   display: flex;
-  flex-direction: column;
-  width: 100%;
-  font-size: 16px;
-  position: relative;
-  height: 100%;
-  color: white;
-}
-
-#men-homepage-container {
-  display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
   width: 100%;
+  font-size: 16px;
+  position: relative;
+  color: white;
   flex-direction: column;
 }
 
-#men-homepage-container h1 {
+#men-homepage h1 {
   text-shadow: 3px 3px var(--black);
   font-size: min(128px, 16vw);
   margin: 0;

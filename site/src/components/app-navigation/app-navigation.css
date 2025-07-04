@@ -7,9 +7,10 @@
 
 .mobile {
   display: none;
+  min-width: 64px;
 }
 
-@media only screen and (width <= 850px) {
+@media only screen and (width <= 800px) {
   .desktop {
     display: none;
   }
