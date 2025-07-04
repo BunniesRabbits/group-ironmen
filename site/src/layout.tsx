@@ -25,6 +25,7 @@ export const AuthedLayout = ({ children, showPanels }: { children?: ReactNode; s
       <div id="side-panels-container">
         {groupMembers
           .filter((member) => member !== "@SHARED")
+          .sort((a, b) => a.localeCompare(b))
           .map<ReactElement>((member) => (
             <PlayerPanel key={member} member={member} />
           ))}
