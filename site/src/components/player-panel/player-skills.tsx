@@ -64,6 +64,7 @@ export const PlayerSkills = ({ member }: { member: Member.Name }): ReactElement 
               showTooltip({
                 style: "Individual",
                 xp,
+                levelVirtual,
                 untilMax: Math.max(0, xpDeltaFromMax - xp) as Experience,
                 untilMaxRatio: Math.min(xp / xpDeltaFromMax, 1.0),
                 untilNext: (xpMilestoneOfNext - xp) as Experience,
@@ -76,7 +77,7 @@ export const PlayerSkills = ({ member }: { member: Member.Name }): ReactElement 
             </div>
             <div className="skill-box-right">
               <div className="skill-box-current-level">{levelReal}</div>
-              <div className="skill-box-baseline-level">{levelVirtual}</div>
+              <div className="skill-box-baseline-level">{levelReal}</div>
             </div>
             <div className="skill-box-progress">
               <div className="skill-box-progress-bar" style={{}}></div>
