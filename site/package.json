@@ -42,13 +42,12 @@
   },
   "scripts": {
     "dev": "vite",
-    "prod": "npm run build && npm run serve",
+    "prod": "npm run bundle && npm run serve",
     "bundle": "vite build",
-    "build": "npm run lint && tsc && vite build",
     "serve": "tsx scripts/server.ts --prod",
-    "lint": "eslint . && stylelint src/**/*.css",
-    "lint:fix": "eslint . --fix && stylelint src/**/*.css --fix",
-    "precommit": "npm run lint && tsc",
+    "lint": "eslint . && tsc --noemit -p . && stylelint src/**/*.css",
+    "lint:fix": "eslint . --fix && tsc --noemit -p . && stylelint src/**/*.css --fix",
+    "precommit": "npm run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
