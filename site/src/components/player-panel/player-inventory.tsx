@@ -72,6 +72,7 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
 
     let pouchOverlay = undefined;
 
+    let key = `${item.itemID} ${item.quantity}`;
     let tooltipProps: ItemTooltipProps = {
       type: "Item",
       name: itemDatum.name,
@@ -88,13 +89,15 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
         const runeDatum = itemData?.get(runeID);
         if (!runeDatum) continue;
 
+        const runeKey = `${runeID} ${runeQuantity}`;
+        key += runeKey;
         totalGePrice += (geData?.get(runeID) ?? 0) * runeQuantity;
         totalHighAlch += runeDatum.highalch * runeQuantity;
         runes.push({ name: runeDatum.name, quantity: runeQuantity });
 
         const runeIconSource = composeItemIconHref({ itemID: runeID, quantity: runeQuantity }, runeDatum);
         overlayItemIcons.push(
-          <ItemBoxPouchRune iconSource={runeIconSource} name={runeDatum.name} quantity={runeQuantity} />,
+          <ItemBoxPouchRune key={runeKey} iconSource={runeIconSource} name={runeDatum.name} quantity={runeQuantity} />,
         );
       }
       tooltipProps = {
@@ -111,6 +114,7 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
 
     itemElements.push(
       <ItemBox
+        key={key}
         quantity={quantity}
         link={wikiLinkHref}
         iconSource={iconHref}
