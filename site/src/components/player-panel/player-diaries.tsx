@@ -72,20 +72,19 @@ const DiaryRegionWindow = ({
 }): ReactElement => {
   const regionHref = `https://oldschool.runescape.wiki/w/${region.replace(/ /g, "_")}_Diary`;
   return (
-    <div className="dialog-container rsborder rsbackground">
-      <div className="diary-dialog-header rsborder-tiny">
-        <div>
-          <h3>
-            <a className="diary-dialog-title" href={regionHref} target="_blank" rel="noopener noreferrer">
-              {region} Achievement Diary
-            </a>
-          </h3>
-          <h4>{player}</h4>
-        </div>
-        <button className="dialog-close" onClick={onCloseModal}>
+    <div className="dialog-container metal-border rsbackground">
+      <div className="diary-dialog-header">
+        <h1>
+          {`${player}'s `}
+          <a className="diary-dialog-title" href={regionHref} target="_blank" rel="noopener noreferrer">
+            {region} Achievement Diary
+          </a>
+        </h1>
+        <button className="diary-dialog-close" onClick={onCloseModal}>
           <img src="/ui/1731-0.png" alt="Close dialog" title="Close dialog" />
         </button>
       </div>
+      <div className="diary-dialog-title-border" />
       <div className="diary-dialog-scroll-container">
         {[
           ...progress.entries().map(([tier, tierProgress]) => {
@@ -94,17 +93,16 @@ const DiaryRegionWindow = ({
               return (complete &&= task.complete);
             }, true);
             return (
-              <div
-                key={tier}
-                className={`diary-dialog-section rsborder-tiny ${complete ? "diary-dialog-tier-complete" : ""}`}
-              >
-                <h4>
-                  <a className="diary-dialog-section-title" href={href} target="_blank" rel="noopener noreferrer">
-                    {tier}
-                  </a>
-                </h4>
-                <TierTasksDisplay tasks={tierProgress} />
-              </div>
+              <>
+                <div key={tier} className={`diary-dialog-section ${complete ? "diary-dialog-tier-complete" : ""}`}>
+                  <h2 className="diary-dialog-section-title">
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {tier}
+                    </a>
+                  </h2>
+                  <TierTasksDisplay tasks={tierProgress} />
+                </div>
+              </>
             );
           }),
         ]}
