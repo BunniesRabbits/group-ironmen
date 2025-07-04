@@ -43,10 +43,7 @@ const collectionsSelector = (group: GroupState | undefined): Map<Member.Name, Me
 export const PlayerPanel = ({ member }: { member: Member.Name }): ReactElement => {
   const [subcategory, setSubcategory] = useState<PlayerPanelSubcategory>();
   const collections = useGroupStateContext(collectionsSelector);
-  const { open: openCollectionLogModal, modal: collectionLogModal } = useModal({
-    Children: CollectionLogWindow,
-    otherProps: { collections, player: member },
-  });
+  const { open: openCollectionLogModal, modal: collectionLogModal } = useModal(CollectionLogWindow);
 
   const toggleCategory = useCallback(
     (newSubcategory: PlayerPanelSubcategory) => {
@@ -123,7 +120,7 @@ export const PlayerPanel = ({ member }: { member: Member.Name }): ReactElement =
         height: 32,
         class: "player-panel-collection-log",
         onClick: (): void => {
-          openCollectionLogModal();
+          openCollectionLogModal({ collections, player: member });
         },
       },
     ] satisfies PlayerPanelButtonProps[]

@@ -3,31 +3,30 @@ import { createPortal } from "react-dom";
 
 import "./modal.css";
 
-/**
- * Children for a modal that receive a callback to close the parent modal.
- * @see useModal
- */
-type ModalChildren<TOtherProps> = ({ onCloseModal }: { onCloseModal: () => void } & TOtherProps) => ReactNode;
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
 
 /**
  * A modal that attaches itself to the body DOM node, which is "root" in this
  * app. Having multiple of these modals open at once will probably cause issues,
- * it is untested.
+ * it is untested. This hook handles focus, adds blurring, adds a clickable
+ * background, and more. All calling code needs is to supply a child component,
+ * and call the returned `open` function.
  *
- * @param Children - JSX compatible component to render as a child of the
- *    modal's DOM node. They will receive a callback as a property that they
- *    should call to close the modal.
- * @param otherProps - Properties that will be passed to the children with the
- *    spread operator.
- * @see ModalChildren
+ * @param Children - Component to render as a child of the global modal DOM
+ *    node. One of its props may be a callback that closes the modal, named
+ *    `onCloseModal`, which is supplied by this hook.
+ * @returns
+ *  - `open`: A function that opens the modal, taking the Child's props as an
+ *    argument EXCEPT for `onCloseModal`.
+ *  - `close`: A function that closes the modal.
+ *  - `modal`: The modal element that needs to be rendered. Should just be
+ *    unconditionally rendered, since it will be `undefined` if not open.
  */
-export const useModal = <OtherPropsT,>({
-  Children,
-  otherProps,
-}: {
-  Children: ModalChildren<OtherPropsT>;
-  otherProps: OtherPropsT;
-}): { open: () => void; close: () => void; modal?: ReactElement } => {
+export const useModal = <TProps extends { onCloseModal: () => void }>(
+  Child: (props: TProps) => ReactNode,
+): { open: (props: Prettify<Omit<TProps, "onCloseModal">>) => void; close: () => void; modal?: ReactElement } => {
   /*
    * Children and otherProps are passed separately to assist with
    * reconciliation. Children can be a stable, constant functional component.
@@ -37,16 +36,16 @@ export const useModal = <OtherPropsT,>({
    * remounting, which I did encounter while prototyping this.
    */
 
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [props, setProps] = useState<Omit<TProps, "onCloseModal">>();
 
   // We toggle inert on the rest of the DOM so that only our modal can be interacted with.
   const close = useCallback(() => {
-    setIsOpen(false);
+    setProps(undefined);
     document.body.querySelectorAll<HTMLElement>(":not(#modal)").forEach((el) => el.removeAttribute("inert"));
   }, []);
-  const open = useCallback(() => {
+  const open = useCallback((props: Omit<TProps, "onCloseModal">) => {
     document.body.querySelectorAll<HTMLElement>(":not(#modal)").forEach((el) => (el.inert = true));
-    setIsOpen(true);
+    setProps({ ...props });
   }, []);
 
   useEffect(() => {
@@ -60,7 +59,7 @@ export const useModal = <OtherPropsT,>({
   }, [close]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!props) return;
 
     /*
      * I don't really know why, but even if we .blur() the activeElement, inert
@@ -81,15 +80,21 @@ export const useModal = <OtherPropsT,>({
       firstFocusable.focus?.();
       firstFocusable.blur?.();
     }
-  }, [isOpen]);
+  }, [props]);
 
-  const modal = isOpen ? (
-    <>
-      <button id="modal-clickbox" onClick={close} aria-label="Exit Modal" />
-      <div id="modal">
-        <Children onCloseModal={close} {...otherProps} />
-      </div>
-    </>
-  ) : undefined;
+  let modal = undefined;
+  if (props) {
+    // I don't know how to design the generics to avoid needing the 'as'.
+    const unifiedProps = { ...props, onCloseModal: close } as TProps;
+
+    modal = (
+      <>
+        <button id="modal-clickbox" onClick={close} aria-label="Exit Modal" />
+        <div id="modal">
+          <Child {...unifiedProps} />
+        </div>
+      </>
+    );
+  }
   return { open, close, modal: createPortal(modal, document.body) };
 };
