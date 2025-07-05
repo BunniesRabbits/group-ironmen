@@ -4,6 +4,7 @@ import { AppNavigation } from "./components/app-navigation/app-navigation";
 import { useGroupListMembersContext } from "./context/group-state-context";
 import { PlayerPanel } from "./components/player-panel/player-panel";
 import { Context as APIContext } from "./context/api-context.tsx";
+import { Context as SettingsContext } from "./context/settings-context.tsx";
 
 export const UnauthedLayout = ({ children }: { children?: ReactNode }): ReactElement => {
   return (
@@ -16,6 +17,13 @@ export const UnauthedLayout = ({ children }: { children?: ReactNode }): ReactEle
 export const AuthedLayout = ({ children, showPanels }: { children?: ReactNode; showPanels: boolean }): ReactElement => {
   const { credentials } = useContext(APIContext);
   const groupMembers = useGroupListMembersContext();
+  const { sidebarPosition, siteTheme } = useContext(SettingsContext);
+
+  if (siteTheme === "dark") {
+    document.documentElement.classList.add("dark-mode");
+  } else {
+    document.documentElement.classList.remove("dark-mode");
+  }
 
   if (credentials === undefined) return <Navigate to="/" />;
 
@@ -33,13 +41,26 @@ export const AuthedLayout = ({ children, showPanels }: { children?: ReactNode; s
     );
   }
 
-  return (
-    <>
-      {sidePanels}
-      <div id="main-content" className="pointer-passthrough">
-        <AppNavigation groupName={credentials?.name} />
-        {children}
-      </div>
-    </>
+  const mainContent = (
+    <div id="main-content" className="pointer-passthrough">
+      <AppNavigation groupName={credentials?.name} />
+      {children}
+    </div>
   );
+
+  if (sidebarPosition === "right") {
+    return (
+      <>
+        {mainContent}
+        {sidePanels}
+      </>
+    );
+  } else {
+    return (
+      <>
+        {sidePanels}
+        {mainContent}
+      </>
+    );
+  }
 };
