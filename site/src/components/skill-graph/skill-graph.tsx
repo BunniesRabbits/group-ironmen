@@ -15,7 +15,7 @@ import {
 import { Line } from "react-chartjs-2";
 import { AggregatePeriod } from "../../api/requests/skill-data";
 import * as DateFNS from "date-fns";
-import { APIContext } from "../../context/api-context";
+import { Context as APIContext } from "../../context/api-context";
 import { Skill, SkillIconsBySkill, type Experience } from "../../game/skill";
 import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";

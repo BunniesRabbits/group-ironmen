@@ -9,13 +9,12 @@ import {
   type ReactNode,
 } from "react";
 import Api from "../../api/api";
-import { APIContext } from "../../context/api-context";
-import { loadValidatedCredentials } from "../../api/credentials";
+import { Context as APIContext } from "../../context/api-context";
 import { useNavigate } from "react-router-dom";
 import z from "zod/v4";
+import { LoadingScreen } from "../loading-screen/loading-screen";
 
 import "./login-page.css";
-import { LoadingScreen } from "../loading-screen/loading-screen";
 
 const NameSchema = z
   .string("Name is required.")
@@ -32,7 +31,7 @@ const TokenSchema = z
   });
 
 export const LoginPage = (): ReactElement => {
-  const { logIn: openApi } = useContext(APIContext);
+  const { logIn, credentials } = useContext(APIContext);
   const [nameError, setNameError] = useState<string[]>();
   const [tokenError, setTokenError] = useState<string[]>();
   const [serverError, setServerError] = useState<string[]>();
@@ -55,12 +54,11 @@ export const LoginPage = (): ReactElement => {
   }, []);
 
   useEffect(() => {
-    const credentials = loadValidatedCredentials();
     if (credentials === undefined) return;
 
     console.info("Found valid credentials, redirecting...");
     void navigate("/group");
-  }, [navigate]);
+  }, [credentials, navigate]);
 
   const tryLogin = useCallback(
     async (formData: FormData): Promise<void> => {
@@ -87,9 +85,7 @@ export const LoginPage = (): ReactElement => {
         .then((response) => new Promise<typeof response>((resolve) => setTimeout(() => resolve(response), 500)))
         .then((response) => {
           if (response.ok) {
-            localStorage.setItem("groupName", credentials.name);
-            localStorage.setItem("groupToken", credentials.token);
-            openApi?.(credentials);
+            logIn?.(credentials);
             void navigate("/group");
             return;
           }
@@ -102,7 +98,7 @@ export const LoginPage = (): ReactElement => {
           throw new Error(`Unexpected status code: ${response.status}`);
         });
     },
-    [navigate, openApi],
+    [navigate, logIn],
   );
 
   const serverErrorsElement = ((): ReactNode => {

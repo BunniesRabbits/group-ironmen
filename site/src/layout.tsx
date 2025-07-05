@@ -1,9 +1,9 @@
-import { type ReactElement, type ReactNode } from "react";
+import { useContext, type ReactElement, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { AppNavigation } from "./components/app-navigation/app-navigation";
-import { loadValidatedCredentials } from "./api/credentials";
 import { useGroupListMembersContext } from "./context/group-state-context";
 import { PlayerPanel } from "./components/player-panel/player-panel";
+import { Context as APIContext } from "./context/api-context.tsx";
 
 export const UnauthedLayout = ({ children }: { children?: ReactNode }): ReactElement => {
   return (
@@ -14,7 +14,7 @@ export const UnauthedLayout = ({ children }: { children?: ReactNode }): ReactEle
 };
 
 export const AuthedLayout = ({ children, showPanels }: { children?: ReactNode; showPanels: boolean }): ReactElement => {
-  const credentials = loadValidatedCredentials();
+  const { credentials } = useContext(APIContext);
   const groupMembers = useGroupListMembersContext();
 
   if (credentials === undefined) return <Navigate to="/" />;

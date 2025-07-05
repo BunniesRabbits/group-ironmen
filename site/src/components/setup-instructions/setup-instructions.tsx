@@ -1,11 +1,13 @@
-import { useState, type ReactElement } from "react";
+import { useContext, useState, type ReactElement } from "react";
 import { MenLink } from "../men-link/men-link";
+import { Context as APIContext } from "../../context/api-context.tsx";
+
 import "./setup-instructions.css";
-import { loadValidatedCredentials } from "../../api/credentials";
 
 export const SetupInstructions = (): ReactElement => {
   const [tokenVisible, setTokenVisible] = useState(false);
-  const credentials = loadValidatedCredentials();
+  const { credentials } = useContext(APIContext);
+
   return (
     <div id="setup-instructions-container">
       <div id="setup-instructions" className="rsbackground rsborder">

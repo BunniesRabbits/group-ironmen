@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import Api from "../../api/api";
-import { APIContext } from "../../context/api-context";
+import { Context as APIContext } from "../../context/api-context";
 import { useNavigate } from "react-router-dom";
 import * as Member from "../../game/member";
 import type { GroupCredentials } from "../../api/credentials";
@@ -166,8 +166,6 @@ export const CreateGroupPage = (): ReactElement => {
 
     const credentials = formState.credentials;
 
-    localStorage.setItem("groupName", credentials.name);
-    localStorage.setItem("groupToken", credentials.token);
     logIn?.(credentials);
     void navigate("/setup-instructions");
   }, [formState, navigate, logIn]);

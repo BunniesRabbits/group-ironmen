@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, type ReactElement, type ReactNode } from "react";
-import { APIContext } from "./api-context";
+import { Context as APIContext } from "./api-context";
 import type { GameData } from "../api/api";
 import { GameDataContext } from "./game-data-context";
 

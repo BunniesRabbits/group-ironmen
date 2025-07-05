@@ -1,12 +1,12 @@
 import { MenLink } from "../men-link/men-link.tsx";
 import { SocialLinks } from "../social-links/social-links.tsx";
-import type { ReactElement } from "react";
-import { loadValidatedCredentials } from "../../api/credentials.ts";
+import { useContext, type ReactElement } from "react";
+import { Context as APIContext } from "../../context/api-context.tsx";
 
 import "./men-homepage.css";
 
 export const MenHomepage = (): ReactElement => {
-  const credentials = loadValidatedCredentials();
+  const { credentials } = useContext(APIContext);
   const hasLogin = !!credentials;
 
   const groupLink = <MenLink href="/group">Go to group</MenLink>;
