@@ -61,10 +61,10 @@ export const useLocalStorage = <Value extends string | undefined>({
     (value: Value | undefined) => {
       if (typeof value === "undefined") {
         localStorage.removeItem(key);
-        return;
+      } else {
+        localStorage.setItem(key, value);
       }
 
-      localStorage.setItem(key, value);
       window.dispatchEvent(new CustomEvent("local-storage", { detail: { key } }));
     },
     [key],
