@@ -372,10 +372,6 @@ ul {
   pointer-events: none;
 }
 
-.greyscale {
-  filter: grayscale(100%);
-}
-
 #side-panels-container {
   display: flex;
   flex-direction: column;

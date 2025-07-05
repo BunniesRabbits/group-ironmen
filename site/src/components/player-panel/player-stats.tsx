@@ -89,7 +89,7 @@ export const PlayerStats = ({ member }: { member: Member.Name }): ReactElement =
   const runRatio = (stats?.run?.current ?? 0) / (stats?.run?.max ?? 1);
 
   return (
-    <div className={`player-stats ${online ? "" : "greyscale"}`}>
+    <div className={`player-stats ${online ? "" : "player-stats-inactive"}`}>
       <XpDropper xpDrops={xpDrops} />
       <div className="player-stats-hitpoints">
         <StatBar
@@ -100,8 +100,7 @@ export const PlayerStats = ({ member }: { member: Member.Name }): ReactElement =
         />
         {interactionBar}
         <div className="player-stats-name">
-          <PlayerIcon name={member} />
-          {member} {status}
+          <PlayerIcon name={member} /> {member} {status}
         </div>
         <div className="player-stats-hitpoints-numbers">
           {stats ? `${stats.health.current} / ${stats.health.max}` : "10 / 10"}
