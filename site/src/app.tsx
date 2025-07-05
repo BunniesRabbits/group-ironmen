@@ -11,6 +11,7 @@ import { Tooltip } from "./components/tooltip/tooltip";
 import { PanelsPage } from "./components/panels-page/panels-page";
 import { SkillGraph } from "./components/skill-graph/skill-graph";
 import { CreateGroupPage } from "./components/create-group-page/create-group-page";
+import { SettingsPage } from "./components/settings/settings";
 
 import "./app.css";
 
@@ -81,7 +82,14 @@ export const App = (): ReactElement => {
               </AuthedLayout>
             }
           />
-          <Route path="settings" element={<AuthedLayout showPanels={true} />} />
+          <Route
+            path="settings"
+            element={
+              <AuthedLayout showPanels={true}>
+                <SettingsPage />
+              </AuthedLayout>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

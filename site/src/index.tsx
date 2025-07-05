@@ -5,6 +5,7 @@ import { App } from "./app";
 import { APIProvider } from "./context/api-context";
 import { GroupStateProvider } from "./context/group-state-provider";
 import { GameDataProvider } from "./context/game-data-provider";
+import { SettingsProvider } from "./context/settings-context";
 
 const root = document.getElementById("root")!;
 
@@ -13,9 +14,11 @@ createRoot(root).render(
     <APIProvider>
       <GameDataProvider>
         <GroupStateProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <SettingsProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </SettingsProvider>
         </GroupStateProvider>
       </GameDataProvider>
     </APIProvider>
