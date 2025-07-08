@@ -36,11 +36,14 @@ const GroupNameSchema = z
   })
   .transform((name) => name.trim());
 
-const MemberNameSchema = z
+export const MemberNameSchema = z
   .string("Member name is required.")
   .refine((name) => name === name.trim(), { error: "Member name cannot begin or end with spaces." })
   .refine((name) => !/[^A-Za-z 0-9-_]/g.test(name), {
-    error: "Member name must use characters 'A-Z', 'a-z', '0-9', and '-', '_', or ' '.",
+    error: "Member name must use only characters 'A-Z', 'a-z', '0-9', and '-', '_', or ' '.",
+  })
+  .refine((name) => !/[ \-_]{2,}/g.test(name), {
+    error: "Member name cannot contain more than 2 special characters '-', '_', or ' ' in a row.",
   })
   .refine((name) => name.length >= 1 && name.length <= 16, {
     error: ({ input }) => {
@@ -48,11 +51,9 @@ const MemberNameSchema = z
       return "Member name must be between 1 and 16 characters.";
     },
   })
-  .transform((name) => name.trim());
+  .transform((name) => name.trim() as Member.Name);
 
-const MemberNamesSchema = MemberNameSchema.transform((name) => name as Member.Name)
-  .array()
-  .nonempty();
+const MemberNamesSchema = MemberNameSchema.array().nonempty();
 const MemberCountSchema = z
   .string("Group size is required.")
   .transform((count) => parseInt(count))

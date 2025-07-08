@@ -3,6 +3,7 @@
   align-items: center;
   padding: 8px;
   overflow: auto hidden;
+  flex-shrink: 0;
 }
 
 .mobile {

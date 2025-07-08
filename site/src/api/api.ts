@@ -12,6 +12,9 @@ import { fetchGroupCollectionLogs, type Response as GetGroupCollectionLogsRespon
 import { fetchCollectionLogInfo } from "./requests/collection-log-info";
 import * as RequestSkillData from "./requests/skill-data";
 import * as RequestCreateGroup from "./requests/create-group";
+import * as RequestAddGroupMember from "./requests/add-group-member";
+import * as RequestDeleteGroupMember from "./requests/delete-group-member";
+import * as RequestRenameGroupMember from "./requests/rename-group-member";
 
 export interface GroupState {
   items: Map<ItemID, Map<Member.Name, number>>;
@@ -53,13 +56,11 @@ export default class Api {
   }
 
   private updateGroupData(response: GetGroupDataResponse): void {
-    let updatedAny = false;
+    let updatedMisc = false;
     let updatedItems = false;
     let updatedCoordinates = false;
 
-    // Backend always sends the entirety of the items, in each category that changes.
-    // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
-    // In the future, we may want to diff the amounts and try to update sparingly.
+    const knownNames: Member.Name[] = [];
 
     for (const {
       name,
@@ -76,7 +77,8 @@ export default class Api {
       quests,
       diary_vars,
     } of response) {
-      if (!this.group.members.has(name))
+      if (!this.group.members.has(name)) {
+        updatedMisc = true;
         this.group.members.set(name, {
           bank: new Map(),
           equipment: new Map(),
@@ -85,6 +87,8 @@ export default class Api {
           seedVault: new Map(),
           lastUpdated: new Date(0),
         });
+      }
+      knownNames.push(name);
       const memberData = this.group.members.get(name)!;
 
       if (bank !== undefined) {
@@ -114,17 +118,17 @@ export default class Api {
 
       if (interacting !== undefined) {
         memberData.interacting = structuredClone(interacting);
-        updatedAny = true;
+        updatedMisc = true;
       }
 
       if (stats !== undefined) {
         memberData.stats = structuredClone(stats);
-        updatedAny = true;
+        updatedMisc = true;
       }
 
       if (last_updated !== undefined) {
         memberData.lastUpdated = structuredClone(last_updated);
-        updatedAny = true;
+        updatedMisc = true;
       }
 
       if (skills !== undefined) {
@@ -146,11 +150,11 @@ export default class Api {
             seed: Math.random(),
           });
           this.xpDropCounter += 1;
-          updatedAny = true;
+          updatedMisc = true;
         }
 
         memberData.skills = structuredClone(skills);
-        updatedAny = true;
+        updatedMisc = true;
       }
 
       if (quests && this.gameData?.quests) {
@@ -165,13 +169,13 @@ export default class Api {
             questsByID.set(id, quests[index]);
           });
           memberData.quests = questsByID;
-          updatedAny = true;
+          updatedMisc = true;
         }
       }
 
       if (diary_vars !== undefined) {
         memberData.diaries = structuredClone(diary_vars);
-        updatedAny = true;
+        updatedMisc = true;
       }
 
       if (coordinates !== undefined) {
@@ -186,6 +190,18 @@ export default class Api {
       }
     }
 
+    for (const staleMember of this.group.members.keys().filter((member) => !knownNames.includes(member))) {
+      this.group.members.delete(staleMember);
+      updatedMisc = true;
+    }
+    for (const staleMember of this.group.xpDrops.keys().filter((member) => !knownNames.includes(member))) {
+      this.group.members.delete(staleMember);
+      updatedMisc = true;
+    }
+
+    // Backend always sends the entirety of the items, in each category that changes.
+    // So to simplify and avoid desync, we rebuild the entirety of the items view whenever there is an update.
+    // In the future, we may want to diff the amounts and try to update sparingly.
     if (updatedItems) {
       const sumOfAllItems = new Map<ItemID, Map<Member.Name, number>>();
       const incrementItemCount = (memberName: Member.Name, { itemID, quantity }: ItemStack): void => {
@@ -216,10 +232,6 @@ export default class Api {
       this.group.items = sumOfAllItems;
     }
 
-    if (updatedAny || updatedItems) {
-      this.callbacks?.onGroupUpdate?.(this.group);
-    }
-
     if (updatedCoordinates) {
       const positions = [];
       for (const [member, { coordinates }] of this.group.members) {
@@ -227,6 +239,10 @@ export default class Api {
         positions.push({ player: member, coords: coordinates.coords, plane: coordinates.plane });
       }
       this.callbacks?.onPlayerPositionsUpdate?.(positions);
+    }
+
+    if (updatedMisc || updatedItems) {
+      this.callbacks?.onGroupUpdate?.(this.group);
     }
   }
 
@@ -447,5 +463,29 @@ export default class Api {
         return data;
       },
     );
+  }
+
+  async addGroupMember(member: Member.Name): Promise<RequestAddGroupMember.Response> {
+    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
+    return RequestAddGroupMember.addGroupMember({ baseURL: this.baseURL, credentials: this.credentials, member });
+  }
+  async renameGroupMember({
+    oldName,
+    newName,
+  }: {
+    oldName: Member.Name;
+    newName: Member.Name;
+  }): Promise<RequestRenameGroupMember.Response> {
+    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
+    return RequestRenameGroupMember.renameGroupMember({
+      baseURL: this.baseURL,
+      credentials: this.credentials,
+      oldName,
+      newName,
+    });
+  }
+  async deleteGroupMember(member: Member.Name): Promise<RequestDeleteGroupMember.Response> {
+    if (this.credentials === undefined) return Promise.reject(new Error("No active API connection."));
+    return RequestDeleteGroupMember.deleteGroupMember({ baseURL: this.baseURL, credentials: this.credentials, member });
   }
 }

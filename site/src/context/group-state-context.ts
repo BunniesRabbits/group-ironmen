@@ -11,8 +11,12 @@ export const useGroupStateContext = <T>(selector: GroupStateSelector<T>): T => {
   return selector(state);
 };
 
-export const useGroupListMembersContext = (): Member.Name[] =>
-  useGroupStateContext((state) => [...(state?.members.keys() ?? [])]);
+export const useGroupListMembersContext = (includeHidden = false): Member.Name[] =>
+  useGroupStateContext((state) =>
+    [...(state?.members.keys().filter((member) => includeHidden || member !== "@SHARED") ?? [])].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+  );
 
 export const useMemberLastUpdatedContext = (member: Member.Name): Date | undefined =>
   useGroupStateContext((state) => state?.members.get(member)?.lastUpdated);

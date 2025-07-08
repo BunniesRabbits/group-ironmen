@@ -1,11 +1,14 @@
-import { Fragment, useContext, type ReactElement } from "react";
+import { Fragment, useCallback, useContext, useEffect, useRef, useState, type ReactElement } from "react";
 import * as SiteSettings from "../../context/settings-context";
+import { useGroupListMembersContext } from "../../context/group-state-context";
+import { Context as APIContext } from "../../context/api-context";
+import * as Member from "../../game/member";
+import { MemberNameSchema } from "../create-group-page/create-group-page";
+import z from "zod/v4";
 
 import "./settings.css";
-
-/**
- * A component that contains fields for tweaking site settings such as sidebar position, and group settings like member names.
- */
+import { LoadingScreen } from "../loading-screen/loading-screen";
+import { PlayerIcon } from "../player-icon/player-icon";
 
 const labels: Record<SiteSettings.SiteTheme | SiteSettings.SidebarPosition, string> = {
   light: "Light",
@@ -14,19 +17,251 @@ const labels: Record<SiteSettings.SiteTheme | SiteSettings.SidebarPosition, stri
   right: "Dock panels to the right",
 };
 
+const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const id = `edit-member-${member}`;
+  const [pendingRename, setPendingRename] = useState<string | undefined>();
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [errors, setErrors] = useState<string[]>();
+  const { deleteMember, renameMember } = useContext(APIContext);
+
+  const pending = pendingDelete || !!pendingRename;
+
+  const pendingOverlay = pending ? (
+    <div className="group-settings-pending-overlay">
+      <LoadingScreen />
+    </div>
+  ) : undefined;
+  useEffect(() => {
+    if (member !== pendingRename) return;
+
+    setPendingRename(undefined);
+  }, [pendingRename, member]);
+
+  const onRename = useCallback(() => {
+    if (pendingRename || !renameMember || !nameInputRef.current) return;
+
+    const newNameParsed = MemberNameSchema.safeParse(nameInputRef.current.value.trim());
+    if (!newNameParsed.success) {
+      setErrors(z.flattenError(newNameParsed.error).formErrors);
+      return;
+    }
+
+    const newName = newNameParsed.data;
+    if (newName === member) {
+      setErrors(["New name must be different than the current one."]);
+      return;
+    }
+
+    setPendingRename(newName);
+    Promise.all([
+      renameMember({ oldName: member, newName: newName }),
+      new Promise<void>((resolve) =>
+        window.setTimeout(() => {
+          resolve();
+        }, 1000),
+      ),
+    ])
+      .then(([response]) => {
+        if (response.status === "error") {
+          setErrors([response.text]);
+          return;
+        }
+
+        setErrors(undefined);
+      })
+      .catch((reason) => {
+        console.error("Rename Member Failed:", reason);
+        setErrors(["Failed to rename. Is the name already in use?"]);
+        setPendingRename(undefined);
+      });
+  }, [pendingRename, member, renameMember]);
+
+  const onRemove = useCallback(() => {
+    if (pendingDelete || !deleteMember) return;
+
+    setPendingDelete(true);
+    Promise.all([
+      deleteMember(member),
+      new Promise<void>((resolve) =>
+        window.setTimeout(() => {
+          resolve();
+        }, 1000),
+      ),
+    ])
+      .then(([response]) => {
+        if (response.status === "error") {
+          setErrors([response.text]);
+          return;
+        }
+
+        setErrors(undefined);
+      })
+      .catch((reason) => {
+        console.error("Delete Member Failed:", reason);
+        setErrors(["Unknown error."]);
+        setPendingDelete(false);
+      });
+
+    // Don't ever stop pending, since this element should be disappear once the member is deleted.
+  }, [pendingDelete, deleteMember, member]);
+
+  const errorID = `edit-member-errors-${member}`;
+  const invalid = (errors?.length ?? 0) > 0;
+
+  return (
+    <div className="group-settings-member-section rsborder-tiny">
+      <h3>
+        <PlayerIcon name={member} />
+        {member}
+      </h3>
+      <div>
+        <label htmlFor={id}>New name</label>
+        <br />
+        <input
+          aria-describedby={errorID}
+          disabled={pending}
+          ref={nameInputRef}
+          id={id}
+          className={invalid ? "invalid" : "valid"}
+          defaultValue={member}
+          maxLength={16}
+          onBlur={(e) => {
+            e.target.value = e.target.value.trim();
+          }}
+        />
+        <br />
+        <div id={errorID} className="validation-error">
+          {errors?.map((error, index) => (
+            <Fragment key={error}>
+              {index > 0 ? <br /> : undefined}
+              {error}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="group-settings-member-buttons">
+        <button disabled={pending} className="men-button small" onClick={onRename}>
+          Rename
+        </button>
+        <button disabled={pending} className="group-settings-member-remove men-button small" onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+      {pendingOverlay}
+    </div>
+  );
+};
+
+/**
+ * A component that contains fields for tweaking site settings such as sidebar position, and group settings like member names.
+ */
 export const SettingsPage = (): ReactElement => {
   const { siteTheme, setSiteTheme, sidebarPosition, setSidebarPosition } = useContext(SiteSettings.Context);
+  const members = useGroupListMembersContext();
+  const [addMemberErrors, setAddMemberErrors] = useState<string[]>();
+  const addMemberInputRef = useRef<HTMLInputElement>(null);
+  const { addMember } = useContext(APIContext);
+  const [pendingAddMember, setPendingAddMember] = useState(false);
+
+  const pendingOverlay = pendingAddMember ? (
+    <div className="group-settings-pending-overlay">
+      <LoadingScreen />
+    </div>
+  ) : undefined;
+
+  const memberElements = [];
+  for (const member of members) {
+    memberElements.push(<EditMemberInput member={member} key={`edit-member-${member}`} />);
+  }
+
+  const onAdd = useCallback(() => {
+    if (pendingAddMember || !addMember || !addMemberInputRef.current) return;
+
+    const nameParsed = MemberNameSchema.safeParse(addMemberInputRef.current.value.trim());
+    if (!nameParsed.success) {
+      setAddMemberErrors(z.flattenError(nameParsed.error).formErrors);
+      return;
+    }
+
+    const newMember = nameParsed.data;
+
+    setPendingAddMember(true);
+    Promise.all([
+      addMember(newMember),
+      new Promise<void>((resolve) =>
+        window.setTimeout(() => {
+          resolve();
+        }, 1000),
+      ),
+    ])
+      .then(([response]) => {
+        if (response.status === "error") {
+          setAddMemberErrors([response.text]);
+          return;
+        }
+
+        setAddMemberErrors(undefined);
+      })
+      .catch((reason) => {
+        console.error("Add Member Failed:", reason);
+        setAddMemberErrors(["Unknown error."]);
+      })
+      .finally(() => {
+        setPendingAddMember(false);
+      });
+  }, [pendingAddMember, addMember]);
+
+  const MEMBER_COUNT_MAX = 5;
+  if (memberElements.length < MEMBER_COUNT_MAX) {
+    const invalid = (addMemberErrors?.length ?? 0) > 0;
+    memberElements.push(
+      <div className="group-settings-member-section rsborder-tiny">
+        <label htmlFor="add-member-input">Name for new member</label>
+        <br />
+        <input
+          aria-describedby="add-member-errors"
+          ref={addMemberInputRef}
+          disabled={pendingAddMember}
+          className={invalid ? "invalid" : "valid"}
+          id="add-member-input"
+          maxLength={16}
+          onBlur={(e) => {
+            e.target.value = e.target.value.trim();
+          }}
+        />
+        <br />
+        <div id="add-member-errors" className="validation-error">
+          {addMemberErrors?.map((error, index) => (
+            <Fragment key={error}>
+              {index > 0 ? <br /> : undefined}
+              {error}
+            </Fragment>
+          ))}
+        </div>
+        <button
+          disabled={pendingAddMember}
+          key="add-member"
+          className="edit-member__add men-button small"
+          onClick={onAdd}
+        >
+          Add member
+        </button>
+        {pendingOverlay}
+      </div>,
+    );
+  }
 
   return (
     <div id="group-settings-container" className="rsborder rsbackground">
-      <h3>Member settings</h3>
+      <h2>Member settings</h2>
       <p>
         These <span className="emphasize">do</span> need to match the in-game names.
       </p>
-
+      {memberElements}
       <h3>Appearance settings</h3>
       <fieldset
-        className="group-settings__panels"
         onChange={(e) => {
           const selected = (e.target as Partial<HTMLInputElement>).value;
           const position = SiteSettings.SidebarPosition.find((position) => position === selected);
@@ -54,7 +289,6 @@ export const SettingsPage = (): ReactElement => {
       </fieldset>
 
       <fieldset
-        className="group-settings__style"
         onChange={(e) => {
           const selected = (e.target as Partial<HTMLInputElement>).value;
           const theme = SiteSettings.SiteTheme.find((theme) => theme === selected);

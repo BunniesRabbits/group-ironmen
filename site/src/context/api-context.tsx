@@ -22,6 +22,10 @@ interface APIContext {
   fetchSkillData?: (period: RequestSkillData.AggregatePeriod) => Promise<RequestSkillData.Response>;
 
   setUpdateCallbacks?: Api["overwriteSomeUpdateCallbacks"];
+
+  renameMember?: Api["renameGroupMember"];
+  addMember?: Api["addGroupMember"];
+  deleteMember?: Api["deleteGroupMember"];
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -84,6 +88,13 @@ export const APIProvider = ({ children }: { children: ReactNode }): ReactElement
     apiContext.setUpdateCallbacks = (callbacks: Parameters<Api["overwriteSomeUpdateCallbacks"]>[0]): void => {
       api.overwriteSomeUpdateCallbacks(callbacks);
     };
+
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    apiContext.addMember = (member) => api.addGroupMember(member);
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    apiContext.deleteMember = (member) => api.deleteGroupMember(member);
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    apiContext.renameMember = (member) => api.renameGroupMember(member);
   }
 
   return <Context value={apiContext}>{children}</Context>;
