@@ -579,6 +579,7 @@ export const SkillGraph = (): ReactElement => {
       const fillPercent = Math.max(0.1, Math.min(100, 100 * fillFraction));
       tableRowElements.push(
         <tr
+          key={`${iconSource} ${name} ${quantity} ${fillFraction} ${colorCSS}`}
           style={{
             background: `linear-gradient(90deg, ${colorCSS} ${fillPercent}%, transparent ${fillPercent}%)`,
           }}
