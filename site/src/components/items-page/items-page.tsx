@@ -5,6 +5,7 @@ import type * as Member from "../../game/member";
 import { GameDataContext } from "../../context/game-data-context";
 import { composeItemIconHref, type ItemID } from "../../game/items";
 import { useGroupListMembersContext, useGroupStateContext } from "../../context/group-state-context";
+import { Link } from "react-router-dom";
 
 type ItemFilter = "All" | Member.Name;
 const ItemSortCategory = [
@@ -120,6 +121,7 @@ const usePageSelection = ({
       </button>,
     );
   }
+
   const element = (
     <div id="inventory-pager">
       <div id="inventory-pager-label">Page:</div>
@@ -232,7 +234,7 @@ export const ItemsPage = (): ReactElement => {
           placeholder="Search"
           auto-focus
         />
-        {pageSelection}
+        {filteredItems.length > 0 ? pageSelection : undefined}
       </div>
       <div id="items-page-utility">
         <div className="rsborder-tiny rsbackground rsbackground-hover">
@@ -276,7 +278,23 @@ export const ItemsPage = (): ReactElement => {
           <span>gp</span>
         </span>
       </div>
-      <section id="items-page-list">{renderedPanels}</section>
+      <section id="items-page-list">
+        {filteredItems.length > 0 ? (
+          renderedPanels
+        ) : (
+          <div id="items-page-no-items" className="rsborder rsbackground">
+            <h3>Your group has no recorded items!</h3>
+            <p>
+              Either no members have logged in with the plugin, or there is an issue. Please double check that the names
+              in the{" "}
+              <Link to="../settings" className="orange-link">
+                settings
+              </Link>{" "}
+              page <span className="emphasize">exactly</span> match your group members' in-game display names.
+            </p>
+          </div>
+        )}
+      </section>
     </>
   );
 };

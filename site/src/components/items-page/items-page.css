@@ -141,3 +141,7 @@
   min-width: 300px;
   max-width: 500px;
 }
+
+#items-page-no-items {
+  padding: 16px;
+}

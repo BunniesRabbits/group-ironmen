@@ -399,3 +399,11 @@ ul {
   justify-content: center;
   align-items: start;
 }
+
+.orange-link {
+  color: var(--orange);
+}
+
+.orange-link:hover {
+  color: var(--orange-light);
+}

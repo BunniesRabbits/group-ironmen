@@ -21,6 +21,7 @@ import * as Member from "../../game/member";
 import { LoadingScreen } from "../loading-screen/loading-screen";
 import { SkillsInBackendOrder } from "../../api/requests/group-data";
 import { utc } from "@date-fns/utc";
+import { Link } from "react-router-dom";
 
 import "./skill-graph.css";
 
@@ -469,9 +470,15 @@ export const SkillGraph = (): ReactElement => {
 
     const { period, yAxisUnit, skillFilter } = options;
     setLoading(true);
-    const promise = fetchSkillData(period)
-      .then((skillData) => new Promise<typeof skillData>((resolve) => setTimeout(() => resolve(skillData), 2000)))
-      .then((skillData) => {
+    const promise = Promise.allSettled([
+      fetchSkillData(period),
+      new Promise<void>((resolve) => setTimeout(() => resolve(), 1000)),
+    ])
+      .then(([result]) => {
+        if (result.status !== "fulfilled") return;
+
+        const skillData = result.value;
+
         if (updateChartPromiseRef.current !== promise) return;
 
         const dates = enumerateDateBinsForPeriod(period);
@@ -548,21 +555,47 @@ export const SkillGraph = (): ReactElement => {
     </div>
   ) : undefined;
 
-  const tableRowElements = [];
-  for (const { colorCSS, fillFraction, iconSource, name, quantity } of tableRowData) {
-    const fillPercent = Math.max(0.1, Math.min(100, 100 * fillFraction));
-    tableRowElements.push(
-      <tr
-        style={{
-          background: `linear-gradient(90deg, ${colorCSS} ${fillPercent}%, transparent ${fillPercent}%)`,
-        }}
-      >
-        <td className="skill-graph-xp-change-table-label">
-          <img alt="attack" src={iconSource} />
-          {name}
-        </td>
-        <td className="skill-graph-xp-change-data">+{quantity.toLocaleString()}</td>
-      </tr>,
+  let xpGainsTable = undefined;
+
+  if (!loading && chart.data.datasets.length === 0) {
+    xpGainsTable = (
+      <div id="skill-graph-no-data">
+        <h3>Your group has no recorded skill data!</h3>
+        <p>
+          Either no members have logged in more than a couple hours with the plugin, or there is an issue. Please double
+          check that the names in the{" "}
+          <Link to="../settings" className="orange-link">
+            settings
+          </Link>{" "}
+          page <span className="emphasize">exactly</span> match your group members' in-game display names.
+        </p>
+      </div>
+    );
+  }
+
+  if (chart.data.datasets.length > 0) {
+    const tableRowElements = [];
+    for (const { colorCSS, fillFraction, iconSource, name, quantity } of tableRowData) {
+      const fillPercent = Math.max(0.1, Math.min(100, 100 * fillFraction));
+      tableRowElements.push(
+        <tr
+          style={{
+            background: `linear-gradient(90deg, ${colorCSS} ${fillPercent}%, transparent ${fillPercent}%)`,
+          }}
+        >
+          <td className="skill-graph-xp-change-table-label">
+            <img alt="attack" src={iconSource} />
+            {name}
+          </td>
+          <td className="skill-graph-xp-change-data">+{quantity.toLocaleString()}</td>
+        </tr>,
+      );
+    }
+
+    xpGainsTable = (
+      <table id="skill-graph-xp-change-table">
+        <tbody>{tableRowElements}</tbody>
+      </table>
     );
   }
 
@@ -595,9 +628,7 @@ export const SkillGraph = (): ReactElement => {
           />
           <Line id="skill-graph-canvas" options={chart.options} data={chart.data} />
         </div>
-        <table id="skill-graph-xp-change-table">
-          <tbody>{tableRowElements}</tbody>
-        </table>
+        {xpGainsTable}
         {loadingOverlay}
       </div>
     </>
