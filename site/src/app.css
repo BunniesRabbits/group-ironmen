@@ -117,12 +117,11 @@ h3 {
 }
 
 .men-button:disabled {
-  background: #b5b5b5;
-  color: #6a6868;
+  filter: grayscale();
   cursor: not-allowed;
 }
 
-.men-button:hover {
+.men-button:not([disabled]):hover {
   background: rgb(66 55 38);
 }
 
@@ -259,9 +258,11 @@ h4 {
   margin: 0;
 }
 
+h1,
 h3,
 h2,
 h4 {
+  margin: 0;
   text-shadow: 2px 2px var(--black);
 }
 

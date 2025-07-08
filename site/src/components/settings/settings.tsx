@@ -5,16 +5,67 @@ import { Context as APIContext } from "../../context/api-context";
 import * as Member from "../../game/member";
 import { MemberNameSchema } from "../create-group-page/create-group-page";
 import z from "zod/v4";
-
-import "./settings.css";
 import { LoadingScreen } from "../loading-screen/loading-screen";
 import { PlayerIcon } from "../player-icon/player-icon";
+import { useModal } from "../modal/modal";
+
+import "./settings.css";
 
 const labels: Record<SiteSettings.SiteTheme | SiteSettings.SidebarPosition, string> = {
   light: "Light",
   dark: "Dark",
   left: "Dock panels to the left",
   right: "Dock panels to the right",
+};
+
+const RemoveConfirmationWindow = ({
+  member,
+  onConfirm,
+  onCloseModal,
+}: {
+  member: Member.Name;
+  onConfirm: () => void;
+  onCloseModal: () => void;
+}): ReactElement => {
+  const [input, setInput] = useState<string>();
+
+  const inputMatchesMember = input?.trim() === member;
+
+  return (
+    <div id="group-settings-remove-confirmation" className="rsbackground rsborder">
+      <h1>
+        Delete
+        <PlayerIcon name={member} />
+        {member}?
+      </h1>
+      <p>All player data will be lost and cannot be recovered.</p>
+      <label htmlFor="group-settings-remove-confirmation-input">
+        Please type "{member}" below to proceed with deletion.
+      </label>
+      <br />
+      <input
+        id="group-settings-remove-confirmation-input"
+        onChange={(e) => {
+          setInput(e.target.value);
+        }}
+      />
+      <button
+        disabled={!inputMatchesMember}
+        onClick={() => {
+          if (!inputMatchesMember) return;
+
+          onConfirm();
+          onCloseModal();
+        }}
+        className="group-settings-member-remove men-button small"
+      >
+        Yes, delete {member} from the group.
+      </button>
+      <button onClick={onCloseModal} className="men-button small">
+        No, do not delete {member}.
+      </button>
+    </div>
+  );
 };
 
 const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
@@ -24,6 +75,7 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
   const [pendingDelete, setPendingDelete] = useState(false);
   const [errors, setErrors] = useState<string[]>();
   const { deleteMember, renameMember } = useContext(APIContext);
+  const { open, modal: removeConfirmationModal } = useModal(RemoveConfirmationWindow);
 
   const pending = pendingDelete || !!pendingRename;
 
@@ -145,11 +197,18 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
         <button disabled={pending} className="men-button small" onClick={onRename}>
           Rename
         </button>
-        <button disabled={pending} className="group-settings-member-remove men-button small" onClick={onRemove}>
+        <button
+          disabled={pending}
+          className="group-settings-member-remove men-button small"
+          onClick={() => {
+            open({ member: member, onConfirm: onRemove });
+          }}
+        >
           Remove
         </button>
       </div>
       {pendingOverlay}
+      {removeConfirmationModal}
     </div>
   );
 };

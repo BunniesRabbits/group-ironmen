@@ -49,3 +49,20 @@
   position: absolute;
   inset: 0;
 }
+
+#group-settings-remove-confirmation {
+  padding: 16px;
+}
+
+#group-settings-remove-confirmation h1 img {
+  margin-inline: 4px;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+#group-settings-remove-confirmation button {
+  margin-block: 4px;
+}
