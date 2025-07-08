@@ -24,9 +24,10 @@ export type DiaryRegion = (typeof DiaryRegion)[number];
 export type DiaryDatabase = z.infer<typeof DiaryDatabaseSchema>;
 
 export const fetchDiaryDataJSON = (): Promise<DiaryDatabase> =>
-  import("/src/assets/diary_data.json")
+  fetch("/data/diary_data.json")
+    .then((response) => response.json())
     .then((data) => {
-      return DiaryDatabaseSchema.safeParseAsync(data.default);
+      return DiaryDatabaseSchema.safeParseAsync(data);
     })
     .then((parseResult) => {
       if (!parseResult.success) throw new Error("Failed to parse diary_data.json", { cause: parseResult.error });

@@ -30,9 +30,10 @@ export const isRunePouch = (id: ItemID): boolean => {
   return id === RUNE_POUCH || id === DIVINE_RUNE_POUCH;
 };
 export const fetchItemDataJSON = (): Promise<ItemsDatabase> =>
-  import("/src/assets/item_data.json")
+  fetch("/data/item_data.json")
+    .then((response) => response.json())
     .then((data) => {
-      return ItemsDataSchema.safeParseAsync(data.default);
+      return ItemsDataSchema.safeParseAsync(data);
     })
     .then((parseResult) => {
       if (!parseResult.success) throw new Error("Failed to parse item_data.json", { cause: parseResult.error });

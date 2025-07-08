@@ -11,9 +11,10 @@ const QuestStatus = ["IN_PROGRESS", "NOT_STARTED", "FINISHED"] as const;
 export type QuestStatus = (typeof QuestStatus)[number];
 
 export const fetchQuestDataJSON = (): Promise<QuestDatabase> =>
-  import("/src/assets/quest_data.json")
+  fetch("/data/quest_data.json")
+    .then((response) => response.json())
     .then((data) => {
-      return QuestDatabaseSchema.safeParseAsync(data.default);
+      return QuestDatabaseSchema.safeParseAsync(data);
     })
     .then((parseResult) => {
       if (!parseResult.success) throw new Error("Failed to parse quest_data.json", { cause: parseResult.error });
