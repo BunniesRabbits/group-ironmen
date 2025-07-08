@@ -4,9 +4,10 @@
 }
 
 .collection-log-container {
-  height: 95%;
-  padding: 0;
-  cursor: auto;
+  height: 90vh;
+  width: min(90vw, 800px);
+  display: flex;
+  flex-direction: column;
 }
 
 .collection-log-header {
@@ -49,19 +50,18 @@
   padding: 4px;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .collection-log-tab-list {
   display: flex;
   flex-direction: column;
-  height: 100%;
   overflow-y: auto;
   padding: 2px;
-  min-width: 150px;
+  min-width: 280px;
+  flex: 0;
   border-right: 1px solid hsl(40deg 15.79% 29.8%);
-  box-sizing: border-box;
 }
 
 .collection-log-tab-buttons button {
@@ -126,10 +126,10 @@
 
 .collection-log-tab-container {
   border: 1px solid hsl(40deg 15.79% 29.8%);
-  display: grid;
-  grid-template-columns: 2fr 4fr;
+  display: flex;
+  flex: 1;
+  align-items: stretch;
   overflow: hidden;
-  height: 100%;
 }
 
 .collection-log-complete {
@@ -173,9 +173,9 @@
 }
 
 .collection-log-page-container {
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .collection-log-page-top {
