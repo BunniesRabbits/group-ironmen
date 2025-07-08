@@ -45,10 +45,10 @@ const ItemPanel = ({
       <Fragment key={name}>
         <span>{name}</span>
         <span>{quantity}</span>
-        <div
-          className="inventory-item-quantity-bar"
+        <span
+          className="items-page-panel-quantity-contribution"
           style={{ transform: `scaleX(${quantityPercent}%)`, background: `hsl(${quantityPercent}, 100%, 40%)` }}
-        ></div>
+        />
       </Fragment>
     );
   });
@@ -59,13 +59,13 @@ const ItemPanel = ({
   const wikiLink = `https://oldschool.runescape.wiki/w/Special:Lookup?type=item&id=${itemID}`;
 
   return (
-    <div className="inventory-item rsborder rsbackground rendered">
-      <div className="inventory-item-top rsborder-tiny">
-        <div className="inventory-item-top-right">
-          <a className="rstext inventory-item-name" href={wikiLink} target="_blank" rel="noopener noreferrer">
+    <div className="items-page-panel rsborder rsbackground">
+      <div className="items-page-panel-top rsborder-tiny">
+        <div>
+          <Link className="items-page-panel-name rstext" to={wikiLink} target="_blank" rel="noopener noreferrer">
             {itemName}
-          </a>
-          <div className="inventory-item-details">
+          </Link>
+          <div className="items-page-panel-item-details">
             <span>Quantity</span>
             <span>{totalQuantity.toLocaleString()}</span>
             <span>High Alch</span>
@@ -78,19 +78,9 @@ const ItemPanel = ({
             <span>{gePrice.toLocaleString()}gp</span>
           </div>
         </div>
-
-        <div className="inventory-item-picture-container">
-          <img
-            loading="lazy"
-            alt={itemName ?? "An unknown item"}
-            className="inventory-item-picture"
-            src={imageURL}
-            width="63"
-            height="56"
-          />
-        </div>
+        <img loading="lazy" className="items-page-panel-icon" alt={itemName ?? "An unknown item"} src={imageURL} />
       </div>
-      <div className="inventory-item-bottom">{quantityBreakdown}</div>
+      <div className="items-page-panel-quantity-breakdown">{quantityBreakdown}</div>
     </div>
   );
 };
