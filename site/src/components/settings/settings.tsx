@@ -106,7 +106,7 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
     }
 
     setPendingRename(newName);
-    Promise.all([
+    Promise.allSettled([
       renameMember({ oldName: member, newName: newName }),
       new Promise<void>((resolve) =>
         window.setTimeout(() => {
@@ -114,7 +114,12 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
         }, 1000),
       ),
     ])
-      .then(([response]) => {
+      .then(([result]) => {
+        if (result.status === "rejected") {
+          throw result.reason;
+        }
+
+        const response = result.value;
         if (response.status === "error") {
           setErrors([response.text]);
           return;
@@ -127,13 +132,15 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
         setErrors(["Failed to rename. Is the name already in use?"]);
         setPendingRename(undefined);
       });
+
+    // Don't ever stop pending, since this element should be disappear once the member is renamed.
   }, [pendingRename, member, renameMember]);
 
   const onRemove = useCallback(() => {
     if (pendingDelete || !deleteMember) return;
 
     setPendingDelete(true);
-    Promise.all([
+    Promise.allSettled([
       deleteMember(member),
       new Promise<void>((resolve) =>
         window.setTimeout(() => {
@@ -141,7 +148,12 @@ const EditMemberInput = ({ member }: { member: Member.Name }): ReactElement => {
         }, 1000),
       ),
     ])
-      .then(([response]) => {
+      .then(([result]) => {
+        if (result.status === "rejected") {
+          throw result.reason;
+        }
+
+        const response = result.value;
         if (response.status === "error") {
           setErrors([response.text]);
           return;
