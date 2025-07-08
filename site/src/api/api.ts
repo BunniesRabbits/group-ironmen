@@ -320,7 +320,7 @@ export default class Api {
   }
 
   private queueFetchGroupData(): void {
-    const FETCH_INTERVAL_MS = 200;
+    const FETCH_INTERVAL_MS = 1000;
     const fetchDate = new Date((this.groupDataValidUpToDate?.getTime() ?? 0) + 1);
 
     this.getGroupDataPromise ??= fetchGroupData({
