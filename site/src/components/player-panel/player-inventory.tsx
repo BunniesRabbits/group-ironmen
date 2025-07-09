@@ -72,7 +72,7 @@ export const PlayerInventory = ({ member }: { member: Member.Name }): ReactEleme
 
     let pouchOverlay = undefined;
 
-    let key = `${item.itemID} ${item.quantity}`;
+    let key = `${item.itemID} ${item.quantity} ${index} `;
     let tooltipProps: ItemTooltipProps = {
       type: "Item",
       name: itemDatum.name,
