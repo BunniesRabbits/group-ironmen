@@ -1,5 +1,5 @@
 import { fetchItemDataJSON, type ItemID, type ItemsDatabase, type ItemStack } from "../game/items";
-import { fetchQuestDataJSON, type QuestDatabase } from "../game/quests";
+import { fetchQuestDataJSON, type QuestDatabase, type QuestID, type QuestStatus } from "../game/quests";
 import { fetchDiaryDataJSON, type DiaryDatabase } from "../game/diaries";
 import type * as Member from "../game/member";
 import { Vec2D, type WikiPosition2D } from "../components/canvas-map/coordinates";
@@ -158,19 +158,13 @@ export default class Api {
       }
 
       if (quests && this.gameData?.quests) {
-        if (this.gameData.quests.size !== quests.length) {
-          console.warn(
-            "Quest data and quest progress have mismatched length. This indicates the network sent bad data, or the quest_data.json is out of date.",
-          );
-        } else {
-          const questsByID = new Map();
-          // Resolve the IDs for the flattened quest progress sent by the backend
-          this.gameData.quests.entries().forEach(([id, _], index) => {
-            questsByID.set(id, quests[index]);
-          });
-          memberData.quests = questsByID;
-          updatedMisc = true;
-        }
+        const questsByID = new Map<QuestID, QuestStatus>();
+        // Resolve the IDs for the flattened quest progress sent by the backend
+        this.gameData.quests.entries().forEach(([id, _], index) => {
+          questsByID.set(id, quests.at(index) ?? "NOT_STARTED");
+        });
+        memberData.quests = questsByID;
+        updatedMisc = true;
       }
 
       if (diary_vars !== undefined) {
